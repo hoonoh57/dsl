@@ -108,7 +108,7 @@ class Stage1ExtendedTest(unittest.TestCase):
         self.assertGreaterEqual(diff["changed_assignment_count"], 1)
         self.assertTrue(diff["unified_diff"])
 
-    def test_evidence_v2_contains_explicit_cost_components_and_worst_trades(self):
+    def test_evidence_v3_contains_costs_worst_trades_and_market_lifecycle(self):
         factory = self.make_factory()
         normalized = self.normalized(140)
         experiment = factory.baseline(
@@ -121,7 +121,7 @@ class Stage1ExtendedTest(unittest.TestCase):
             settings={"commission_pct": 0.015, "sell_tax_pct": 0.18, "slippage_pct": 0.02},
         )
         evidence = EvidenceBuilder.build(experiment)
-        self.assertEqual(evidence["schema"], "stage1_evidence/v2")
+        self.assertEqual(evidence["schema"], "stage1_evidence/v3")
         account = evidence["account"]
         self.assertIn("commission_cost", account)
         self.assertIn("tax_cost", account)
@@ -129,6 +129,13 @@ class Stage1ExtendedTest(unittest.TestCase):
         self.assertIn("execution_cost_total", account)
         self.assertIn("worst_trades", evidence["trade_summary"])
         self.assertIn("largest_mfe_givebacks", evidence["trade_summary"])
+        lifecycle = evidence["order_lifecycle"]["strategy_market"]
+        self.assertTrue(lifecycle)
+        by_order = {}
+        for item in lifecycle:
+            by_order.setdefault(item["order_id"], []).append(item)
+        self.assertTrue(all([row["status"] for row in rows] == ["CREATED", "ACCEPTED", "FILLED"]
+                            for rows in by_order.values()))
 
     def test_resumable_seeker_cancel_resume_and_cross_session_cache(self):
         factory = self.make_factory()
