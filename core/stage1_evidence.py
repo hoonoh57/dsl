@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any, Dict, Optional
 
+from core.stage1_order_evidence import strategy_market_order_lifecycle
+
 
 class EvidenceBuilder:
     @staticmethod
@@ -102,8 +104,10 @@ class EvidenceBuilder:
         slippage = sum(item["slippage"] for item in costs)
         worst = sorted(trade_evidence, key=lambda item: float(item.get("net_pnl", 0.0)))[:5]
         givebacks = sorted(trade_evidence, key=lambda item: float(item.get("mfe_giveback_pct", 0.0)), reverse=True)[:5]
+        market_lifecycle = strategy_market_order_lifecycle(executions)
+        pending_lifecycle = list(diagnostics.get("broker_history", []))
         return {
-            "schema": "stage1_evidence/v2",
+            "schema": "stage1_evidence/v3",
             "experiment_id": experiment.get("id"),
             "data": experiment.get("provenance", {}),
             "execution_settings": settings,
@@ -126,6 +130,10 @@ class EvidenceBuilder:
                 "rejections": diagnostics.get("rejections", {}),
                 "entry_reason_distribution": dict(entry_reasons),
                 "exit_reason_distribution": dict(exit_reasons),
+            },
+            "order_lifecycle": {
+                "strategy_market": market_lifecycle,
+                "pending_limit_stop": pending_lifecycle,
             },
             "trade_summary": {
                 "count": len(closed),
@@ -150,5 +158,6 @@ class EvidenceBuilder:
             "limitations": {
                 "largest_missed_moves": "not_reported_without_a_separate_causal_definition",
                 "exposure": "holding-bar approximation for current single-position Stage 1 engine",
+                "market_order_lifecycle": "replayed from actual strategy-signal executions through the same deterministic BrokerEmulator for audit evidence",
             },
         }
