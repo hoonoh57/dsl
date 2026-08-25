@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quant DSL Strategy Factory · Stage 1</title>
+<script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+:root{--bg:#0b0e13;--panel:#131821;--panel2:#171e29;--line:#2a3444;--text:#e9eef5;--muted:#8f9bad;--blue:#4d7ff3;--green:#28a97b;--red:#df5b58;--amber:#e6a43d}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:13px/1.4 system-ui,sans-serif;height:100vh;overflow:hidden}button,input,select,textarea{font:inherit}.app{height:100%;display:grid;grid-template-rows:54px 390px 1fr}.top{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#11161e;border-bottom:1px solid var(--line)}.brand{font-size:16px;font-weight:800;margin-right:10px}.grow{flex:1}.badge{background:#222b38;color:#b6c0ce;padding:6px 9px;border-radius:12px}.ok{color:#7de0b8;background:#16392e}.fail{color:#ff9c98;background:#402321}.workspace{display:grid;grid-template-columns:38% 32% 30%;min-height:0;border-bottom:1px solid var(--line)}.pane{min-width:0;min-height:0;border-right:1px solid var(--line);display:flex;flex-direction:column;background:var(--panel)}.head{height:38px;display:flex;align-items:center;gap:7px;padding:7px 10px;background:var(--panel2);border-bottom:1px solid var(--line);font-weight:700}.body{padding:9px;overflow:auto}.editor{width:100%;background:#0e131a;color:#e6ebf2;border:1px solid #303a4b;border-radius:5px;padding:8px;font:12px/1.45 Consolas,monospace;resize:none}.dsl{height:245px}.prompt{height:128px}.response{height:125px}.control{background:#202937;color:var(--text);border:1px solid #354154;border-radius:5px;padding:7px}button{border:0;border-radius:5px;background:#344154;color:#fff;padding:7px 10px;font-weight:650;cursor:pointer}button.primary{background:var(--blue)}button.good{background:var(--green)}button.warn{background:#8a6324}button.danger{background:var(--red)}button:disabled{opacity:.35;cursor:default}.row{display:flex;align-items:center;gap:7px;margin-bottom:7px}.row>*{min-width:0}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:7px}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}.metric{background:#1b2330;border:1px solid #283447;border-radius:5px;padding:6px}.metric small{display:block;color:var(--muted)}.metric b{font-size:14px}.param{display:grid;grid-template-columns:1.5fr .8fr .8fr .8fr;gap:5px;margin:5px 0}.param input{width:100%}.list{overflow:auto;min-height:0}.history-row{display:grid;grid-template-columns:48px 92px 1fr 70px;gap:5px;padding:6px;border-bottom:1px solid #222c39;cursor:pointer}.history-row:hover{background:#202837}.history-row.active{background:#253451}.muted{color:var(--muted)}.chartarea{min-height:0;display:grid;grid-template-columns:1fr 360px}.chartwrap{min-height:0;display:grid;grid-template-rows:36px 1fr}.charthead{display:flex;gap:8px;align-items:center;padding:5px 9px;background:#11161e;border-bottom:1px solid var(--line)}#chart{min-height:0}.audit{background:#10151d;border-left:1px solid var(--line);overflow:auto;padding:8px}.audit pre{white-space:pre-wrap;font:11px/1.45 Consolas;color:#afbac9}.table{width:100%;border-collapse:collapse;font-size:11px}.table td,.table th{padding:4px;border-bottom:1px solid #28313f;text-align:right}.table th:first-child,.table td:first-child{text-align:left}.section-title{font-weight:800;margin:8px 0 5px}.statusline{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.split{display:grid;grid-template-columns:1fr 1fr;gap:6px}@media(max-width:1200px){.workspace{grid-template-columns:45% 55%}.pane.history{display:none}.chartarea{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="top"><div class="brand">Stage 1 · Single-Symbol Strategy Factory</div>
+<select id="source" class="control"><option value="synthetic_fixture">Synthetic fixture</option><option value="kiwoom">Kiwoom REST</option></select>
+<input id="symbol" class="control" value="005930" style="width:90px"><select id="timeframe" class="control"><option>1m</option><option>3m</option><option selected>5m</option><option>15m</option><option>30m</option><option>60m</option><option>1d</option></select>
+<input id="target" class="control" type="number" step="0.1" value="20" title="목표 수익률 %" style="width:90px"><span class="muted">Target %</span>
+<div class="grow statusline" id="status">Ready</div><span class="badge" id="current">Experiment -</span><a href="/" style="color:#9eb8ff">기존 DSL Lab</a></header>
+<section class="workspace">
+<div class="pane"><div class="head">① Strategy / Baseline <button id="run" class="primary">Baseline 실행</button><button id="discover">Input 찾기</button></div><div class="body">
+<textarea id="intent" class="editor" style="height:55px" placeholder="전략 의도/원래 사용자 요청"></textarea>
+<textarea id="dsl" class="editor dsl">strategy "Stage1_JMA" {
+    timeframe = "5m"
+    input fast_len = 7
+    input slow_len = 50
+    input sma_len = 60
+    sma_filter = ta.sma(close, sma_len)
+    fast = ta.jma(close, fast_len, 50, 2)
+    slow = ta.jma(close, slow_len, 50, 4)
+    long_entry = close >= sma_filter and ta.crossover(fast, slow)
+    long_exit = ta.crossunder(fast, slow)
+    on(long_entry) { order.buy(type = "MARKET") }
+    on(long_exit) { order.close_long() }
+}</textarea>
+<div class="split"><label>Signal mode<select id="signal-mode" class="control" style="width:100%"><option value="bar_close">bar_close</option><option value="next_open">next_open</option></select></label><label>Initial capital<input id="capital" class="control" type="number" value="10000000" style="width:100%"></label></div>
+</div></div>
+<div class="pane"><div class="head">② Seeker / Analyze / LLM Loop</div><div class="body">
+<div class="metrics"><div class="metric"><small>Return</small><b id="m-ret">-</b></div><div class="metric"><small>MDD</small><b id="m-mdd">-</b></div><div class="metric"><small>PF</small><b id="m-pf">-</b></div><div class="metric"><small>Trades</small><b id="m-trades">-</b></div></div>
+<div class="row"><select id="objective" class="control"><option>MAX_RETURN</option><option>RETURN_DRAWDOWN</option><option>ROBUST_SCORE</option></select><select id="method" class="control"><option value="grid">Grid</option><option value="random">Random</option></select><button id="seek" class="good">Seeker 실행</button><button id="promote">현재 승격</button></div>
+<div id="params"></div>
+<div class="section-title">Result Analyzer</div><pre id="analysis" style="height:72px;overflow:auto;margin:0;background:#0e131a;padding:6px;color:#b7c2d1"></pre>
+<div class="row" style="margin-top:7px"><button id="feedback" class="primary">LLM 개선 프롬프트</button><button id="copy">복사</button><button id="methodology">방법론 비교</button></div>
+<textarea id="prompt" class="editor prompt" readonly placeholder="Evidence 기반 개선 프롬프트"></textarea>
+<textarea id="response" class="editor response" placeholder="LLM 응답 전체를 붙여넣기"></textarea>
+<div class="row"><input id="hypothesis" class="control grow" placeholder="가설 요약"><button id="apply" class="good">응답 적용·실행</button></div>
+</div></div>
+<div class="pane history"><div class="head">③ Immutable Experiment History</div><div class="body list" id="history"></div></div>
+</section>
+<section class="chartarea"><div class="chartwrap"><div class="charthead"><b>④ Exact Chart Audit</b><span class="muted">signal/fill/indicator가 동일 Backtest evidence에서 생성</span><span class="grow"></span><span id="chart-state" class="badge">No data</span></div><div id="chart"></div></div><aside class="audit"><div class="section-title">Audit / Stop state</div><pre id="audit">-</pre><div class="section-title">Closed trades</div><table class="table"><thead><tr><th>#</th><th>Return</th><th>MFE</th><th>MAE</th></tr></thead><tbody id="trades"></tbody></table></aside></section>
+</div>
+<script defer src="/static/stage1.js"></script>
+</body></html>
