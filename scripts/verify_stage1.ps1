@@ -108,8 +108,8 @@ function Invoke-External(
         Set-Location -LiteralPath $previous.Path
     }
     if ($exitCode -ne 0) {
-        $tail = ($output | Select-Object -Last 8) -join ' | '
-        throw ($Label + ' failed (exit=' + $exitCode + '): ' + $tail)
+        $tail = ($output | Select-Object -Last 60) -join [Environment]::NewLine
+        throw ($Label + ' failed (exit=' + $exitCode + ')' + [Environment]::NewLine + $tail)
     }
 }
 
