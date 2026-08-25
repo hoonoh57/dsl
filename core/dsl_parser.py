@@ -213,7 +213,7 @@ class DSLParser:
         try: call = ast.parse(f"f({arguments})", mode="eval").body
         except SyntaxError as exc: raise DSLParseError(f"주문 인수 문법 오류: {exc.msg}", line, exc.offset or 1, "BAD_ORDER_ARGS") from exc
         if call.args: raise DSLParseError("주문 인수는 이름=값 형식만 허용합니다.", line, code="POSITIONAL_ORDER_ARG")
-        allowed = {"type", "id", "quantity", "limit", "stop", "tif", "oco"}; names = [item.arg for item in call.keywords]
+        allowed = {"type", "id", "limit", "stop", "tif", "oco"}; names = [item.arg for item in call.keywords]
         if len(names) != len(set(names)): raise DSLParseError("주문 인수가 중복되었습니다.", line, code="DUPLICATE_ORDER_ARG")
         for item in call.keywords:
             if item.arg not in allowed: raise DSLParseError(f"지원하지 않는 주문 인수: {item.arg}", line, code="BAD_ORDER_ARG")
