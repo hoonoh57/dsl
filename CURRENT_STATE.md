@@ -1,7 +1,7 @@
 # Quant DSL Current State
 
-Status: **IMPLEMENTED_AWAITING_SYSTEM_VALIDATION / REMEDIATION_REQUIRED**
-Updated: 2026-08-25 KST
+Status: **SYSTEM_VALIDATED_PENDING_CONSOLIDATED_UI / REMEDIATION_REQUIRED**
+Updated: 2026-08-26 KST
 
 ## Authority
 
@@ -12,30 +12,97 @@ Updated: 2026-08-25 KST
 
 ## Current goal
 
-Complete `S1.0 ~ S1.13` as one continuous Stage 1 vertical slice without per-workstream user verification. After all functional wiring and architecture remediation are complete, execute automated operational/stress tests, repair failures, then request one consolidated UI verification.
+Stage 1 `S1.0 ~ S1.13` source implementation and trusted automated system validation have completed as one continuous vertical slice. The remaining Stage 1 gate is one consolidated WYSIWYG/UI verification of the integrated product. Do not reopen per-workstream manual validation.
 
 ## Stage 1 workstreams
 
 - [x] S1.0 Authority / State Hygiene
-- [~] S1.1 Engine Trust Boundary Remediation
-- [~] S1.2 Single-Symbol DSL Capability Completion
+- [x] S1.1 Engine Trust Boundary Remediation
+- [x] S1.2 Single-Symbol DSL Capability Completion
 - [x] S1.3 Data Contract / Provenance
-- [~] S1.4 Backtest Evidence Engine
+- [x] S1.4 Backtest Evidence Engine
 - [x] S1.5 Immutable Experiment Store
-- [~] S1.6 Parameter Seeker
+- [x] S1.6 Parameter Seeker
 - [x] S1.7 Result Analyzer
 - [x] S1.8 Human-Mediated LLM Improvement Loop
 - [x] S1.9 Improvement Episode Memory
 - [x] S1.10 Target-Return Improvement Loop
 - [~] S1.11 Single-Symbol Chart Audit
 - [~] S1.12 Semi-Automation Product UX
-- [~] S1.13 Methodology Validation
+- [x] S1.13 Methodology Validation Infrastructure
 
 Legend:
 
-- `[x]` functionally wired in source.
-- `[~]` materially implemented but still awaiting executable validation and/or final consolidated verification.
+- `[x]` functionally wired and covered by the trusted automated Stage 1 validation boundary.
+- `[~]` automated contracts are green but final consolidated WYSIWYG/UI verification is still required.
 - `[!]` known structural blocker; do not report as complete.
+
+## Trusted automated validation checkpoint
+
+On 2026-08-26 KST, the trusted local Windows PowerShell 5.1 verifier completed successfully with:
+
+```text
+[PASS] Stage 1 verification completed: mode=Full.
+```
+
+The successful `Full` sequence is:
+
+```text
+launcher Preflight
+ -> Python compileall
+ -> core regression
+ -> all test_stage1_*.py contracts
+ -> scoped shared-Chart SSOT contracts
+ -> quick stress
+ -> full stress
+ -> live integrated operational smoke
+ -> one final [PASS] line
+```
+
+This is the first trusted end-to-end automated Stage 1 system-validation PASS. It closes the prior `IMPLEMENTED_AWAITING_SYSTEM_VALIDATION` state.
+
+It does **not** mean:
+
+- donor `cascading-feature-solution` repository-wide global compliance is PASS;
+- live trading readiness is established;
+- profitability/generalization has been proven;
+- consolidated human WYSIWYG verification is complete.
+
+## Validation remediation completed during the trusted Full run
+
+The Full-run failure/repair sequence was handled without weakening product assertions or adding compatibility bypasses.
+
+### Core/runtime contract drift
+
+- DSL/data timeframe mismatch remains fail-closed; stale fixtures were updated to declare the intended timeframe rather than weakening the engine.
+- Broker golden tests were reconciled to the current authoritative `BrokerOrder`/`BrokerEmulator` contract.
+- authoritative broker history remains under `diagnostics.broker_history`; no legacy top-level compatibility alias was introduced.
+- MTF tests use the current numeric market contract rather than restoring obsolete runtime arguments.
+- JMA golden expectations were reconciled to the current `chart_base_trading` reference behavior rather than changing the runtime to obsolete fixture values.
+- state variables updated by `on_bar` are now executable inputs to dependent post-state assignments through explicit assignment dependency partitioning.
+- structured strategy analysis remains structured; legacy `summary` compatibility was not restored.
+
+### Broker/accounting fixtures
+
+- single-round-trip golden fixtures were corrected so they do not accidentally emit an additional legitimate later entry.
+- same-bar re-entry suppression remains enforced while later eligible entry signals remain allowed.
+- accounting reconciliation, fees/tax/slippage, lifecycle evidence and signal-time/fill-time separation remain strict.
+
+### Stage 1 snapshot identity
+
+- `data_hash` is the identity of canonical `time/OHLCV` rows.
+- instrument/source/partition metadata is contextual provenance and may differ while referencing identical row content.
+- snapshot persistence compares canonical rows for an existing hash rather than rejecting the same rows solely because `_meta` differs.
+- a claimed hash that does not match the actual canonical rows fails closed.
+- load revalidates stored row content against the requested hash.
+
+### Windows PowerShell 5.1 verifier reliability
+
+- native commands such as Python unittest may emit normal progress to stderr; verifier native execution now judges success/failure by `$LASTEXITCODE` rather than treating normal stderr progress as a terminating PowerShell error.
+- failed commands retain expanded diagnostic context instead of surfacing only an unrelated final `... ok` line.
+- Chart repo resolution supports explicit path, environment, sibling and bounded workspace discovery.
+- when the verifier owns smoke-test ports implicitly, it isolates smoke execution from unrelated services by selecting free ports; explicitly supplied ports retain fail-closed collision behavior.
+- existing unrelated services are not killed or commandeered by validation.
 
 ## Implemented Stage 1 vertical capabilities
 
@@ -48,44 +115,43 @@ Legend:
 - published scalar parameter values are fail-closed at runtime; invalid periods, fractional integer periods, unsupported MA methods, invalid JMA phase and invalid MTF intervals do not silently normalize/fallback.
 - broker TIF validation and explicit lifecycle history.
 - MARKET/LIMIT/STOP/STOP_LIMIT support path.
-- unsupported DSL order `quantity` removed from the published/parser capability rather than preserved as a false feature.
-- order argument applicability is fail-closed: invalid MARKET/LIMIT/STOP/STOP_LIMIT argument combinations are rejected.
+- unsupported DSL order `quantity` remains unpublished rather than being represented as a false capability.
+- order argument applicability is fail-closed.
 - order limit/stop expressions receive static numeric type validation.
 - `bar_close` / `next_open` execution policy, including next-open strategy exits.
 - OHLC stop/take-profit/trailing policy and same-bar re-entry suppression.
-- deferred LIMIT/STOP entry submission now obeys the Stage 1 single-position contract: entry signals do not accumulate new pending orders while a position is occupied, and a same-bar exit blocks deferred re-entry while a later eligible signal remains allowed.
+- deferred LIMIT/STOP submission obeys the Stage 1 single-position contract.
 - DAY expiry at detected session boundaries.
 - deterministic synthetic fixture independent of wall-clock time.
-- optional DSL/data timeframe mismatch rejection.
+- DSL/data timeframe mismatch rejection when data timeframe is declared.
 - MFE/MAE and closed-trade evidence.
-- strategy MARKET entry/exit, risk exits and pending order fills use `BrokerEmulator` as the authoritative order lifecycle path rather than a separate audit replay.
-- execution rows carry authoritative broker `order_id`, signal time, fill time, quantity and fill price.
-- pending LIMIT/STOP trade evidence preserves the original order signal time separately from later fill time.
-- execution golden fixtures cover broker lifecycle, long accounting/equity reconciliation, next-open signal/fill timing, risk exits, pending-order quantities/timestamps, occupied-position pending suppression and next-open deferred same-bar re-entry suppression.
-- full-engine confirmed-bar batch/streaming-prefix contract source covers ordinary indicator calculation, confirmed MTF, persistent `on_bar` state and Broker execution/closed-trade history.
+- strategy MARKET entry/exit, risk exits and pending order fills use `BrokerEmulator` as authoritative lifecycle.
+- execution rows preserve broker `order_id`, signal time, fill time, quantity and fill price.
+- confirmed-bar batch/streaming-prefix parity covers ordinary indicators, confirmed MTF, persistent `on_bar` state, Broker executions and closed trades.
+- representative regression covers long trend, short reversal, confirmed MTF + state, and deferred STOP_LIMIT/OCO single-position behavior.
 
 ### Research factory
 
 - canonical OHLCV Data Contract and SHA-256 data provenance.
-- immutable market snapshot storage by data hash.
+- immutable content-addressed market snapshot storage.
 - append-only Experiment lineage and separate mutable current-head pointer.
 - Grid/Random Parameter Seeker.
 - deterministic candidate hash/seed.
 - resumable Seeker session with cursor, cancel/resume, best-so-far and cross-session evaluation cache.
-- Parameter Sensitivity evidence over completed Seeker candidates, including per-value score distribution and best-vs-runner-up gaps.
+- Parameter Sensitivity evidence.
 - rule-based Result Analyzer.
-- structured Evidence Bundle v3 including signal funnel, MFE/MAE, worst trades, MFE giveback, cost components and authoritative broker lifecycle evidence.
+- structured Evidence Bundle including signal funnel, MFE/MAE, worst trades, giveback, costs and broker lifecycle evidence.
 - human-mediated LLM feedback package.
 - raw Prompt/Response audit memory.
 - accepted/rejected/invalid Improvement Episode memory.
-- post-Seeker finalized Improvement Episode linking `Before -> LLM structural candidate -> After-Seeker best` when the structural iteration is followed by parameter optimization.
+- post-Seeker finalized Improvement Episode linking `Before -> LLM structural candidate -> After-Seeker best`.
 - repeated hypothesis similarity detection.
 - deterministic structural DSL diff summary.
-- persistent target-return loop with separate observed-best candidate and explicit promoted current-head semantics.
-- target loop guards include target/iteration/backtest/no-improvement/plateau plus OOS degradation, no-new-hypothesis and parameter-instability termination states.
+- persistent target-return loop with observed-best candidate separate from explicit promoted current-head.
+- target loop guards for iteration/backtest/no-improvement/plateau/OOS degradation/no-new-hypothesis/parameter instability.
 - immutable chronological train/holdout split with fixed OOS evaluation registry.
-- A/B/C methodology descriptive statistics with OOS availability/result reporting, structural iteration success/failure, regression/overfit and duplicate-hypothesis metrics.
-- quick/full Stage 1 stress harness covering deterministic engine and current product-boundary pressure cases.
+- A/B/C methodology descriptive statistics and OOS reporting.
+- quick/full Stage 1 stress harness.
 
 ### Product UX
 
@@ -111,78 +177,11 @@ Strategy DSL
  -> shared Chart SSOT audit viewer
 ```
 
-### Integrated Stage 1 stack launcher
-
-`scripts/start_stage1_stack.ps1` is the Windows/PowerShell 5.1 orchestration boundary for the complete Stage 1 UI stack.
-
-It does not copy or implement Chart rendering. The ownership path remains two repositories:
-
-```text
-hoonoh57/dsl
-  -> uvicorn stage1_main:app
-  -> /stage1
-  -> semantic Chart Document
-
-sibling hoonoh57/cascading-feature-solution
-  -> node scripts/serve.mjs
-  -> shared Chart Document viewer / Chart SSOT
-```
-
-Launcher contracts:
-
-- default sibling Chart repo discovery with explicit `-ChartRepo` override.
-- Node.js >= 24 preflight because the donor Chart repo declares that engine requirement.
-- Python import/dependency preflight.
-- dependency installation only when `-InstallDependencies` is explicitly supplied.
-- exact Stage 1 and Cascade health endpoint verification.
-- fail-closed rejection when either requested port is occupied by an unexpected service.
-- direct `node scripts/serve.mjs` and `python -m uvicorn stage1_main:app` process ownership; no chart-library duplication.
-- partial-start failure cleanup.
-- temporary PID/log state outside the repository.
-- guarded stop: persisted PIDs are terminated only when their Windows command line still matches the expected Stage 1/Cascade process marker.
-- browser opens `/stage1?chartSsot=<shared-chart-origin>` only after both health checks succeed.
-- `Start`, `Status`, `Stop`, `Preflight`, and `Smoke` actions.
-- Smoke runs the live HTTP vertical workflow and uses a literal `[PASS]` prefix check rather than PowerShell wildcard matching.
-
-`test_stage1_stack_launcher.py` statically fixes the orchestration/Chart ownership boundary, live-smoke wiring, literal success-prefix rule and PowerShell 5.1-safe source constraints.
-
-### Stage 1 verification orchestrator
-
-`scripts/verify_stage1.ps1` is the intended trusted Windows/PowerShell 5.1 single entry point for automated Stage 1 system validation.
-
-Default `Full` sequence:
-
-```text
-launcher Preflight
- -> Python compileall
- -> core regression
- -> all test_stage1_*.py contracts
- -> scoped shared-Chart SSOT contracts
- -> quick stress
- -> full stress
- -> live integrated operational smoke
- -> one final [PASS] line
-```
-
-`Quick` skips only full stress. Dependency installation remains explicit via `-InstallDependencies`.
-
-The scoped Chart step deliberately does **not** run or claim donor-repository-wide compliance. It directly executes only Stage 1 dependency contracts:
-
-- `chart_document_renderer.test.mjs`
-- `chart_drawing_primitives_contract.test.mjs`
-- `chart_drawing_ssot_boundary.test.mjs`
-- `responsive_chart_surface.test.mjs`
-- `stable_pane_identity_surface.test.mjs`
-
-This keeps Stage 1 Chart dependency validation separate from the donor repository's global compliance status.
-
-## Current remediation / validation gaps
-
-### 1. Shared Chart SSOT integration — source-wired, executable/WYSIWYG validation pending
+## Chart ownership boundary
 
 The Stage 1 page does not load or call Lightweight Charts directly.
 
-Current ownership path is:
+Current ownership path:
 
 ```text
 Stage 1 experiment/backtest evidence
@@ -192,61 +191,82 @@ Stage 1 experiment/backtest evidence
  -> `hoonoh57/cascading-feature-solution` Chart SSOT renderer/surface
 ```
 
-`core/stage1_chart_document.py` contains Quant/experiment semantics only. It requests bars, generic series, markers, references and regions; it does not import or call a chart library.
+`core/stage1_chart_document.py` contains Quant/experiment semantics only. Generic chart drawing remains owned by the shared Chart axis.
 
-The donor `ChartDocumentRenderer` supports generic line/histogram series, extra panes, markers, horizontal references, trend lines, vertical/horizontal regions and highlight regions. `ChartCore` owns canonical price/volume bars and marker routing.
+The Stage 1 verifier directly executes only the scoped shared-Chart dependency contracts required by Stage 1:
 
-S1.11 remains `[~]`, not complete, until the scoped executable Chart contracts, live integrated smoke and consolidated WYSIWYG verification succeed. The shared donor repository itself remains a separate global compliance subject; Stage 1 dependency success must not be reported as donor-wide PASS.
+- `chart_document_renderer.test.mjs`
+- `chart_drawing_primitives_contract.test.mjs`
+- `chart_drawing_ssot_boundary.test.mjs`
+- `responsive_chart_surface.test.mjs`
+- `stable_pane_identity_surface.test.mjs`
 
-### 2. Engine trust boundary — source remediation advanced, executable validation open
+These scoped contracts passed inside the trusted `Full` verifier. This must not be described as donor repository-wide compliance.
 
-The known Stage 1 source contracts now include authoritative Broker lifecycle, accounting golden fixtures, confirmed-bar batch/streaming-prefix parity, capability/runtime exact-set checks, explicit future-capability withholding and scalar-parameter fail-closed validation.
+## Integrated Stage 1 stack launcher
 
-The newly audited deferred-entry path also enforces the single-position and same-bar re-entry policy in source and golden fixtures.
+`scripts/start_stage1_stack.ps1` remains the Windows/PowerShell 5.1 orchestration boundary for the complete Stage 1 UI stack.
 
-Still required before S1.1/S1.2 closure:
+It owns process lifecycle and health orchestration only; it does not copy or implement Chart rendering.
 
-- execute registry/static-type/runtime-dispatch and parameter-value fail-closed contracts on a trusted runner.
-- execute accounting/order golden fixtures, including the deferred-entry cases, and confirm all reconciliation assertions.
-- execute full-engine confirmed-bar batch/streaming-prefix parity.
-- classify and repair any actual failures without weakening assertions or adding compatibility exceptions.
+Launcher contracts include:
 
-Future DSL 2.0 items explicitly withheld by the current Playbook are not silently promoted into Stage 1 completion criteria.
+- Node.js >= 24 and Python dependency preflight.
+- dependency installation only with explicit `-InstallDependencies`.
+- exact Stage 1 and Cascade health verification.
+- fail-closed rejection for explicitly requested occupied ports.
+- direct `node scripts/serve.mjs` and `python -m uvicorn stage1_main:app` process ownership.
+- partial-start failure cleanup.
+- temporary PID/log state outside the repository.
+- guarded stop by process command-line marker.
+- `Start`, `Status`, `Stop`, `Preflight`, and `Smoke` actions.
+- literal `[PASS]` smoke-success prefix contract.
 
-### 3. Methodology validation boundary
+## Methodology boundary
 
-Immutable chronological OOS partitioning is implemented and fixed per root. This is necessary evidence infrastructure, not a profitability/generalization claim.
+The automated Stage 1 validation proves the implementation and deterministic validation boundaries executed successfully on the trusted Windows environment. It does not prove that any strategy is profitable or generalizes to unseen markets.
 
-Stage 1 still requires executable OOS/methodology and stress validation before any product or profitability conclusion. Representative-strategy regression coverage must remain part of the final automated validation set.
+Immutable chronological OOS partitioning, fixed split identity, OOS evaluation and methodology summaries are implemented and validated as infrastructure. Profitability/generalization claims require later research evidence, not Stage 1 implementation PASS.
 
-## Remote validation state
+## Hosted validation note
 
-GitHub Actions workflows cover compile, core regression, Stage 1 contracts, stack/verifier contracts and quick stress source paths.
+Earlier GitHub Actions attempts failed before executable steps were available (`steps=[]`). Those runs remain classified as environment/service issues and are neither product failures nor PASS evidence.
 
-Latest observed source-validation attempts through the scoped Chart verifier checkpoint:
+The trusted local Windows PowerShell 5.1 `Full` verifier PASS now supplies the executable Stage 1 system-validation evidence that was previously missing. There was no need to weaken assertions to compensate for hosted-runner failures.
 
-- `stage1-ci` run 94: job created but no executable steps were returned; checkout/test execution did not start.
-- `stage1-system-ci` run 88: same pre-execution failure pattern.
-- immediately preceding pending-order runs 92/86 also returned `steps=[]`.
+## Remaining Stage 1 gate
 
-Classification: **environment issue** until GitHub runner/service/account evidence shows otherwise. It is not counted as a product-test failure and it is not counted as a PASS. Assertions/tests have not been weakened to compensate.
+Only the consolidated human WYSIWYG/UI verification remains before Stage 1 can be closed as a product milestone.
+
+The consolidated UI verification should exercise the integrated paved road rather than isolated implementation details:
+
+1. launch the complete Stage 1 stack through the supported launcher;
+2. create/run a baseline strategy and inspect metrics/evidence;
+3. discover parameters and run/resume a Seeker;
+4. inspect parameter sensitivity and candidate comparison;
+5. generate LLM feedback, apply one structural candidate and run the post-structural Seeker path;
+6. inspect Improvement Episode lineage and explicit promotion behavior;
+7. run fixed OOS evaluation and methodology view;
+8. inspect the exact experiment in the shared Chart SSOT viewer, including panes/markers/references and responsive behavior;
+9. verify history/A-B comparison and that the UI exposes no unsupported capability or hidden auto-promotion.
+
+Any UI defect found in this pass must be repaired as one final UI remediation tranche, followed by rerunning the affected automated boundary and the Full verifier if the change touches system behavior.
 
 ## Do not do
 
-- Do not request user UI verification for each workstream.
-- Do not move to Stage 2+ while Stage 1 has known remediation/validation work.
-- Do not claim profitability, global PASS or Stage 1 completion from source presence.
-- Do not restore direct chart-library ownership in Stage 1 via compatibility/legacy exceptions.
-- Do not duplicate generic chart drawing in DSL/UI code; missing generic primitives belong to the shared Chart axis.
-- Do not conflate scoped Stage 1 Chart dependency tests with donor repository-wide compliance.
+- Do not return to per-workstream user verification.
+- Do not move to Stage 2+ until the consolidated Stage 1 UI gate is closed.
+- Do not claim profitability, live-trading readiness or donor-wide Chart compliance from the Stage 1 Full PASS.
+- Do not restore direct chart-library ownership in Stage 1.
+- Do not duplicate generic chart drawing in DSL/UI code.
 - Do not weaken validators/tests to manufacture green results.
-- Do not treat OOS infrastructure presence as OOS success.
-- Do not auto-promote a merely observed best candidate into the applied current-head without the explicit promotion contract.
+- Do not treat OOS infrastructure as profitability evidence.
+- Do not auto-promote an observed best candidate without the explicit promotion contract.
 
 ## Next action
 
-1. continue static source audit for any remaining Stage 1 trust-boundary or representative-regression gaps while hosted execution remains unavailable.
-2. when a trusted Windows PowerShell 5.1 executor is available, run `scripts/verify_stage1.ps1 -Mode Full` as the single automated validation entry point.
-3. classify any failure as test defect / product defect / authority drift / environment issue / unknown, repair product defects without assertion weakening, and rerun the full sequence.
-4. only after automated compile/contracts/scoped-Chart/quick/full-stress/live-smoke are green (or an environmental dependency is explicitly isolated) request one consolidated Stage 1 WYSIWYG verification.
-5. perform any final UI remediation tranche, rerun the affected automated boundary, checkpoint state, and only then consider Stage 2.
+1. perform one consolidated Stage 1 WYSIWYG/UI verification against the integrated paved road above;
+2. record all UI findings together rather than validating each workstream separately;
+3. repair any UI defects in one final remediation tranche;
+4. rerun the affected automated contracts and, when system behavior changed, `scripts/verify_stage1.ps1 -Mode Full`;
+5. update this state to Stage 1 closed only after the consolidated UI gate is green; then consider Stage 2.
