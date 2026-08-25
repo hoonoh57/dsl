@@ -30,6 +30,16 @@ class Stage1VerifierContractTest(unittest.TestCase):
         self.assertIn("Invoke-External 'live operational smoke' $powershell", self.script)
         self.assertNotIn("& $Launcher", self.script)
 
+    def test_chart_repo_resolution_prefers_explicit_env_sibling_then_bounded_discovery(self):
+        self.assertIn("function Resolve-ChartRepo", self.script)
+        self.assertIn("$env:CASCADE_CHART_REPO", self.script)
+        self.assertIn("Join-Path (Split-Path -Parent $DslRoot) 'cascading-feature-solution'", self.script)
+        self.assertIn("$workspaceRoot = Split-Path -Parent (Split-Path -Parent $DslRoot)", self.script)
+        self.assertIn("Get-ChildItem -LiteralPath $workspaceRoot -Directory", self.script)
+        self.assertIn("Get-ChildItem -LiteralPath $first.FullName -Directory", self.script)
+        self.assertIn("Multiple Chart repos found. Pass -ChartRepo explicitly", self.script)
+        self.assertNotIn("Get-ChildItem -Recurse", self.script)
+
     def test_scoped_chart_dependency_contracts_do_not_claim_full_donor_compliance(self):
         self.assertIn("Get-NodePath", self.script)
         self.assertIn("'--test', '--test-reporter=tap'", self.script)
