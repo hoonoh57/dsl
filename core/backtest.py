@@ -176,6 +176,7 @@ class BacktestEngine:
             "broker_fill_while_occupied": 0,
             "broker_rejected": 0,
             "pending_canceled_position_occupied": 0,
+            "pending_suppressed_position_occupied": 0,
         }
 
         def next_order_id(prefix="bt"):
@@ -432,11 +433,17 @@ class BacktestEngine:
         def value_at(value, index):
             return float(value[index]) if isinstance(value, np.ndarray) else value
 
-        def submit_deferred(signal_index: int):
+        def submit_deferred(signal_index: int, *, entry_blocked=False):
             if signal_index < 0:
                 return
             for condition, order in deferred_orders:
                 if not bool(condition[signal_index]):
+                    continue
+                if entry_blocked:
+                    rejection_counts["same_bar_reentry"] += 1
+                    continue
+                if position != 0:
+                    rejection_counts["pending_suppressed_position_occupied"] += 1
                     continue
                 args = order.arguments
                 side_name = "BUY" if order.command == "order.buy" else "SELL_SHORT"
@@ -450,7 +457,7 @@ class BacktestEngine:
                         limit_price=value_at(args.get("limit"), signal_index) if "limit" in args else None,
                         stop_price=value_at(args.get("stop"), signal_index) if "stop" in args else None,
                         tif=str(args.get("tif", "GTC")),
-                        oco=str(args.get("oco")) if "oco" in args else None,
+                        oco=str(args.get("oco")) if args.get("oco") is not None else None,
                         origin="DSL_PENDING",
                         signal_time=str(data["time"][signal_index]),
                         client_order_id=client_order_id,
@@ -469,9 +476,6 @@ class BacktestEngine:
             closed_this_bar = False
             prior_index = i - 1
 
-            if config.signal_mode == "next_open":
-                submit_deferred(prior_index)
-
             if position and config.signal_mode == "next_open" and prior_index >= 0:
                 should_exit = (position == 1 and bool(long_exit[prior_index])) or (
                     position == -1 and bool(short_exit[prior_index])
@@ -479,6 +483,9 @@ class BacktestEngine:
                 if should_exit:
                     close_position(i, bar_open, "STRATEGY_SIGNAL", prior_index)
                     closed_this_bar = True
+
+            if config.signal_mode == "next_open":
+                submit_deferred(prior_index, entry_blocked=closed_this_bar)
 
             matched_entry_reserved = False
 
@@ -573,7 +580,7 @@ class BacktestEngine:
                 rejection_counts["same_bar_reentry"] += 1
 
             if config.signal_mode == "bar_close":
-                submit_deferred(i)
+                submit_deferred(i, entry_blocked=closed_this_bar)
 
             if session_end:
                 broker.expire_day_orders(event=str(data["time"][i]))
