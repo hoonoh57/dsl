@@ -21,5 +21,5 @@ jobs:
         run: python -m compileall -q .
       - name: Existing core regression
         run: python -m unittest -v test_core.py
-      - name: Stage 1 factory contracts
-        run: python -m unittest -v test_stage1_factory.py test_stage1_chart_boundary.py test_stage1_execution_golden.py
+      - name: Stage 1 contracts
+        run: python -m unittest -v test_stage1_factory.py test_stage1_extended.py test_stage1_chart_boundary.py test_stage1_execution_golden.py test_stage1_completion_contracts.py
