@@ -50,19 +50,30 @@ class Stage1StackLauncherContractTest(unittest.TestCase):
         self.assertIn("Stop-Process -Id $stage1Process.Id", self.script)
         self.assertIn("Stop-Process -Id $chartProcess.Id", self.script)
 
-    def test_smoke_action_runs_the_live_http_workflow_without_copying_chart_code(self):
+    def test_smoke_action_runs_complete_live_http_workflow_without_copying_chart_code(self):
         self.assertIn("'Smoke'", self.script)
         self.assertIn("stage1_operational_smoke.py", self.script)
         self.assertIn("--stage1-base", self.script)
         self.assertIn("--chart-base", self.script)
-        self.assertIn("/api/stage1/baseline", self.smoke)
-        self.assertIn("/api/stage1/seeker-sessions", self.smoke)
-        self.assertIn("/api/stage1/feedback", self.smoke)
-        self.assertIn("/api/stage1/apply-llm", self.smoke)
-        self.assertIn("/api/stage1/oos/", self.smoke)
-        self.assertIn("/api/stage1/target-loops", self.smoke)
-        self.assertIn("/api/stage1/methodology/", self.smoke)
-        self.assertIn("/__cascade_health", self.smoke)
+        for endpoint in (
+            "/api/stage1/baseline",
+            "/api/stage1/parameters/discover",
+            "/api/stage1/seeker-sessions",
+            "/api/stage1/feedback",
+            "/api/stage1/apply-llm",
+            "/api/stage1/oos/",
+            "/api/stage1/target-loops",
+            "/api/stage1/promote",
+            "/api/stage1/methodology/",
+            "/api/stage1/chart-document/",
+            "/__cascade_health",
+        ):
+            self.assertIn(endpoint, self.smoke)
+        self.assertIn("LLM_STRUCTURAL", self.smoke)
+        self.assertIn("finalized_episode_id", self.smoke)
+        self.assertIn("POST_SEEKER_FINAL", self.smoke)
+        self.assertIn("applied_head_experiment_id", self.smoke)
+        self.assertIn("SYSTEM_SMOKE_ISOLATED_ROOT", self.smoke)
         self.assertNotIn("lightweight-charts", self.smoke)
         self.assertNotIn("ChartDocumentRenderer", self.smoke)
 
