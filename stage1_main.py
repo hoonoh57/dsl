@@ -5,6 +5,7 @@ The existing DSL Lab remains available at /.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -15,6 +16,8 @@ import uvicorn
 
 from main import app
 from core.backtest import synthetic_market
+from core.dsl_parser import DSLParseError
+from core.dsl_runtime import DSLRuntimeError
 from core.kiwoom_rest import KiwoomRESTClient, KiwoomAPIError
 from core.strategy_factory import DataContract, StrategyFactory, discover_dsl_parameters
 from core.stage1_data_store import load_market_snapshot, save_market_snapshot
@@ -23,12 +26,15 @@ from core.stage1_llm_memory import LLMExchangeMemory
 from core.stage1_resumable_seeker import ResumableSeekerService
 from core.stage1_evidence import EvidenceBuilder
 from core.stage1_hypothesis_memory import HypothesisMemory
+from core.stage1_diff import summarize_dsl_change
+from core.stage1_methodology import MethodologyValidator
 
 factory = StrategyFactory()
 target_loops = TargetLoopService(factory)
 llm_memory = LLMExchangeMemory(factory.store)
 resumable_seeker = ResumableSeekerService(factory)
 hypothesis_memory = HypothesisMemory(factory.store)
+methodology = MethodologyValidator(factory.store)
 ROOT = Path(__file__).resolve().parent
 
 
@@ -50,7 +56,8 @@ class BaselineRequest(BaseModel):
     settings: Dict[str, Any] = Field(default_factory=dict)
 
 
-class DiscoverRequest(BaseModel): dsl_code: str
+class DiscoverRequest(BaseModel):
+    dsl_code: str
 
 
 class SeekRequest(BaseModel):
@@ -72,7 +79,10 @@ class SeekSessionCreateRequest(BaseModel):
     max_candidates: int = 5000
 
 
-class SeekSessionProcessRequest(BaseModel): batch_size: int = 25
+class SeekSessionProcessRequest(BaseModel):
+    batch_size: int = 25
+
+
 class FeedbackRequest(BaseModel):
     experiment_id: int
     target_return: Optional[float] = None
@@ -87,7 +97,8 @@ class ApplyLLMRequest(BaseModel):
     promote: bool = False
 
 
-class PromoteRequest(BaseModel): experiment_id: int
+class PromoteRequest(BaseModel):
+    experiment_id: int
 
 
 class StopRequest(BaseModel):
@@ -122,16 +133,24 @@ class TargetLoopObserveRequest(BaseModel):
 def _market_from_spec(spec: MarketSpec):
     source = spec.source.lower().strip()
     if spec.market is not None:
-        market = spec.market; source = source or "inline"
+        market = spec.market
+        source = source or "inline"
     elif source == "synthetic_fixture":
         market = synthetic_market(spec.bars)
     elif source == "kiwoom":
-        client = KiwoomRESTClient(); market = client.normalize_chart(client.chart(spec.instrument, spec.timeframe))
+        client = KiwoomRESTClient()
+        market = client.normalize_chart(client.chart(spec.instrument, spec.timeframe))
     else:
         raise ValueError("Stage 1 data source는 inline/synthetic_fixture/kiwoom을 지원합니다.")
     normalized, provenance = DataContract.normalize(
-        market, instrument=spec.instrument, timeframe=spec.timeframe, source=source,
-        adjustment_policy=spec.adjustment_policy, session=spec.session, knowledge_cutoff=spec.knowledge_cutoff)
+        market,
+        instrument=spec.instrument,
+        timeframe=spec.timeframe,
+        source=source,
+        adjustment_policy=spec.adjustment_policy,
+        session=spec.session,
+        knowledge_cutoff=spec.knowledge_cutoff,
+    )
     save_market_snapshot(normalized)
     return normalized, provenance
 
@@ -141,58 +160,105 @@ def _market_for_experiment(experiment_id: int):
     return load_market_snapshot(experiment["provenance"]["data_hash"]), experiment
 
 
+def _record_failed_llm_episode(before: dict, req: ApplyLLMRequest, verdict: str, reason: str):
+    try:
+        return factory.store.create_episode(
+            before_id=before["id"],
+            after_id=None,
+            observation=json.dumps(before.get("analysis", {}).get("findings", []), ensure_ascii=False),
+            hypothesis=req.hypothesis,
+            proposal=req.llm_response,
+            expected_effect=req.expected_effect,
+            verdict=verdict,
+            reason=reason,
+        )
+    except Exception:
+        return None
+
+
 @app.get("/stage1", response_class=HTMLResponse)
-def stage1_ui(): return (ROOT / "core" / "templates" / "stage1.html").read_text(encoding="utf-8")
+def stage1_ui():
+    return (ROOT / "core" / "templates" / "stage1.html").read_text(encoding="utf-8")
 
 
 @app.get("/api/stage1/health")
 def stage1_health():
-    return {"status":"ready","schema":"stage1_factory/v1","execution_policy":"continuous-build-then-stress-test"}
+    return {"status": "ready", "schema": "stage1_factory/v1", "execution_policy": "continuous-build-then-stress-test"}
 
 
 @app.post("/api/stage1/parameters/discover")
 def stage1_discover(req: DiscoverRequest):
-    try: return {"parameters": discover_dsl_parameters(req.dsl_code)}
-    except Exception as exc: raise HTTPException(status_code=400, detail=str(exc))
+    try:
+        return {"parameters": discover_dsl_parameters(req.dsl_code)}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.post("/api/stage1/baseline")
 def stage1_baseline(req: BaselineRequest):
     try:
         market, provenance = _market_from_spec(req.market_spec)
-        experiment = factory.baseline(intent=req.intent, dsl_code=req.dsl_code, market=market,
-            instrument=provenance.instrument, timeframe=provenance.timeframe, source=provenance.source,
-            settings=req.settings, adjustment_policy=provenance.adjustment_policy,
-            session=provenance.session, knowledge_cutoff=provenance.knowledge_cutoff)
-        return {"status":"success","experiment":experiment,"chart":factory.chart_audit(experiment),
-                "evidence":EvidenceBuilder.build(experiment)}
-    except KiwoomAPIError as exc: raise HTTPException(status_code=503, detail=str(exc))
-    except Exception as exc: raise HTTPException(status_code=400, detail=str(exc))
+        experiment = factory.baseline(
+            intent=req.intent,
+            dsl_code=req.dsl_code,
+            market=market,
+            instrument=provenance.instrument,
+            timeframe=provenance.timeframe,
+            source=provenance.source,
+            settings=req.settings,
+            adjustment_policy=provenance.adjustment_policy,
+            session=provenance.session,
+            knowledge_cutoff=provenance.knowledge_cutoff,
+        )
+        return {"status": "success", "experiment": experiment, "chart": factory.chart_audit(experiment),
+                "evidence": EvidenceBuilder.build(experiment)}
+    except KiwoomAPIError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.post("/api/stage1/seeker")
 def stage1_seeker(req: SeekRequest):
     try:
         market, _ = _market_for_experiment(req.experiment_id)
-        result = factory.seek(experiment_id=req.experiment_id, market=market, parameter_specs=req.parameters,
-            method=req.method, objective=req.objective, seed=req.seed, max_candidates=req.max_candidates, promote=req.promote)
-        return {"status":"success",**result,"chart":factory.chart_audit(result["experiment"]),
-                "evidence":EvidenceBuilder.build(result["experiment"], result["study"])}
-    except Exception as exc: raise HTTPException(status_code=400, detail=str(exc))
+        result = factory.seek(
+            experiment_id=req.experiment_id,
+            market=market,
+            parameter_specs=req.parameters,
+            method=req.method,
+            objective=req.objective,
+            seed=req.seed,
+            max_candidates=req.max_candidates,
+            promote=req.promote,
+        )
+        return {"status": "success", **result, "chart": factory.chart_audit(result["experiment"]),
+                "evidence": EvidenceBuilder.build(result["experiment"], result["study"])}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.post("/api/stage1/seeker-sessions")
 def stage1_seek_session_create(req: SeekSessionCreateRequest):
     try:
-        return resumable_seeker.create(parent_experiment_id=req.experiment_id, parameter_specs=req.parameters,
-            method=req.method, objective=req.objective, seed=req.seed, max_candidates=req.max_candidates)
-    except Exception as exc: raise HTTPException(status_code=400, detail=str(exc))
+        return resumable_seeker.create(
+            parent_experiment_id=req.experiment_id,
+            parameter_specs=req.parameters,
+            method=req.method,
+            objective=req.objective,
+            seed=req.seed,
+            max_candidates=req.max_candidates,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.get("/api/stage1/seeker-sessions/{session_id}")
 def stage1_seek_session_get(session_id: int):
-    try: return {"session":resumable_seeker.get(session_id),"top":resumable_seeker.candidates(session_id)}
-    except Exception as exc: raise HTTPException(status_code=404, detail=str(exc))
+    try:
+        return {"session": resumable_seeker.get(session_id), "top": resumable_seeker.candidates(session_id)}
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
 
 @app.post("/api/stage1/seeker-sessions/{session_id}/process")
@@ -203,19 +269,24 @@ def stage1_seek_session_process(session_id: int, req: SeekSessionProcessRequest)
             result["chart"] = factory.chart_audit(result["experiment"])
             result["evidence"] = EvidenceBuilder.build(result["experiment"], result["session"])
         return result
-    except Exception as exc: raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.post("/api/stage1/seeker-sessions/{session_id}/cancel")
 def stage1_seek_session_cancel(session_id: int):
-    try: return resumable_seeker.cancel(session_id)
-    except Exception as exc: raise HTTPException(status_code=400, detail=str(exc))
+    try:
+        return resumable_seeker.cancel(session_id)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.post("/api/stage1/seeker-sessions/{session_id}/resume")
 def stage1_seek_session_resume(session_id: int):
-    try: return resumable_seeker.resume(session_id)
-    except Exception as exc: raise HTTPException(status_code=400, detail=str(exc))
+    try:
+        return resumable_seeker.resume(session_id)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.post("/api/stage1/feedback")
@@ -226,12 +297,15 @@ def stage1_feedback(req: FeedbackRequest):
         evidence = EvidenceBuilder.build(current)
         raw_history = llm_memory.prompt_history_context(package["root_id"])
         rejected = hypothesis_memory.rejected_memory(package["root_id"], 30)
-        package["evidence"] = evidence; package["previous_raw_exchanges"] = raw_history; package["rejected_hypotheses"] = rejected
-        package["prompt"] += "\n\n[구조화 Evidence Bundle]\n" + __import__('json').dumps(evidence, ensure_ascii=False, indent=2)
+        package["evidence"] = evidence
+        package["previous_raw_exchanges"] = raw_history
+        package["rejected_hypotheses"] = rejected
+        package["prompt"] += "\n\n[구조화 Evidence Bundle]\n" + json.dumps(evidence, ensure_ascii=False, indent=2)
         package["prompt"] += "\n\n[이전 raw LLM Prompt/Response 기록]\n" + raw_history
-        package["prompt"] += "\n\n[이전 실패/거절 가설]\n" + __import__('json').dumps(rejected, ensure_ascii=False, indent=2)
+        package["prompt"] += "\n\n[이전 실패/거절 가설]\n" + json.dumps(rejected, ensure_ascii=False, indent=2)
         return package
-    except Exception as exc: raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.post("/api/stage1/apply-llm")
@@ -240,81 +314,151 @@ def stage1_apply_llm(req: ApplyLLMRequest):
     try:
         market, before = _market_for_experiment(req.experiment_id)
         similar = hypothesis_memory.similar_prior(before["root_id"], req.hypothesis) if req.hypothesis else []
-        result = factory.apply_llm_response(experiment_id=req.experiment_id, llm_response=req.llm_response,
-            market=market, hypothesis=req.hypothesis, expected_effect=req.expected_effect, promote=req.promote)
-        exchange_id = llm_memory.record(before_experiment_id=req.experiment_id,
-            after_experiment_id=result["experiment"]["id"], prompt_text=req.prompt_text,
-            response_text=req.llm_response, hypothesis=req.hypothesis, status=result["verdict"])
-        return {"status":"success",**result,"exchange_id":exchange_id,"similar_prior_hypotheses":similar,
-                "chart":factory.chart_audit(result["experiment"]),"evidence":EvidenceBuilder.build(result["experiment"])}
+        result = factory.apply_llm_response(
+            experiment_id=req.experiment_id,
+            llm_response=req.llm_response,
+            market=market,
+            hypothesis=req.hypothesis,
+            expected_effect=req.expected_effect,
+            promote=req.promote,
+        )
+        structural_diff = summarize_dsl_change(before["dsl_code"], result["experiment"]["dsl_code"])
+        exchange_id = llm_memory.record(
+            before_experiment_id=req.experiment_id,
+            after_experiment_id=result["experiment"]["id"],
+            prompt_text=req.prompt_text,
+            response_text=req.llm_response,
+            hypothesis=req.hypothesis,
+            status=result["verdict"],
+        )
+        return {
+            "status": "success",
+            **result,
+            "exchange_id": exchange_id,
+            "structural_diff": structural_diff,
+            "similar_prior_hypotheses": similar,
+            "chart": factory.chart_audit(result["experiment"]),
+            "evidence": EvidenceBuilder.build(result["experiment"]),
+        }
+    except (DSLParseError, DSLRuntimeError, ValueError) as exc:
+        if before is not None:
+            verdict = "INVALID_DSL" if isinstance(exc, (DSLParseError, DSLRuntimeError)) or "DSL" in str(exc) or "strategy" in str(exc) else "ENGINE_BLOCKED"
+            _record_failed_llm_episode(before, req, verdict, str(exc))
+            try:
+                llm_memory.record(
+                    before_experiment_id=req.experiment_id,
+                    after_experiment_id=None,
+                    prompt_text=req.prompt_text,
+                    response_text=req.llm_response,
+                    hypothesis=req.hypothesis,
+                    status=verdict,
+                )
+            except Exception:
+                pass
+        raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
         if before is not None:
-            try:
-                llm_memory.record(before_experiment_id=req.experiment_id, after_experiment_id=None,
-                    prompt_text=req.prompt_text, response_text=req.llm_response,
-                    hypothesis=req.hypothesis, status="REJECTED_VALIDATION")
-            except Exception: pass
-        raise HTTPException(status_code=400, detail=str(exc))
+            _record_failed_llm_episode(before, req, "ENGINE_BLOCKED", str(exc))
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.post("/api/stage1/promote")
 def stage1_promote(req: PromoteRequest):
-    try: return {"status":"success","head":factory.store.promote(req.experiment_id)}
-    except Exception as exc: raise HTTPException(status_code=400, detail=str(exc))
+    try:
+        return {"status": "success", "head": factory.store.promote(req.experiment_id)}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.post("/api/stage1/stop-state")
 def stage1_stop(req: StopRequest):
     try:
         experiment = factory.store.get_experiment(req.experiment_id)
-        return {"state":factory.stop_state(experiment, target_return=req.target_return, iteration=req.iteration,
-            iteration_limit=req.iteration_limit, backtests_used=req.backtests_used, backtest_budget=req.backtest_budget,
-            consecutive_no_improvement=req.consecutive_no_improvement, no_improvement_limit=req.no_improvement_limit,
-            plateau=req.plateau, engine_blocked=req.engine_blocked)}
-    except Exception as exc: raise HTTPException(status_code=400, detail=str(exc))
+        return {"state": factory.stop_state(
+            experiment,
+            target_return=req.target_return,
+            iteration=req.iteration,
+            iteration_limit=req.iteration_limit,
+            backtests_used=req.backtests_used,
+            backtest_budget=req.backtest_budget,
+            consecutive_no_improvement=req.consecutive_no_improvement,
+            no_improvement_limit=req.no_improvement_limit,
+            plateau=req.plateau,
+            engine_blocked=req.engine_blocked,
+        )}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.post("/api/stage1/target-loops")
 def stage1_target_loop_create(req: TargetLoopCreateRequest):
-    try: return target_loops.create(root_id=req.root_id,target_return=req.target_return,iteration_limit=req.iteration_limit,
-        backtest_budget=req.backtest_budget,no_improvement_limit=req.no_improvement_limit)
-    except Exception as exc: raise HTTPException(status_code=400, detail=str(exc))
+    try:
+        return target_loops.create(
+            root_id=req.root_id,
+            target_return=req.target_return,
+            iteration_limit=req.iteration_limit,
+            backtest_budget=req.backtest_budget,
+            no_improvement_limit=req.no_improvement_limit,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.get("/api/stage1/target-loops/{loop_id}")
 def stage1_target_loop_get(loop_id: int):
-    try: return target_loops.get(loop_id)
-    except Exception as exc: raise HTTPException(status_code=404, detail=str(exc))
+    try:
+        return target_loops.get(loop_id)
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
 
 @app.post("/api/stage1/target-loops/{loop_id}/observe")
 def stage1_target_loop_observe(loop_id: int, req: TargetLoopObserveRequest):
-    try: return target_loops.observe(loop_id=loop_id,experiment_id=req.experiment_id,
-        backtests_used_delta=req.backtests_used_delta,accepted=req.accepted,plateau=req.plateau,engine_blocked=req.engine_blocked)
-    except Exception as exc: raise HTTPException(status_code=400, detail=str(exc))
+    try:
+        return target_loops.observe(
+            loop_id=loop_id,
+            experiment_id=req.experiment_id,
+            backtests_used_delta=req.backtests_used_delta,
+            accepted=req.accepted,
+            plateau=req.plateau,
+            engine_blocked=req.engine_blocked,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.get("/api/stage1/experiments")
 def stage1_experiments(root_id: Optional[int] = None, limit: int = 200):
-    try: return {"experiments":factory.store.list_experiments(root_id=root_id,limit=min(max(limit,1),1000))}
-    except Exception as exc: raise HTTPException(status_code=400, detail=str(exc))
+    try:
+        return {"experiments": factory.store.list_experiments(root_id=root_id, limit=min(max(limit, 1), 1000))}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.get("/api/stage1/experiments/{experiment_id}")
 def stage1_experiment(experiment_id: int):
     try:
-        experiment=factory.store.get_experiment(experiment_id)
-        return {"experiment":experiment,"lineage":factory.store.lineage(experiment_id),
-                "chart":factory.chart_audit(experiment),"evidence":EvidenceBuilder.build(experiment)}
-    except Exception as exc: raise HTTPException(status_code=404, detail=str(exc))
+        experiment = factory.store.get_experiment(experiment_id)
+        return {
+            "experiment": experiment,
+            "lineage": factory.store.lineage(experiment_id),
+            "chart": factory.chart_audit(experiment),
+            "evidence": EvidenceBuilder.build(experiment),
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
 
 @app.get("/api/stage1/methodology/{root_id}")
 def stage1_methodology(root_id: int):
     try:
-        summary=factory.methodology_summary(root_id); summary["raw_llm_exchanges"]=llm_memory.recent(root_id,100)
-        summary["rejected_hypotheses"]=hypothesis_memory.rejected_memory(root_id,100); return summary
-    except Exception as exc: raise HTTPException(status_code=400, detail=str(exc))
+        summary = methodology.summarize(root_id)
+        summary["raw_llm_exchanges"] = llm_memory.recent(root_id, 100)
+        summary["rejected_hypotheses"] = hypothesis_memory.rejected_memory(root_id, 100)
+        return summary
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
-if __name__ == "__main__": uvicorn.run("stage1_main:app",host="127.0.0.1",port=8000,reload=False)
+if __name__ == "__main__":
+    uvicorn.run("stage1_main:app", host="127.0.0.1", port=8000, reload=False)
