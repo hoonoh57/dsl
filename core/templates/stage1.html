@@ -13,7 +13,7 @@
 <select id="source" class="control"><option value="synthetic_fixture">Synthetic fixture</option><option value="kiwoom">Kiwoom REST</option></select>
 <input id="symbol" class="control" value="005930" style="width:90px"><select id="timeframe" class="control"><option>1m</option><option>3m</option><option selected>5m</option><option>15m</option><option>30m</option><option>60m</option><option>1d</option></select>
 <input id="target" class="control" type="number" step="0.1" value="20" title="목표 수익률 %" style="width:90px"><span class="muted">Target %</span>
-<div class="grow statusline" id="status">Ready</div><span class="badge" id="current">Experiment -</span><a href="/" style="color:#9eb8ff">기존 DSL Lab</a></header>
+<div class="grow statusline" id="status">Ready</div><span class="badge" id="current">Viewing -</span><a href="/" style="color:#9eb8ff">기존 DSL Lab</a></header>
 <section class="workspace">
 <div class="pane"><div class="head">① Strategy / Baseline <button id="run" class="primary">Baseline 실행</button><button id="discover">Input 찾기</button></div><div class="body">
 <textarea id="intent" class="editor" style="height:55px" placeholder="전략 의도/원래 사용자 요청"></textarea>
@@ -40,7 +40,7 @@
 <div class="row" style="margin-top:7px"><button id="feedback" class="primary">LLM 개선 프롬프트</button><button id="copy">복사</button><button id="methodology">방법론 비교</button></div>
 <textarea id="prompt" class="editor prompt" readonly placeholder="Evidence 기반 개선 프롬프트"></textarea>
 <textarea id="response" class="editor response" placeholder="LLM 응답 전체를 붙여넣기"></textarea>
-<div class="row"><input id="hypothesis" class="control grow" placeholder="가설 요약"><button id="apply" class="good">응답 적용·실행</button></div>
+<div class="row"><input id="hypothesis" class="control grow" placeholder="가설 요약"><button id="apply" class="good">후보 검증·실행</button></div>
 </div></div>
 <div class="pane history"><div class="head">③ Immutable Experiment History</div><div class="body list" id="history"></div></div>
 </section>
