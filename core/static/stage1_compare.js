@@ -13,7 +13,8 @@ function ensureComparePanel(){
   panel.innerHTML=`<div style="font-weight:800;margin-bottom:6px">Experiment A/B Compare</div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:5px"><select id="compare-a" class="control"></select><select id="compare-b" class="control"></select></div>
   <div style="display:flex;gap:5px;margin-bottom:5px"><button id="compare-run" class="primary">비교</button><button id="compare-load-a">A 차트</button><button id="compare-load-b">B 차트</button></div>
-  <div id="compare-result" style="max-height:190px;overflow:auto;font-size:11px;color:#c2ccd9"></div>`;
+  <div id="compare-result" style="max-height:190px;overflow:auto;font-size:11px;color:#c2ccd9"></div>
+  <div style="font-weight:800;margin:7px 0 4px">Improvement Episodes</div><div id="episode-memory" style="max-height:130px;overflow:auto;font-size:11px;color:#c2ccd9"></div>`;
   history.before(panel);
   $('compare-run').onclick=()=>runCompare().catch(showError);
   $('compare-load-a').onclick=()=>loadExperimentFromHistory(Number($('compare-a').value));
@@ -24,11 +25,18 @@ function currentId(){const text=$('current')?.textContent||'';const m=text.match
 async function refresh(){
   ensureComparePanel(); const id=currentId(); if(!id||id===lastCurrentId)return;
   const detail=await api(`/api/stage1/experiments/${id}`); const root=Number(detail.experiment.root_id); lastCurrentId=id; lastRootId=root;
-  const listing=await api(`/api/stage1/experiments?root_id=${root}&limit=500`); const rows=[...(listing.experiments||[])].sort((a,b)=>a.id-b.id);
+  const [listing,method]=await Promise.all([api(`/api/stage1/experiments?root_id=${root}&limit=500`),api(`/api/stage1/methodology/${root}`)]);
+  const rows=[...(listing.experiments||[])].sort((a,b)=>a.id-b.id);
   const options=rows.map(e=>`<option value="${e.id}">#${e.id} ${esc(e.operation)} · ${num(e.result?.metrics_numeric?.total_return_pct)}%</option>`).join('');
   $('compare-a').innerHTML=options; $('compare-b').innerHTML=options;
   const baseline=rows.find(e=>e.operation==='BASELINE')||rows[0]; if(baseline)$('compare-a').value=String(baseline.id); $('compare-b').value=String(id);
-  await runCompare();
+  renderEpisodes(method); await runCompare();
+}
+function renderEpisodes(method){
+  const host=$('episode-memory');if(!host)return;const episodes=[...(method.episode_memory||[])].reverse();
+  const rates=`Success ${num((method.structural_success_rate||0)*100,1)}% · Regression ${num((method.regression_rate||0)*100,1)}% · Duplicate ${num((method.duplicate_hypothesis_rate||0)*100,1)}%`;
+  if(!episodes.length){host.innerHTML=`<div class="muted">${esc(rates)} · episode 없음</div>`;return}
+  host.innerHTML=`<div class="muted" style="margin-bottom:4px">${esc(rates)}</div>`+episodes.slice(0,30).map(e=>{const good=e.verdict==='ACCEPTED_IMPROVEMENT';const tone=good?'#7de0b8':String(e.verdict||'').startsWith('REJECTED')||e.verdict==='INVALID_DSL'?'#ff9c98':'#c2ccd9';return`<div style="padding:4px;border-bottom:1px solid #28313f"><span style="color:${tone}">${esc(e.verdict)}</span> · #${e.before_experiment_id}→${e.after_experiment_id??'-'} · ${esc(e.hypothesis||'-')}<br><span class="muted">${esc(e.reason||'')}</span></div>`}).join('')
 }
 function metricRow(name,a,b,reverse=false){const av=Number(a||0),bv=Number(b||0),delta=bv-av;const good=reverse?delta<0:delta>0;const tone=Math.abs(delta)<1e-12?'#8f9bad':good?'#7de0b8':'#ff9c98';return`<tr><td style="text-align:left">${esc(name)}</td><td>${num(av)}</td><td>${num(bv)}</td><td style="color:${tone}">${delta>=0?'+':''}${num(delta)}</td></tr>`}
 async function runCompare(){
