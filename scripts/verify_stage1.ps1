@@ -39,6 +39,12 @@ function Get-PythonPath {
     return $python
 }
 
+function Get-NodePath {
+    $node = Get-CommandPath 'node.exe'
+    if ($null -eq $node) { $node = Get-CommandPath 'node' }
+    return $node
+}
+
 function Invoke-External(
     [string]$Label,
     [string]$FilePath,
@@ -75,6 +81,8 @@ try {
 
     $python = Get-PythonPath
     if ($null -eq $python) { throw 'Python is required.' }
+    $node = Get-NodePath
+    if ($null -eq $node) { throw 'Node.js is required.' }
     $powershell = Get-CommandPath 'powershell.exe'
     if ($null -eq $powershell) { $powershell = Get-CommandPath 'powershell' }
     if ($null -eq $powershell) { throw 'Windows PowerShell 5.1 is required.' }
@@ -91,6 +99,17 @@ try {
     Invoke-External 'python compile' $python @('-m', 'compileall', '-q', '.') $DslRoot
     Invoke-External 'core regression' $python @('-m', 'unittest', '-v', 'test_core.py') $DslRoot
     Invoke-External 'Stage 1 contracts' $python @('-m', 'unittest', 'discover', '-v', '-p', 'test_stage1_*.py') $DslRoot
+
+    $chartContractTests = @(
+        './tests/chart_document_renderer.test.mjs',
+        './tests/chart_drawing_primitives_contract.test.mjs',
+        './tests/chart_drawing_ssot_boundary.test.mjs',
+        './tests/responsive_chart_surface.test.mjs',
+        './tests/stable_pane_identity_surface.test.mjs'
+    )
+    $chartArgs = @('--test', '--test-reporter=tap') + $chartContractTests
+    Invoke-External 'Stage 1 scoped Chart SSOT contracts' $node $chartArgs $ChartRepo
+
     Invoke-External 'Stage 1 quick stress' $python @($StressHarness) $DslRoot
 
     if ($Mode -eq 'Full') {
