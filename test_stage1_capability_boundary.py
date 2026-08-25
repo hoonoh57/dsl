@@ -103,6 +103,51 @@ class Stage1CapabilityBoundaryTest(unittest.TestCase):
         with self.assertRaisesRegex(DSLRuntimeError, "지원하지 않는 함수"):
             BacktestEngine.run(external_symbol)
 
+    def test_published_scalar_parameter_values_fail_closed(self):
+        zero_period = '''strategy "ZeroPeriod" {
+            timeframe = "1d"
+            input period = 0
+            x = ta.sma(close, period)
+        }'''
+        with self.assertRaisesRegex(DSLRuntimeError, "ta.sma period은 1 이상의 정수"):
+            BacktestEngine.run(zero_period)
+
+        fractional_period = '''strategy "FractionalPeriod" {
+            timeframe = "1d"
+            input period = 2.5
+            x = ta.ema(close, period)
+        }'''
+        with self.assertRaisesRegex(DSLRuntimeError, "ta.ema period은 1 이상의 정수"):
+            BacktestEngine.run(fractional_period)
+
+        bad_method = '''strategy "BadMethod" {
+            timeframe = "1d"
+            x = ta.ma(close, 5, "typo")
+        }'''
+        with self.assertRaisesRegex(DSLRuntimeError, "ta.ma method"):
+            BacktestEngine.run(bad_method)
+
+        bad_phase = '''strategy "BadPhase" {
+            timeframe = "1d"
+            x = ta.jma(close, 7, 150, 2)
+        }'''
+        with self.assertRaisesRegex(DSLRuntimeError, "phase는 -100~100"):
+            BacktestEngine.run(bad_phase)
+
+        zero_persist = '''strategy "ZeroPersist" {
+            timeframe = "1d"
+            signal = state.persist(close > open, 0)
+        }'''
+        with self.assertRaisesRegex(DSLRuntimeError, "state.persist bars은 1 이상의 정수"):
+            BacktestEngine.run(zero_persist)
+
+        zero_mtf = '''strategy "ZeroMtf" {
+            timeframe = "1d"
+            x = mtf.close("0d")
+        }'''
+        with self.assertRaisesRegex(DSLRuntimeError, "MTF 주기는 1 이상"):
+            BacktestEngine.run(zero_mtf)
+
     def test_llm_prompt_carries_playbook_hash_manifest_and_withholding_boundary(self):
         prompt = generate_full_llm_prompt("테스트 전략", artifact_type="strategy")
         self.assertIn(playbook_hash(), prompt)
