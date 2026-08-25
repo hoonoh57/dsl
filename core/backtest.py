@@ -7,7 +7,7 @@ from typing import Dict, Optional
 import numpy as np
 
 from core.dsl_runtime import DSLRuntime
-from core.broker import BrokerEmulator, BrokerOrder
+from core.broker import BrokerEmulator, BrokerOrder, OrderStatus
 
 
 @dataclass
@@ -25,193 +25,429 @@ class StrategySettings:
     slippage_pct: float = 0.0
 
     def validate(self):
-        if self.total_capital <= 0: raise ValueError("총 자금은 0보다 커야 합니다.")
-        if not 0 < self.allocation_pct <= 100: raise ValueError("투입 비율은 0 초과 100 이하여야 합니다.")
+        if self.total_capital <= 0:
+            raise ValueError("총 자금은 0보다 커야 합니다.")
+        if not 0 < self.allocation_pct <= 100:
+            raise ValueError("투입 비율은 0 초과 100 이하여야 합니다.")
         for name in ("stop_loss_pct", "take_profit_pct", "trailing_activation_pct", "trailing_distance_pct"):
-            if getattr(self, name) < 0: raise ValueError(f"{name}은 음수일 수 없습니다.")
+            if getattr(self, name) < 0:
+                raise ValueError(f"{name}은 음수일 수 없습니다.")
+        for name in ("commission_pct", "sell_tax_pct", "slippage_pct"):
+            if getattr(self, name) < 0:
+                raise ValueError(f"{name}은 음수일 수 없습니다.")
         if self.signal_mode not in {"bar_close", "next_open"}:
             raise ValueError("signal_mode는 bar_close 또는 next_open이어야 합니다.")
 
 
 def synthetic_market(bars_count=200):
+    """Deterministic synthetic fixture. Product data adapters must opt in explicitly."""
     np.random.seed(42)
-    base_time = datetime.now() - timedelta(days=bars_count)
+    base_time = datetime(2020, 1, 1) + timedelta(days=max(0, 400 - bars_count))
     times = [(base_time + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(bars_count)]
     close = 1000.0 + np.cumsum(np.random.randn(bars_count) * 12)
     high = close + np.random.rand(bars_count) * 8
     low = close - np.random.rand(bars_count) * 8
     open_ = (high + low) / 2.0
     volume = np.random.randint(10_000, 100_000, bars_count).astype(float)
-    return {"time": times, "open": open_, "high": high, "low": low, "close": close, "volume": volume}
+    return {"time": times, "open": open_, "high": high, "low": low, "close": close, "volume": volume,
+            "_meta": {"source": "synthetic_fixture", "timeframe": "1d"}}
+
+
+def _validate_market(data: Dict):
+    required = ("time", "open", "high", "low", "close", "volume")
+    missing = [name for name in required if name not in data]
+    if missing:
+        raise ValueError(f"시장 데이터 필드 누락: {', '.join(missing)}")
+    lengths = {name: len(data[name]) for name in required}
+    if len(set(lengths.values())) != 1:
+        raise ValueError(f"시장 데이터 길이가 일치하지 않습니다: {lengths}")
+    size = lengths["close"]
+    if size < 2:
+        raise ValueError("백테스트에는 최소 2개 봉이 필요합니다.")
+    numeric = {key: np.asarray(data[key], dtype=float) for key in ("open", "high", "low", "close", "volume")}
+    if not all(np.all(np.isfinite(value)) for value in numeric.values()):
+        raise ValueError("OHLCV에 NaN/Infinity가 포함되어 있습니다.")
+    if np.any(numeric["high"] < np.maximum(numeric["open"], numeric["close"])) or np.any(numeric["low"] > np.minimum(numeric["open"], numeric["close"])):
+        raise ValueError("OHLC 가격 관계가 올바르지 않습니다.")
+    if np.any(numeric["high"] < numeric["low"]):
+        raise ValueError("high < low 데이터가 있습니다.")
+    text_times = [str(item) for item in data["time"]]
+    if len(set(text_times)) != len(text_times):
+        raise ValueError("중복 timestamp가 있습니다.")
+    if any(text_times[i] >= text_times[i + 1] for i in range(len(text_times) - 1)):
+        raise ValueError("시장 데이터 시간이 엄격한 오름차순이 아닙니다.")
+    return numeric
 
 
 class BacktestEngine:
     @staticmethod
     def run(dsl_code: str, bars_count: int = 200, initial_capital: Optional[float] = None,
-            settings: Optional[Dict] = None, market: Optional[Dict] = None):
+            settings: Optional[Dict] = None, market: Optional[Dict] = None,
+            data_timeframe: Optional[str] = None):
         config = StrategySettings(**(settings or {}))
-        if initial_capital is not None: config.total_capital = float(initial_capital)
+        if initial_capital is not None:
+            config.total_capital = float(initial_capital)
         config.validate()
-        data = market or synthetic_market(bars_count)
+        data = market if market is not None else synthetic_market(bars_count)
+        numeric = _validate_market(data)
+
         def chart_time(value):
-            """Convert Kiwoom YYYYMMDD[HHMMSS] into Lightweight Charts time."""
             text = ''.join(ch for ch in str(value) if ch.isdigit())
             if len(text) >= 14:
-                # Lightweight Charts renders timestamps as UTC. Treat the market
-                # clock components as UTC so the label remains the supplied KST time.
                 parsed = datetime.strptime(text[:14], "%Y%m%d%H%M%S").replace(tzinfo=timezone.utc)
                 return int(parsed.timestamp())
             if len(text) >= 8:
                 return f"{text[:4]}-{text[4:6]}-{text[6:8]}"
             return str(value)
-        numeric = {key: np.asarray(data[key], dtype=float) for key in ("open", "high", "low", "close", "volume")}
+
         digits = [''.join(ch for ch in str(value) if ch.isdigit()) for value in data["time"]]
         numeric["date"] = np.asarray([float(value[:8] or index) for index, value in enumerate(digits)])
         numeric["time"] = np.asarray([float(value[8:14] or 0) for value in digits])
         compiled = DSLRuntime.compile(dsl_code, numeric)
+        actual_timeframe = data_timeframe or (data.get("_meta") or {}).get("timeframe")
+        if actual_timeframe and str(actual_timeframe) != str(compiled.timeframe):
+            raise ValueError(f"DSL timeframe({compiled.timeframe})과 데이터 timeframe({actual_timeframe})이 일치하지 않습니다.")
+
         size = len(numeric["close"])
         long_entry = np.zeros(size, dtype=bool)
         long_exit = np.zeros(size, dtype=bool)
         short_entry = np.zeros(size, dtype=bool)
         short_exit = np.zeros(size, dtype=bool)
-        deferred_orders=[]
+        deferred_orders = []
         if compiled.events:
             for event in compiled.events:
-                market_commands=set()
+                market_commands = set()
                 for order in event.orders:
-                    order_type=str(order.arguments.get("type","MARKET")).upper()
-                    if order_type=="MARKET":market_commands.add(order.command)
-                    else:deferred_orders.append((event.condition,order))
-                commands = market_commands
-                if "order.buy" in commands: long_entry |= event.condition
-                if "order.sell_short" in commands: short_entry |= event.condition
-                if "order.close_long" in commands or "order.close_position" in commands:
+                    order_type = str(order.arguments.get("type", "MARKET")).upper()
+                    if order_type == "MARKET":
+                        market_commands.add(order.command)
+                    else:
+                        deferred_orders.append((event.condition, order))
+                if "order.buy" in market_commands:
+                    long_entry |= event.condition
+                if "order.sell_short" in market_commands:
+                    short_entry |= event.condition
+                if "order.close_long" in market_commands or "order.close_position" in market_commands:
                     long_exit |= event.condition
-                if "order.close_short" in commands or "order.close_position" in commands:
+                if "order.close_short" in market_commands or "order.close_position" in market_commands:
                     short_exit |= event.condition
         else:
-            # Indicator/signal artifacts may intentionally have no order block.
             long_entry = compiled.signal("long_entry", size) | compiled.signal("entry_cond", size)
             long_exit = compiled.signal("long_exit", size) | compiled.signal("exit_cond", size)
             short_entry = compiled.signal("short_entry", size)
             short_exit = compiled.signal("short_exit", size)
 
-        cash = config.total_capital
-        position, quantity, entry_price, peak_price = 0, 0.0, 0.0, 0.0
-        trade_count = closed_trade_count = win_count = 0
-        equity_curve, markers, trades = [], [], []
-        broker=BrokerEmulator();order_sequence=0
+        cash = float(config.total_capital)
+        position = 0
+        quantity = 0.0
+        entry_price = 0.0
+        entry_fee = 0.0
+        peak_price = 0.0
+        trough_price = 0.0
+        open_trade = None
+        trade_count = 0
+        closed_trade_count = 0
+        win_count = 0
+        equity_curve = []
+        markers = []
+        executions = []
+        closed_trades = []
+        broker = BrokerEmulator()
+        order_sequence = 0
+        rejection_counts = {"same_bar_reentry": 0, "position_occupied": 0, "broker_fill_while_occupied": 0}
 
-        def close_position(i: int, price: float, reason: str):
-            nonlocal cash, position, quantity, entry_price, peak_price, win_count, closed_trade_count
-            price *= 1.0 - (config.slippage_pct / 100.0 * position)
-            gross = quantity * (price - entry_price) * position
-            exit_cost_pct = config.commission_pct + (config.sell_tax_pct if position == 1 else 0.0)
-            fees = quantity * price * exit_cost_pct / 100.0
-            cash += quantity * entry_price + gross - fees
+        def equity_at(price: float):
+            if position == 1:
+                return cash + quantity * price
+            if position == -1:
+                return cash - quantity * price
+            return cash
+
+        def entry_cost(side: int, notional: float):
+            pct = config.commission_pct + (config.sell_tax_pct if side == -1 else 0.0)
+            return notional * pct / 100.0
+
+        def exit_cost(side: int, notional: float):
+            pct = config.commission_pct + (config.sell_tax_pct if side == 1 else 0.0)
+            return notional * pct / 100.0
+
+        def update_excursion(bar_high: float, bar_low: float):
+            nonlocal peak_price, trough_price, open_trade
+            if not position or open_trade is None:
+                return
+            peak_price = max(peak_price, float(bar_high))
+            trough_price = min(trough_price, float(bar_low))
+            if position == 1:
+                mfe = (peak_price / entry_price - 1.0) * 100.0
+                mae = (trough_price / entry_price - 1.0) * 100.0
+            else:
+                mfe = (entry_price / trough_price - 1.0) * 100.0 if trough_price > 0 else 0.0
+                mae = (entry_price / peak_price - 1.0) * 100.0 if peak_price > 0 else 0.0
+            open_trade["mfe_pct"] = max(float(open_trade.get("mfe_pct", 0.0)), float(mfe))
+            open_trade["mae_pct"] = min(float(open_trade.get("mae_pct", 0.0)), float(mae))
+
+        def open_position(i: int, side: int, price: float, reason="STRATEGY_SIGNAL", signal_index=None):
+            nonlocal cash, position, quantity, entry_price, entry_fee, peak_price, trough_price, trade_count, open_trade
+            if position:
+                rejection_counts["position_occupied"] += 1
+                return False
+            fill = float(price) * (1.0 + config.slippage_pct / 100.0 * side)
+            available_equity = max(0.0, equity_at(float(numeric["close"][i])))
+            budget = min(available_equity, config.total_capital * config.allocation_pct / 100.0)
+            if budget <= 0 or fill <= 0:
+                return False
+            qty = budget / fill
+            fee = entry_cost(side, qty * fill)
+            if side == 1 and cash < qty * fill + fee:
+                qty = max(0.0, cash / (fill * (1.0 + (config.commission_pct / 100.0))))
+                fee = entry_cost(side, qty * fill)
+            if qty <= 0:
+                return False
+            if side == 1:
+                cash -= qty * fill + fee
+            else:
+                cash += qty * fill - fee
+            position = side
+            quantity = qty
+            entry_price = fill
+            entry_fee = fee
+            peak_price = fill
+            trough_price = fill
+            trade_count += 1
+            signal_i = i if signal_index is None else int(signal_index)
+            label = "BUY" if side == 1 else "SHORT"
+            marker_position = "belowBar" if side == 1 else "aboveBar"
+            marker_shape = "arrowUp" if side == 1 else "arrowDown"
+            markers.append({"time": chart_time(data["time"][i]), "position": marker_position, "color": "#26a69a",
+                            "shape": marker_shape, "text": f"{label} @ {fill:.1f}"})
+            execution = {"kind": "ENTRY", "time": data["time"][i], "signal_time": data["time"][signal_i],
+                         "side": label, "price": fill, "quantity": qty, "fee": fee, "reason": reason}
+            executions.append(execution)
+            open_trade = {"trade_id": trade_count, "direction": "LONG" if side == 1 else "SHORT",
+                          "signal_time": data["time"][signal_i], "entry_time": data["time"][i], "entry_index": i,
+                          "entry_price": fill, "entry_fee": fee, "quantity": qty, "entry_reason": reason,
+                          "mfe_pct": 0.0, "mae_pct": 0.0}
+            return True
+
+        def close_position(i: int, price: float, reason: str, signal_index=None):
+            nonlocal cash, position, quantity, entry_price, entry_fee, peak_price, trough_price
+            nonlocal win_count, closed_trade_count, open_trade
+            if not position or open_trade is None:
+                return False
+            side = position
+            fill = float(price) * (1.0 - config.slippage_pct / 100.0 * side)
+            notional = quantity * fill
+            fee = exit_cost(side, notional)
+            if side == 1:
+                cash += notional - fee
+                gross = quantity * (fill - entry_price)
+                label = "SELL"
+            else:
+                cash -= notional + fee
+                gross = quantity * (entry_price - fill)
+                label = "COVER"
+            net = gross - entry_fee - fee
             closed_trade_count += 1
-            if gross - fees > 0: win_count += 1
-            side = "SELL" if position == 1 else "COVER"
-            markers.append({"time": chart_time(data["time"][i]), "position": "aboveBar", "color": "#ef5350", "shape": "arrowDown", "text": f"{side} @ {price:.1f}"})
-            trades.append({"time": data["time"][i], "side": side, "price": price, "pnl": gross - fees, "reason": reason})
-            position, quantity, entry_price, peak_price = 0, 0.0, 0.0, 0.0
+            if net > 0:
+                win_count += 1
+            signal_i = i if signal_index is None else int(signal_index)
+            markers.append({"time": chart_time(data["time"][i]), "position": "aboveBar" if side == 1 else "belowBar",
+                            "color": "#ef5350", "shape": "arrowDown" if side == 1 else "arrowUp",
+                            "text": f"{label} @ {fill:.1f}"})
+            executions.append({"kind": "EXIT", "time": data["time"][i], "signal_time": data["time"][signal_i],
+                               "side": label, "price": fill, "quantity": quantity, "fee": fee,
+                               "pnl": net, "reason": reason})
+            trade = dict(open_trade)
+            trade.update({"exit_signal_time": data["time"][signal_i], "exit_time": data["time"][i], "exit_index": i,
+                          "exit_price": fill, "exit_fee": fee, "exit_reason": reason, "gross_pnl": gross,
+                          "net_pnl": net, "pnl": net,
+                          "return_pct": (net / max(1e-12, quantity * entry_price + entry_fee)) * 100.0,
+                          "holding_bars": i - int(open_trade["entry_index"]) + 1})
+            closed_trades.append(trade)
+            position = 0
+            quantity = 0.0
+            entry_price = 0.0
+            entry_fee = 0.0
+            peak_price = 0.0
+            trough_price = 0.0
+            open_trade = None
+            return True
 
-        def open_position(i:int, side:int, price:float, reason="STRATEGY_SIGNAL"):
-            nonlocal cash,position,quantity,entry_price,peak_price,trade_count
-            position=side
-            budget=min(cash,config.total_capital*config.allocation_pct/100.0)
-            entry_price=float(price)*(1+config.slippage_pct/100.0*position)
-            quantity=budget/entry_price
-            entry_cost_pct=config.commission_pct+(config.sell_tax_pct if position==-1 else 0.0)
-            cash-=budget+budget*entry_cost_pct/100.0;peak_price=entry_price;trade_count+=1
-            label="BUY" if position==1 else "SHORT"
-            markers.append({"time":chart_time(data["time"][i]),"position":"belowBar","color":"#26a69a","shape":"arrowUp","text":f"{label} @ {entry_price:.1f}"})
-            trades.append({"time":data["time"][i],"side":label,"price":entry_price,"reason":reason})
+        def value_at(value, index):
+            return float(value[index]) if isinstance(value, np.ndarray) else value
+
+        def submit_deferred(signal_index: int):
+            nonlocal order_sequence
+            if signal_index < 0:
+                return
+            for condition, order in deferred_orders:
+                if not bool(condition[signal_index]):
+                    continue
+                order_sequence += 1
+                args = order.arguments
+                submitted = broker.submit(BrokerOrder(
+                    str(args.get("id", f"dsl-{order_sequence}")),
+                    "BUY" if order.command == "order.buy" else "SELL_SHORT",
+                    str(args.get("type", "MARKET")),
+                    float(value_at(args.get("quantity", 1), signal_index)),
+                    value_at(args.get("limit"), signal_index) if "limit" in args else None,
+                    value_at(args.get("stop"), signal_index) if "stop" in args else None,
+                    str(args.get("tif", "GTC")),
+                    str(args.get("oco")) if "oco" in args else None,
+                ))
+                if submitted.status == OrderStatus.REJECTED:
+                    rejection_counts.setdefault("broker_rejected", 0)
+                    rejection_counts["broker_rejected"] += 1
 
         for i in range(size):
-            price, bar_high, bar_low = numeric["close"][i], numeric["high"][i], numeric["low"][i]
+            price = float(numeric["close"][i])
+            bar_open = float(numeric["open"][i])
+            bar_high = float(numeric["high"][i])
+            bar_low = float(numeric["low"][i])
+            session_end = i == size - 1 or numeric["date"][i + 1] != numeric["date"][i]
             closed_this_bar = False
-            pending_fills=broker.process_bar(numeric["open"][i],bar_high,bar_low,price)
-            if position==0 and pending_fills:
-                fill=pending_fills[0];open_position(i,1 if fill.side=="BUY" else -1,fill.fill_price,"PENDING_ORDER_FILL")
-            if position:
-                peak_price = max(peak_price, bar_high) if position == 1 else min(peak_price, bar_low)
-                pnl_pct = ((price / entry_price) - 1.0) * 100.0 * position
-                reason, exit_price = None, price
-                stop_price = entry_price * (1.0 - config.stop_loss_pct / 100.0 * position)
-                target_price = entry_price * (1.0 + config.take_profit_pct / 100.0 * position)
-                stop_hit = config.stop_loss_pct and (bar_low <= stop_price if position == 1 else bar_high >= stop_price)
-                target_hit = config.take_profit_pct and (bar_high >= target_price if position == 1 else bar_low <= target_price)
-                # If OHLC cannot reveal which threshold was reached first, use
-                # the conservative stop-first assumption.
-                if stop_hit: reason, exit_price = "STOP_LOSS", stop_price
-                elif target_hit: reason, exit_price = "TAKE_PROFIT", target_price
-                elif config.trailing_enabled and config.trailing_distance_pct:
-                    peak_gain = ((peak_price / entry_price) - 1.0) * 100.0 * position
-                    retrace = ((price / peak_price) - 1.0) * 100.0 * position
-                    if peak_gain >= config.trailing_activation_pct and retrace <= -config.trailing_distance_pct:
-                        reason = "TRAILING_STOP"
-                if reason or (position == 1 and long_exit[i]) or (position == -1 and short_exit[i]):
-                    close_position(i, exit_price, reason or "STRATEGY_SIGNAL")
+
+            prior_index = i - 1
+            if config.signal_mode == "next_open":
+                submit_deferred(prior_index)
+
+            if position and config.signal_mode == "next_open" and prior_index >= 0:
+                should_exit = (position == 1 and bool(long_exit[prior_index])) or (position == -1 and bool(short_exit[prior_index]))
+                if should_exit:
+                    close_position(i, bar_open, "STRATEGY_SIGNAL", prior_index)
                     closed_this_bar = True
 
-            signal_index = i - 1 if config.signal_mode == "next_open" else i
-            fill_price = numeric["open"][i] if config.signal_mode == "next_open" else price
-            may_enter = signal_index >= 0 and not closed_this_bar
-            enter_long = may_enter and long_entry[signal_index]
-            enter_short = may_enter and short_entry[signal_index]
-            if position == 0 and (enter_long or enter_short):
-                open_position(i,1 if enter_long else -1,fill_price)
-            if position==0:
-                for condition,order in deferred_orders:
-                    if not condition[i]:continue
-                    def at(value):return float(value[i]) if isinstance(value,np.ndarray) else value
-                    order_sequence+=1
-                    args=order.arguments
-                    broker.submit(BrokerOrder(str(args.get("id",f"dsl-{order_sequence}")),
-                        "BUY" if order.command=="order.buy" else "SELL_SHORT",str(args.get("type","MARKET")),
-                        float(at(args.get("quantity",1))),at(args.get("limit")) if "limit" in args else None,
-                        at(args.get("stop")) if "stop" in args else None,str(args.get("tif","GTC")),str(args.get("oco")) if "oco" in args else None))
-            unrealized = quantity * (price - entry_price) * position if position else 0.0
-            equity_curve.append(cash + (quantity * entry_price if position else 0.0) + unrealized)
+            pending_fills = broker.process_bar(bar_open, bar_high, bar_low, price, end_of_session=False,
+                                               event=str(data["time"][i]))
+            if pending_fills:
+                for fill in pending_fills:
+                    if position == 0:
+                        open_position(i, 1 if fill.side == "BUY" else -1, float(fill.fill_price), "PENDING_ORDER_FILL", i)
+                    else:
+                        rejection_counts["broker_fill_while_occupied"] += 1
 
-        final_equity = equity_curve[-1]
-        equity_arr = np.asarray(equity_curve)
+            if position:
+                update_excursion(bar_high, bar_low)
+                reason = None
+                exit_price = price
+                stop_price = entry_price * (1.0 - config.stop_loss_pct / 100.0 * position)
+                target_price = entry_price * (1.0 + config.take_profit_pct / 100.0 * position)
+                stop_hit = bool(config.stop_loss_pct) and (bar_low <= stop_price if position == 1 else bar_high >= stop_price)
+                target_hit = bool(config.take_profit_pct) and (bar_high >= target_price if position == 1 else bar_low <= target_price)
+                if stop_hit:
+                    reason, exit_price = "STOP_LOSS", stop_price
+                elif target_hit:
+                    reason, exit_price = "TAKE_PROFIT", target_price
+                elif config.trailing_enabled and config.trailing_distance_pct:
+                    if position == 1:
+                        peak_gain = (peak_price / entry_price - 1.0) * 100.0
+                        trailing_price = peak_price * (1.0 - config.trailing_distance_pct / 100.0)
+                        if peak_gain >= config.trailing_activation_pct and bar_low <= trailing_price:
+                            reason, exit_price = "TRAILING_STOP", trailing_price
+                    else:
+                        peak_gain = (entry_price / trough_price - 1.0) * 100.0 if trough_price > 0 else 0.0
+                        trailing_price = trough_price * (1.0 + config.trailing_distance_pct / 100.0)
+                        if peak_gain >= config.trailing_activation_pct and bar_high >= trailing_price:
+                            reason, exit_price = "TRAILING_STOP", trailing_price
+                if reason:
+                    close_position(i, exit_price, reason, i)
+                    closed_this_bar = True
+                elif config.signal_mode == "bar_close":
+                    should_exit = (position == 1 and bool(long_exit[i])) or (position == -1 and bool(short_exit[i]))
+                    if should_exit:
+                        close_position(i, price, "STRATEGY_SIGNAL", i)
+                        closed_this_bar = True
+
+            signal_index = prior_index if config.signal_mode == "next_open" else i
+            fill_price = bar_open if config.signal_mode == "next_open" else price
+            may_enter = signal_index >= 0 and not closed_this_bar
+            enter_long = bool(may_enter and long_entry[signal_index])
+            enter_short = bool(may_enter and short_entry[signal_index])
+            if position == 0 and (enter_long or enter_short):
+                open_position(i, 1 if enter_long else -1, fill_price, "STRATEGY_SIGNAL", signal_index)
+            elif closed_this_bar and signal_index >= 0 and (long_entry[signal_index] or short_entry[signal_index]):
+                rejection_counts["same_bar_reentry"] += 1
+
+            if config.signal_mode == "bar_close":
+                submit_deferred(i)
+
+            if session_end:
+                broker.expire_day_orders()
+
+            equity_curve.append(equity_at(price))
+
+        final_equity = float(equity_curve[-1])
+        equity_arr = np.asarray(equity_curve, dtype=float)
         peak = np.maximum.accumulate(equity_arr)
         drawdown = np.divide(equity_arr - peak, peak, out=np.zeros_like(equity_arr), where=peak != 0)
-        metrics = {
-            "initial_capital": f"{config.total_capital:,.0f}원", "final_equity": f"{final_equity:,.0f}원",
-            "total_return": f"{((final_equity/config.total_capital)-1)*100:+.2f}%",
-            "trade_count": f"{trade_count}회", "closed_trade_count": f"{closed_trade_count}회",
-            "win_rate": f"{(win_count/closed_trade_count*100 if closed_trade_count else 0):.1f}%",
-            "mdd": f"{np.min(drawdown)*100:.2f}%",
+        gains = sum(max(0.0, float(item["net_pnl"])) for item in closed_trades)
+        losses = abs(sum(min(0.0, float(item["net_pnl"])) for item in closed_trades))
+        profit_factor = gains / losses if losses else (float("inf") if gains else 0.0)
+        total_fees = sum(float(item.get("entry_fee", 0.0)) + float(item.get("exit_fee", 0.0)) for item in closed_trades)
+        return_pct = ((final_equity / config.total_capital) - 1.0) * 100.0
+        mdd_pct = float(np.min(drawdown) * 100.0)
+        win_rate = win_count / closed_trade_count * 100.0 if closed_trade_count else 0.0
+        metrics_numeric = {
+            "initial_capital": float(config.total_capital),
+            "final_equity": final_equity,
+            "total_return_pct": return_pct,
+            "trade_count": trade_count,
+            "closed_trade_count": closed_trade_count,
+            "win_rate_pct": win_rate,
+            "mdd_pct": mdd_pct,
+            "profit_factor": profit_factor,
+            "gross_profit": gains,
+            "gross_loss": losses,
+            "total_cost": total_fees,
+            "open_position": position,
         }
+        metrics = {
+            "initial_capital": f"{config.total_capital:,.0f}원",
+            "final_equity": f"{final_equity:,.0f}원",
+            "total_return": f"{return_pct:+.2f}%",
+            "trade_count": f"{trade_count}회",
+            "closed_trade_count": f"{closed_trade_count}회",
+            "win_rate": f"{win_rate:.1f}%",
+            "mdd": f"{mdd_pct:.2f}%",
+            "profit_factor": "∞" if np.isinf(profit_factor) else f"{profit_factor:.3f}",
+            "total_cost": f"{total_fees:,.2f}원",
+        }
+
         candles = [{"time": chart_time(data["time"][i]), **{key: float(numeric[key][i]) for key in ("open", "high", "low", "close")}} for i in range(size)]
+
         def trend_colors(name, value):
-            """Read the colour state cached while the indicator was calculated."""
             directions = getattr(value, "trend_colors", None)
             return directions if isinstance(directions, np.ndarray) and len(directions) == size else None
+
         def plot(name):
             value = compiled.values.get(name)
-            if not isinstance(value, np.ndarray): return []
+            if not isinstance(value, np.ndarray):
+                return []
             directions = trend_colors(name, value)
             points = []
             for i in range(size):
-                if not np.isfinite(value[i]):
+                try:
+                    finite_value = float(value[i])
+                except (TypeError, ValueError):
                     continue
-                point = {"time": chart_time(data["time"][i]), "value": float(value[i])}
+                if not np.isfinite(finite_value):
+                    continue
+                point = {"time": chart_time(data["time"][i]), "value": finite_value}
                 if directions is not None:
                     point["color"] = "#10b981" if directions[i] >= 0 else "#ef5350"
                 points.append(point)
             return points
+
         reserved = {"open", "high", "low", "close", "volume", "amount", "open_interest", "date", "time",
                     "long_entry", "long_exit", "short_entry", "short_exit", "entry_cond", "exit_cond"}
         indicators, fingerprints = [], set()
         for name, value in compiled.values.items():
             if name in reserved or not isinstance(value, np.ndarray) or value.dtype == bool:
                 continue
-            finite = np.asarray(value, dtype=float)
-            # Entry/exit tabs often repeat the same indicator declarations.
+            try:
+                finite = np.asarray(value, dtype=float)
+            except (TypeError, ValueError):
+                continue
             fingerprint = np.nan_to_num(finite, nan=9.87654321e307).tobytes()
             if fingerprint in fingerprints:
                 continue
@@ -219,18 +455,49 @@ class BacktestEngine:
             points = plot(name)
             if points:
                 price_median = float(np.nanmedian(numeric["close"]))
-                value_median = float(np.nanmedian(np.abs(finite[np.isfinite(finite)])))
+                valid_values = finite[np.isfinite(finite)]
+                value_median = float(np.nanmedian(np.abs(valid_values))) if len(valid_values) else 0.0
                 overlay = price_median == 0 or 0.2 <= value_median / abs(price_median) <= 5.0
                 direction_colored = trend_colors(name, value) is not None
                 indicators.append({"name": name, "data": points, "overlay": overlay,
                                    "direction_colored": direction_colored,
                                    "up_color": "#10b981", "down_color": "#ef5350"})
-        signal_counts={name:int(np.count_nonzero(value)) for name,value in compiled.values.items()
-                       if isinstance(value,np.ndarray) and value.dtype==bool}
-        signal_counts.update({"__long_entry":int(np.count_nonzero(long_entry)),"__long_exit":int(np.count_nonzero(long_exit)),
-                              "__short_entry":int(np.count_nonzero(short_entry)),"__short_exit":int(np.count_nonzero(short_exit))})
-        return {"candles": candles, "ma5": plot("ma_fast"), "ma20": plot("ma_slow"),
-                "bb_upper": [], "bb_lower": [], "markers": markers, "trades": trades,
-                "indicators": indicators,
-                "metrics": metrics, "strategy": {"name": compiled.name, "timeframe": compiled.timeframe},
-                "settings": asdict(config),"diagnostics":{"bars":size,"signal_counts":signal_counts}}
+
+        signal_counts = {name: int(np.count_nonzero(value)) for name, value in compiled.values.items()
+                         if isinstance(value, np.ndarray) and value.dtype == bool}
+        signal_counts.update({"__long_entry": int(np.count_nonzero(long_entry)),
+                              "__long_exit": int(np.count_nonzero(long_exit)),
+                              "__short_entry": int(np.count_nonzero(short_entry)),
+                              "__short_exit": int(np.count_nonzero(short_exit))})
+        mfe_values = [float(item.get("mfe_pct", 0.0)) for item in closed_trades]
+        mae_values = [float(item.get("mae_pct", 0.0)) for item in closed_trades]
+        realized_values = [float(item.get("return_pct", 0.0)) for item in closed_trades]
+        diagnostics = {
+            "bars": size,
+            "signal_counts": signal_counts,
+            "rejections": rejection_counts,
+            "broker_history": broker.snapshot_history(),
+            "closed_trade_count": closed_trade_count,
+            "average_mfe_pct": float(np.mean(mfe_values)) if mfe_values else 0.0,
+            "average_mae_pct": float(np.mean(mae_values)) if mae_values else 0.0,
+            "average_realized_return_pct": float(np.mean(realized_values)) if realized_values else 0.0,
+            "mfe_giveback_pct": (float(np.mean(mfe_values)) - float(np.mean(realized_values))) if mfe_values else 0.0,
+            "data_meta": dict(data.get("_meta") or {}),
+        }
+        return {
+            "candles": candles,
+            "ma5": plot("ma_fast"),
+            "ma20": plot("ma_slow"),
+            "bb_upper": [],
+            "bb_lower": [],
+            "markers": markers,
+            "trades": executions,
+            "closed_trades": closed_trades,
+            "indicators": indicators,
+            "metrics": metrics,
+            "metrics_numeric": metrics_numeric,
+            "equity_curve": [{"time": chart_time(data["time"][i]), "value": float(equity_curve[i])} for i in range(size)],
+            "strategy": {"name": compiled.name, "timeframe": compiled.timeframe},
+            "settings": asdict(config),
+            "diagnostics": diagnostics,
+        }
