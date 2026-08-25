@@ -214,6 +214,22 @@ class DSLSemanticAnalyzer:
                     event_symbols[item.name] = ValueType.SERIES_BOOL if _boolean(scalar_value) else ValueType.SERIES_NUMBER
         analyze_bar(document.on_bar)
         for event in document.events:
-            value = ExpressionTypeChecker(event_symbols, event.line).check(event.condition)
+            checker = ExpressionTypeChecker(event_symbols, event.line)
+            value = checker.check(event.condition)
             if not _boolean(value): raise DSLSemanticError("on 조건은 boolean이어야 합니다.", event.line, code="BAD_EVENT_TYPE")
+            for order in event.orders:
+                if not order.arguments.strip():
+                    continue
+                call = ast.parse(f"f({order.arguments})", mode="eval").body
+                for keyword in call.keywords:
+                    if keyword.arg not in {"limit", "stop"}:
+                        continue
+                    expression = ast.unparse(keyword.value)
+                    price_type = checker.check(expression)
+                    if not _number(price_type):
+                        raise DSLSemanticError(
+                            f"주문 {keyword.arg} 가격은 숫자형 scalar/series여야 합니다.",
+                            order.line,
+                            code="BAD_ORDER_PRICE_TYPE",
+                        )
         return event_symbols
