@@ -293,6 +293,8 @@ class BacktestEngine:
                 fill = float(broker_order.fill_price)
                 qty = float(broker_order.quantity)
                 fee = entry_cost(side, qty * fill)
+                if broker_order.signal_time is not None:
+                    signal_time = broker_order.signal_time
             if side == 1:
                 cash -= qty * fill + fee
             else:
