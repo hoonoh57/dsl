@@ -83,6 +83,19 @@ class TargetLoopService:
             raise ValueError(f"target loop가 없습니다: {loop_id}")
         item = dict(row)
         item["state"] = json.loads(item.pop("state_json"))
+        # Applied head is a mutable pointer owned by stage1_heads, not historical
+        # loop evidence.  Always project the live pointer when reading loop state
+        # so explicit Promote is visible immediately without requiring another
+        # observe iteration.
+        try:
+            head_id = int(self.store.current_head(int(item["root_id"]))["id"])
+            item["state"]["applied_head_experiment_id"] = head_id
+            if isinstance(item["state"].get("last_observation"), dict):
+                observation = dict(item["state"]["last_observation"])
+                observation["promotion_required"] = int(observation.get("experiment_id", -1)) != head_id
+                item["state"]["last_observation"] = observation
+        except Exception:
+            pass
         return item
 
     def _save(self, loop: dict, state: dict):
