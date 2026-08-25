@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Optional
+from typing import Dict, Optional, Sequence
 
 import numpy as np
 
@@ -23,6 +23,19 @@ class StrategySettings:
     commission_pct: float = 0.015
     sell_tax_pct: float = 0.18
     slippage_pct: float = 0.0
+    entry_start_time: int = 0
+    entry_end_time: int = 240000
+    max_entries_per_day: int = 0
+
+    @staticmethod
+    def _valid_hhmmss(value: int, *, allow_24: bool = False) -> bool:
+        if allow_24 and value == 240000:
+            return True
+        if value < 0 or value > 235959:
+            return False
+        hh, remainder = divmod(int(value), 10000)
+        mm, ss = divmod(remainder, 100)
+        return 0 <= hh <= 23 and 0 <= mm <= 59 and 0 <= ss <= 59
 
     def validate(self):
         if self.total_capital <= 0:
@@ -37,6 +50,14 @@ class StrategySettings:
                 raise ValueError(f"{name}은 음수일 수 없습니다.")
         if self.signal_mode not in {"bar_close", "next_open"}:
             raise ValueError("signal_mode는 bar_close 또는 next_open이어야 합니다.")
+        if not isinstance(self.entry_start_time, int) or not self._valid_hhmmss(self.entry_start_time):
+            raise ValueError("entry_start_time은 유효한 HHMMSS 정수여야 합니다.")
+        if not isinstance(self.entry_end_time, int) or not self._valid_hhmmss(self.entry_end_time, allow_24=True):
+            raise ValueError("entry_end_time은 유효한 HHMMSS 정수 또는 240000이어야 합니다.")
+        if self.entry_start_time >= self.entry_end_time:
+            raise ValueError("entry_start_time은 entry_end_time보다 빨라야 합니다.")
+        if not isinstance(self.max_entries_per_day, int) or self.max_entries_per_day < 0:
+            raise ValueError("max_entries_per_day는 0 이상의 정수여야 합니다.")
 
 
 def synthetic_market(bars_count=200):
@@ -97,6 +118,7 @@ class BacktestEngine:
         settings: Optional[Dict] = None,
         market: Optional[Dict] = None,
         data_timeframe: Optional[str] = None,
+        entry_gate: Optional[Sequence[bool]] = None,
     ):
         config = StrategySettings(**(settings or {}))
         if initial_capital is not None:
@@ -125,6 +147,12 @@ class BacktestEngine:
             )
 
         size = len(numeric["close"])
+        if entry_gate is None:
+            higher_layer_gate = np.ones(size, dtype=bool)
+        else:
+            higher_layer_gate = np.asarray(entry_gate, dtype=bool)
+            if higher_layer_gate.ndim != 1 or len(higher_layer_gate) != size:
+                raise ValueError(f"entry_gate 길이는 시장 데이터 bar 수와 같아야 합니다: {len(higher_layer_gate)} != {size}")
         long_entry = np.zeros(size, dtype=bool)
         long_exit = np.zeros(size, dtype=bool)
         short_entry = np.zeros(size, dtype=bool)
@@ -170,6 +198,7 @@ class BacktestEngine:
         closed_trades = []
         broker = BrokerEmulator()
         order_sequence = 0
+        entries_by_date = {}
         rejection_counts = {
             "same_bar_reentry": 0,
             "position_occupied": 0,
@@ -177,12 +206,26 @@ class BacktestEngine:
             "broker_rejected": 0,
             "pending_canceled_position_occupied": 0,
             "pending_suppressed_position_occupied": 0,
+            "higher_layer_gate_blocked": 0,
+            "entry_time_blocked": 0,
+            "entry_count_blocked": 0,
         }
 
         def next_order_id(prefix="bt"):
             nonlocal order_sequence
             order_sequence += 1
             return f"{prefix}-{order_sequence}"
+
+        def entry_policy_reason(i: int):
+            if not bool(higher_layer_gate[i]):
+                return "higher_layer_gate_blocked"
+            current_time = int(numeric["time"][i])
+            if current_time < config.entry_start_time or current_time >= config.entry_end_time:
+                return "entry_time_blocked"
+            current_date = int(numeric["date"][i])
+            if config.max_entries_per_day and entries_by_date.get(current_date, 0) >= config.max_entries_per_day:
+                return "entry_count_blocked"
+            return None
 
         def equity_at(price: float):
             if position == 1:
@@ -268,6 +311,10 @@ class BacktestEngine:
             if position:
                 rejection_counts["position_occupied"] += 1
                 return False
+            policy_reason = entry_policy_reason(i)
+            if policy_reason:
+                rejection_counts[policy_reason] += 1
+                return False
             signal_i = i if signal_index is None else int(signal_index)
             signal_time = data["time"][signal_i]
             fill_time = data["time"][i]
@@ -307,6 +354,8 @@ class BacktestEngine:
             peak_price = fill
             trough_price = fill
             trade_count += 1
+            current_date = int(numeric["date"][i])
+            entries_by_date[current_date] = entries_by_date.get(current_date, 0) + 1
             label = "BUY" if side == 1 else "SHORT"
             marker_position = "belowBar" if side == 1 else "aboveBar"
             marker_shape = "arrowUp" if side == 1 else "arrowDown"
@@ -496,6 +545,11 @@ class BacktestEngine:
                 if position != 0 or matched_entry_reserved:
                     broker.cancel(order.id, "position occupied", event=str(data["time"][i]))
                     rejection_counts["pending_canceled_position_occupied"] += 1
+                    return None
+                policy_reason = entry_policy_reason(i)
+                if policy_reason:
+                    broker.cancel(order.id, policy_reason, event=str(data["time"][i]))
+                    rejection_counts[policy_reason] += 1
                     return None
                 side = 1 if order.side == "BUY" else -1
                 terms = entry_terms(i, side, raw_match_price)
@@ -736,6 +790,12 @@ class BacktestEngine:
             ) if mfe_values else 0.0,
             "data_meta": dict(data.get("_meta") or {}),
             "execution_authority": "BrokerEmulator",
+            "entry_policy": {
+                "entry_start_time": config.entry_start_time,
+                "entry_end_time": config.entry_end_time,
+                "max_entries_per_day": config.max_entries_per_day,
+                "higher_layer_gate_supplied": entry_gate is not None,
+            },
         }
         return {
             "candles": candles,
