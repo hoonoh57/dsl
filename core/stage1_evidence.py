@@ -15,7 +15,6 @@ class EvidenceBuilder:
         commission_rate = float(settings.get("commission_pct", 0.0) or 0.0) / 100.0
         tax_rate = float(settings.get("sell_tax_pct", 0.0) or 0.0) / 100.0
         slippage_rate = float(settings.get("slippage_pct", 0.0) or 0.0) / 100.0
-
         entry_notional = quantity * entry
         exit_notional = quantity * exit_
         entry_commission = entry_notional * commission_rate
@@ -114,7 +113,8 @@ class EvidenceBuilder:
         risk_exit = [row for row in broker_history if row.get("origin") == "RISK_EXIT"]
         pending_lifecycle = [row for row in broker_history if row.get("origin") == "DSL_PENDING"]
         return {
-            "schema": "stage1_evidence/v4",
+            "schema": "stage1_evidence/v3",
+            "schema_revision": 4,
             "experiment_id": experiment.get("id"),
             "data": experiment.get("provenance", {}),
             "execution_settings": settings,
