@@ -1,12 +1,13 @@
 param(
-    [ValidateSet('Start', 'Status', 'Stop', 'Preflight')]
+    [ValidateSet('Start', 'Status', 'Stop', 'Preflight', 'Smoke')]
     [string]$Action = 'Start',
     [string]$ChartRepo = '',
     [string]$BindHost = '127.0.0.1',
     [int]$Stage1Port = 8000,
     [int]$ChartPort = 5174,
     [switch]$InstallDependencies,
-    [switch]$NoBrowser
+    [switch]$NoBrowser,
+    [switch]$KeepRunning
 )
 
 Set-StrictMode -Version 2.0
@@ -131,6 +132,7 @@ function Assert-Preflight {
     if (-not (Test-Path -LiteralPath $ChartRepo -PathType Container)) { Fail ('Chart repo not found: ' + $ChartRepo) }
     if (-not (Test-Path -LiteralPath (Join-Path $ChartRepo 'scripts\serve.mjs') -PathType Leaf)) { Fail 'Chart repo scripts\serve.mjs is missing.' }
     if (-not (Test-Path -LiteralPath (Join-Path $ChartRepo 'src\shell\chart-document-viewer.html') -PathType Leaf)) { Fail 'Chart Document viewer is missing in the Chart SSOT repo.' }
+    if ($Action -eq 'Smoke' -and -not (Test-Path -LiteralPath (Join-Path $DslRoot 'scripts\stage1_operational_smoke.py') -PathType Leaf)) { Fail 'Stage 1 operational smoke harness is missing.' }
 
     $node = Get-CommandPath 'node.exe'
     if ($null -eq $node) { $node = Get-CommandPath 'node' }
@@ -219,6 +221,7 @@ $chartProcess = $null
 $stage1Process = $null
 $startedChart = $false
 $startedStage1 = $false
+$pidStateWritten = $false
 
 try {
     $chartReady = Test-HttpMarker $ChartHealth '"app":"cascading-feature-solution"'
@@ -259,7 +262,29 @@ try {
         chartBase = $ChartBase
         createdAt = (Get-Date).ToString('o')
     }
-    Write-PidState $state
+
+    if ($Action -ne 'Smoke' -or $KeepRunning) {
+        Write-PidState $state
+        $pidStateWritten = $true
+    }
+
+    if ($Action -eq 'Smoke') {
+        $smokeScript = Join-Path $DslRoot 'scripts\stage1_operational_smoke.py'
+        $smokeOutput = & $preflight.Python $smokeScript '--stage1-base' $Stage1Base '--chart-base' $ChartBase 2>&1
+        $smokeExit = $LASTEXITCODE
+        if ($smokeExit -ne 0) {
+            $tail = ($smokeOutput | Select-Object -Last 5) -join ' | '
+            throw ('Operational smoke failed: ' + $tail)
+        }
+        if (-not $KeepRunning) {
+            if ($startedStage1 -and $null -ne $stage1Process) { Stop-Process -Id $stage1Process.Id -Force -ErrorAction SilentlyContinue }
+            if ($startedChart -and $null -ne $chartProcess) { Stop-Process -Id $chartProcess.Id -Force -ErrorAction SilentlyContinue }
+        }
+        $passLine = [string]($smokeOutput | Select-Object -Last 1)
+        if ($passLine -notlike '[PASS]*') { $passLine = '[PASS] Stage 1 operational smoke completed.' }
+        Write-Host $passLine
+        exit 0
+    }
 
     if (-not $NoBrowser) { Start-Process $Stage1Url | Out-Null }
     Write-Host ('[PASS] Stage 1 stack ready: ' + $Stage1Url)
@@ -271,6 +296,6 @@ catch {
     if ($startedChart -and $null -ne $chartProcess) {
         Stop-Process -Id $chartProcess.Id -Force -ErrorAction SilentlyContinue
     }
-    Remove-PidState
+    if ($pidStateWritten) { Remove-PidState }
     Fail $_.Exception.Message
 }
