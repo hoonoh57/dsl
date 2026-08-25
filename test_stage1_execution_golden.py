@@ -13,12 +13,14 @@ LONG_DSL = '''strategy "GoldenLong" {
 
 
 def long_market():
+    # The final bar intentionally remains below the prior close so this fixture
+    # contains exactly one round trip. Re-entry behavior is covered separately.
     return {
         "time": ["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04"],
         "open": [100.0, 105.0, 95.0, 90.0],
         "high": [101.0, 111.0, 97.0, 92.0],
         "low": [99.0, 104.0, 89.0, 88.0],
-        "close": [100.0, 110.0, 90.0, 91.0],
+        "close": [100.0, 110.0, 90.0, 89.0],
         "volume": [1000.0] * 4,
     }
 
