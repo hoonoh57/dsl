@@ -44,15 +44,15 @@ class TacticalStoreAndCohortTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             store = TacticalScenarioStore(Path(folder) / "tactical.db")
             definition = {
-                "scenario_hash": "scenario-1",
                 "regime": {"regime_id": "risk-on"},
                 "unit": {"unit_id": "HIGH_BETA"},
             }
             scenario = store.create_scenario(definition)
             same = store.create_scenario(definition)
             self.assertEqual(scenario["id"], same["id"])
+            self.assertEqual(scenario["definition"]["scenario_hash"], scenario["scenario_hash"])
             result = {
-                "scenario_hash": "scenario-1",
+                "scenario_hash": scenario["scenario_hash"],
                 "run_hash": "run-1",
                 "status": "COMPLETED",
                 "cohort": {"symbols": 2},
@@ -63,11 +63,20 @@ class TacticalStoreAndCohortTest(unittest.TestCase):
             self.assertEqual(head["run_id"], run["id"])
             self.assertEqual(head["run"]["result"]["run_hash"], "run-1")
 
+    def test_scenario_rejects_false_claimed_content_hash(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = TacticalScenarioStore(Path(folder) / "tactical.db")
+            with self.assertRaisesRegex(ValueError, "definition 내용"):
+                store.create_scenario({
+                    "scenario_hash": "forged",
+                    "regime": {"regime_id": "risk-on"},
+                    "unit": {"unit_id": "HIGH_BETA"},
+                })
+
     def test_run_rejects_wrong_scenario_hash(self):
         with tempfile.TemporaryDirectory() as folder:
             store = TacticalScenarioStore(Path(folder) / "tactical.db")
             scenario = store.create_scenario({
-                "scenario_hash": "scenario-1",
                 "regime": {"regime_id": "risk-on"},
                 "unit": {"unit_id": "HIGH_BETA"},
             })
