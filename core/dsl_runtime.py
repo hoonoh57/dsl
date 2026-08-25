@@ -25,9 +25,66 @@ def _series(value, size: int):
     return np.full(size, value)
 
 
+def _finite_scalar(value, label: str) -> float:
+    if isinstance(value, (bool, np.bool_)):
+        raise DSLRuntimeError(f"{label}은 유한한 숫자여야 합니다.")
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise DSLRuntimeError(f"{label}은 유한한 숫자여야 합니다.") from exc
+    if not np.isfinite(number):
+        raise DSLRuntimeError(f"{label}은 유한한 숫자여야 합니다.")
+    return number
+
+
+def _integer_at_least(value, minimum: int, label: str) -> int:
+    number = _finite_scalar(value, label)
+    if not number.is_integer() or number < minimum:
+        raise DSLRuntimeError(f"{label}은 {minimum} 이상의 정수여야 합니다.")
+    return int(number)
+
+
+def _positive_period(value, label: str) -> int:
+    return _integer_at_least(value, 1, label)
+
+
+def _nonnegative_bars(value, label: str) -> int:
+    return _integer_at_least(value, 0, label)
+
+
+def _positive_number(value, label: str) -> float:
+    number = _finite_scalar(value, label)
+    if number <= 0:
+        raise DSLRuntimeError(f"{label}은 0보다 커야 합니다.")
+    return number
+
+
+def _jma_phase(value) -> float:
+    number = _finite_scalar(value, "ta.jma phase")
+    if number < -100 or number > 100:
+        raise DSLRuntimeError("ta.jma phase는 -100~100 범위여야 합니다.")
+    return number
+
+
+def _ma_method(value, label: str) -> str:
+    method = str(value).strip().lower()
+    allowed = {"simple", "단순", "exponential", "지수", "weighted", "가중"}
+    if method not in allowed:
+        raise DSLRuntimeError(f"{label}은 simple/exponential/weighted(단순/지수/가중) 중 하나여야 합니다.")
+    return method
+
+
+def _regime_initial(value) -> int:
+    number = _finite_scalar(value, "state.regime initial")
+    if not number.is_integer() or int(number) not in {-1, 0, 1}:
+        raise DSLRuntimeError("state.regime initial은 -1, 0, 1 중 하나여야 합니다.")
+    return int(number)
+
+
 class ExpressionEvaluator(ast.NodeVisitor):
     def __init__(self, values: Dict[str, object], size: int):
         self.values, self.size = values, size
+
         def session_current(field, operation):
             source, dates = np.asarray(values[field], float), np.asarray(values["date"])
             out = np.full(size, np.nan); current_date = None; current = np.nan
@@ -37,6 +94,7 @@ class ExpressionEvaluator(ast.NodeVisitor):
                 elif operation == "low": current = min(current, source[i])
                 out[i] = current
             return out
+
         def session_previous(field, operation):
             source, dates = np.asarray(values[field], float), np.asarray(values["date"])
             out = np.full(size, np.nan); previous = np.nan; current_date = None; aggregate = np.nan
@@ -49,43 +107,158 @@ class ExpressionEvaluator(ast.NodeVisitor):
                 elif operation == "close": aggregate = source[i]
                 out[i] = previous
             return out
-        def offset(fn):
-            return lambda series, period, bars=0: CoreTALib.shift(fn(series, period), int(bars))
+
+        def offset(fn, name):
+            def apply(series, period, bars=0):
+                safe_period = _positive_period(period, f"{name} period")
+                safe_bars = _nonnegative_bars(bars, f"{name} bars")
+                return CoreTALib.shift(fn(series, safe_period), safe_bars)
+            return apply
+
+        def ma_fn(series, period, method="simple", bars=0):
+            safe_period = _positive_period(period, "ta.ma period")
+            safe_method = _ma_method(method, "ta.ma method")
+            safe_bars = _nonnegative_bars(bars, "ta.ma bars")
+            return CoreTALib.shift(CoreTALib.ma(series, safe_period, safe_method), safe_bars)
+
+        def rsi_fn(*args):
+            if len(args) == 1:
+                return CoreTALib.rsi(values["close"], _positive_period(args[0], "ta.rsi period"))
+            return CoreTALib.rsi(args[0], _positive_period(args[1], "ta.rsi period"))
+
         def sum_fn(series, period=None, bars=0):
-            result = np.cumsum(np.nan_to_num(series)) if period is None else CoreTALib.rolling_sum(series, period)
-            return CoreTALib.shift(result, int(bars))
+            safe_bars = _nonnegative_bars(bars, "ta.sum bars")
+            result = np.cumsum(np.nan_to_num(series)) if period is None else CoreTALib.rolling_sum(
+                series, _positive_period(period, "ta.sum period")
+            )
+            return CoreTALib.shift(result, safe_bars)
+
+        def roc_fn(series, period):
+            return CoreTALib.roc(series, _positive_period(period, "ta.roc period"))
+
+        def jma_fn(*args):
+            if len(args) == 3:
+                series = values["close"]
+                length, phase, power = args
+            else:
+                series, length, phase, power = args
+            return CoreTALib.jma(
+                series,
+                _positive_period(length, "ta.jma length"),
+                _jma_phase(phase),
+                _positive_period(power, "ta.jma power"),
+            )
+
+        def supertrend_fn(period=10, multiplier=3.0, direction=False):
+            result = CoreTALib.supertrend(
+                values["high"], values["low"], values["close"],
+                _positive_period(period, "ta.supertrend period"),
+                _positive_number(multiplier, "ta.supertrend multiplier"),
+            )
+            return result[1] if direction else result[0]
+
+        def macd_fn(series, short=12, long=26, method="exponential"):
+            return CoreTALib.macd(
+                series,
+                _positive_period(short, "ta.macd short"),
+                _positive_period(long, "ta.macd long"),
+                _ma_method(method, "ta.macd method"),
+            )
+
+        def atr_fn(period=14):
+            return CoreTALib.atr(values["high"], values["low"], values["close"], _positive_period(period, "ta.atr period"))
+
+        def adx_fn(period=14):
+            return CoreTALib.adx(values["high"], values["low"], values["close"], _positive_period(period, "ta.adx period"))
+
+        def trix_fn(period=12):
+            return CoreTALib.trix(values["close"], _positive_period(period, "ta.trix period"))
+
+        def cci_fn(period=20):
+            return CoreTALib.cci(values["high"], values["low"], values["close"], _positive_period(period, "ta.cci period"))
+
+        def nrange_fn(period):
+            return CoreTALib.nrange(values["high"], values["low"], _positive_period(period, "ta.nrange period"))
+
+        def williams_r_fn(period):
+            return CoreTALib.williams_r(
+                values["high"], values["low"], values["close"], _positive_period(period, "ta.williams_r period")
+            )
+
+        def abs_range_fn(period):
+            return CoreTALib.abs_range(values["close"], _positive_period(period, "ta.abs_range period"))
+
+        def sum_abs_r_fn(period):
+            return CoreTALib.sum_abs_r(values["close"], _positive_period(period, "ta.sum_abs_r period"))
+
+        def vhf_fn(period):
+            return CoreTALib.vhf(values["close"], _positive_period(period, "ta.vhf period"))
+
+        def shift_fn(series, bars):
+            return CoreTALib.shift(series, _nonnegative_bars(bars, "ta.shift bars"))
+
+        def value_when_fn(occurrence, condition, series):
+            return CoreTALib.value_when(_nonnegative_bars(occurrence, "ta.value_when occurrence"), condition, series)
+
+        def ready_after_fn(trigger, bars):
+            return CoreStateLib.ready_after(trigger, _nonnegative_bars(bars, "state.ready_after bars"))
+
+        def hold_fn(condition, bars):
+            return CoreStateLib.hold(condition, _nonnegative_bars(bars, "state.hold bars"))
+
+        def persist_fn(condition, bars):
+            return CoreStateLib.persist(condition, _positive_period(bars, "state.persist bars"))
+
+        def regime_fn(bullish, bearish, initial=0):
+            return CoreStateLib.regime(bullish, bearish, _regime_initial(initial))
+
         self.functions = {
-            "ta.sma": offset(CoreTALib.sma), "ta.ema": offset(CoreTALib.ema), "ta.wma": offset(CoreTALib.wma),
-            "ta.rma": offset(CoreTALib.rma),
-            "ta.ma": lambda series, period, method="simple", bars=0: CoreTALib.shift(CoreTALib.ma(series, period, method), int(bars)),
-            "ta.rsi": lambda *args: CoreTALib.rsi(values["close"], args[0]) if len(args) == 1 else CoreTALib.rsi(args[0], args[1]),
+            "ta.sma": offset(CoreTALib.sma, "ta.sma"),
+            "ta.ema": offset(CoreTALib.ema, "ta.ema"),
+            "ta.wma": offset(CoreTALib.wma, "ta.wma"),
+            "ta.rma": offset(CoreTALib.rma, "ta.rma"),
+            "ta.ma": ma_fn,
+            "ta.rsi": rsi_fn,
             "ta.crossover": CoreTALib.crossover,
-            "ta.crossunder": CoreTALib.crossunder, "ta.highest": offset(CoreTALib.highest),
-            "ta.lowest": offset(CoreTALib.lowest), "ta.sum": sum_fn,
-            "ta.stdev": offset(CoreTALib.stdev), "ta.roc": CoreTALib.roc,
-            "ta.jma": lambda *args: (CoreTALib.jma(values["close"], *args) if len(args) <= 3 else CoreTALib.jma(*args)),
-            "ta.supertrend": lambda period=10, multiplier=3.0: CoreTALib.supertrend(
-                values["high"], values["low"], values["close"], period, multiplier)[0],
-            "ta.supertrend_direction": lambda period=10, multiplier=3.0: CoreTALib.supertrend(
-                values["high"], values["low"], values["close"], period, multiplier)[1],
-            "ta.macd": CoreTALib.macd,
-            "ta.atr": lambda period=14: CoreTALib.atr(values["high"], values["low"], values["close"], period),
-            "ta.adx": lambda period=14: CoreTALib.adx(values["high"], values["low"], values["close"], period),
-            "ta.trix": lambda period=12: CoreTALib.trix(values["close"], period),
-            "ta.cci": lambda period=20: CoreTALib.cci(values["high"], values["low"], values["close"], period),
-            "ta.nrange": lambda period: CoreTALib.nrange(values["high"], values["low"], period),
-            "ta.williams_r": lambda period: CoreTALib.williams_r(values["high"], values["low"], values["close"], period),
-            "ta.abs_range": lambda period: CoreTALib.abs_range(values["close"], period),
-            "ta.sum_abs_r": lambda period: CoreTALib.sum_abs_r(values["close"], period),
-            "ta.vhf": lambda period: CoreTALib.vhf(values["close"], period),
-            "ta.shift": CoreTALib.shift, "ta.count_since": CoreTALib.count_since,
-            "ta.bars_since": CoreTALib.bars_since, "ta.highest_since": CoreTALib.highest_since,
-            "ta.lowest_since": CoreTALib.lowest_since, "ta.value_when": CoreTALib.value_when,
+            "ta.crossunder": CoreTALib.crossunder,
+            "ta.highest": offset(CoreTALib.highest, "ta.highest"),
+            "ta.lowest": offset(CoreTALib.lowest, "ta.lowest"),
+            "ta.sum": sum_fn,
+            "ta.stdev": offset(CoreTALib.stdev, "ta.stdev"),
+            "ta.roc": roc_fn,
+            "ta.jma": jma_fn,
+            "ta.supertrend": lambda period=10, multiplier=3.0: supertrend_fn(period, multiplier, False),
+            "ta.supertrend_direction": lambda period=10, multiplier=3.0: supertrend_fn(period, multiplier, True),
+            "ta.macd": macd_fn,
+            "ta.atr": atr_fn,
+            "ta.adx": adx_fn,
+            "ta.trix": trix_fn,
+            "ta.cci": cci_fn,
+            "ta.nrange": nrange_fn,
+            "ta.williams_r": williams_r_fn,
+            "ta.abs_range": abs_range_fn,
+            "ta.sum_abs_r": sum_abs_r_fn,
+            "ta.vhf": vhf_fn,
+            "ta.shift": shift_fn,
+            "ta.count_since": CoreTALib.count_since,
+            "ta.bars_since": CoreTALib.bars_since,
+            "ta.highest_since": CoreTALib.highest_since,
+            "ta.lowest_since": CoreTALib.lowest_since,
+            "ta.value_when": value_when_fn,
             "logic.ifelse": np.where,
-            "math.pow": np.power, "math.log": np.log, "math.log10": np.log10, "math.abs": np.abs,
-            "math.sqrt": np.sqrt, "math.sin": np.sin, "math.cos": np.cos, "math.tan": np.tan,
-            "math.asin": np.arcsin, "math.acos": np.arccos, "math.atan": np.arctan,
-            "math.max": np.maximum, "math.min": np.minimum,
+            "math.pow": np.power,
+            "math.log": np.log,
+            "math.log10": np.log10,
+            "math.abs": np.abs,
+            "math.sqrt": np.sqrt,
+            "math.sin": np.sin,
+            "math.cos": np.cos,
+            "math.tan": np.tan,
+            "math.asin": np.arcsin,
+            "math.acos": np.arccos,
+            "math.atan": np.arctan,
+            "math.max": np.maximum,
+            "math.min": np.minimum,
             "session.day_open": lambda: session_current("open", "open"),
             "session.day_high": lambda: session_current("high", "high"),
             "session.day_low": lambda: session_current("low", "low"),
@@ -93,14 +266,24 @@ class ExpressionEvaluator(ast.NodeVisitor):
             "session.prev_high": lambda: session_previous("high", "high"),
             "session.prev_low": lambda: session_previous("low", "low"),
             "session.prev_close": lambda: session_previous("close", "close"),
-            "state.edge": CoreStateLib.edge, "state.falling_edge": CoreStateLib.falling_edge,
-            "state.ready_after": CoreStateLib.ready_after, "state.hold": CoreStateLib.hold,
-            "state.persist": CoreStateLib.persist, "state.latch": CoreStateLib.latch,
-            "state.count": CoreStateLib.count, "state.regime": CoreStateLib.regime,
+            "state.edge": CoreStateLib.edge,
+            "state.falling_edge": CoreStateLib.falling_edge,
+            "state.ready_after": ready_after_fn,
+            "state.hold": hold_fn,
+            "state.persist": persist_fn,
+            "state.latch": CoreStateLib.latch,
+            "state.count": CoreStateLib.count,
+            "state.regime": regime_fn,
         }
         mtf = MultiTimeframeContext(values)
-        self.functions.update({"mtf.open":mtf.open,"mtf.high":mtf.high,"mtf.low":mtf.low,
-                               "mtf.close":mtf.close,"mtf.volume":mtf.volume,"mtf.sma":mtf.sma})
+        self.functions.update({
+            "mtf.open": mtf.open,
+            "mtf.high": mtf.high,
+            "mtf.low": mtf.low,
+            "mtf.close": mtf.close,
+            "mtf.volume": mtf.volume,
+            "mtf.sma": lambda timeframe, period: mtf.sma(timeframe, _positive_period(period, "mtf.sma period")),
+        })
 
     def evaluate(self, expression: str):
         expression = re.sub(r"\btrue\b", "True", expression, flags=re.I)
@@ -116,6 +299,7 @@ class ExpressionEvaluator(ast.NodeVisitor):
         raise DSLRuntimeError(f"정의되지 않은 변수: {node.id}")
 
     def visit_Constant(self, node): return node.value
+
     def visit_Attribute(self, node):
         if isinstance(node.value, ast.Name): return f"{node.value.id}.{node.attr}"
         raise DSLRuntimeError("허용되지 않은 속성 접근입니다.")
