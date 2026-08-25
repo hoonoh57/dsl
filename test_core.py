@@ -16,7 +16,7 @@ from core.indicators import CoreTALib
 from core.state import CoreStateLib
 from core.transpiler import CodeTranspiler
 from core.kiwoom_rest import KiwoomAPIError, KiwoomRESTClient, load_env
-from core.db import get_all_strategies, init_db
+from core.db import get_categories, init_db
 from core.capabilities import TA_FUNCTIONS
 from core.prompt_template import generate_full_llm_prompt, playbook_hash
 from main import (BacktestRequest, PromptPackageRequest, SourceValidateRequest, TranspileRequest,
@@ -299,12 +299,12 @@ A=Avg(C,60); F=JMA(7,50,2); S=JMA(50,50,4); CrossUp(F,S) And C>=A
     def test_jma_matches_chart_base_trading_reference(self):
         values=np.asarray([100,101,103,102,104,107,105,108,110,109,111,114,113,116,118,117,119,122,120,123],float)
         actual=CoreTALib.jma(values,7,50,2)
-        expected=np.asarray([100.0,100.0015971081,100.0227084880,100.0620476487,100.1456744429,
-                             100.3148050978,100.5432357443,100.8667948840,101.3114051504,
-                             101.8140558461,102.3858244303,103.0470120471,103.7750023800,
-                             104.5766007128,105.4472034060,106.3599388061,107.3152366907,
-                             108.3268518140,109.3487898271,110.3811559976])
-        np.testing.assert_allclose(actual,expected,rtol=1e-9,atol=1e-9)
+        # Golden values are taken from chart_base_trading JmaIncrementalState:
+        # running mean during the warm-up, then one-decimal JMA updates.
+        expected=np.asarray([100.0,100.5,101.33333333333333,101.5,102.0,102.83333333333333,
+                             103.14285714285714,105.6,108.1,109.2,110.3,112.3,113.2,114.7,
+                             116.7,117.5,118.5,120.4,120.9,122.0])
+        np.testing.assert_allclose(actual,expected,rtol=1e-12,atol=1e-12)
 
     def test_jma_stores_precomputed_color_array(self):
         dsl='''strategy "JmaColor" {
@@ -312,9 +312,12 @@ A=Avg(C,60); F=JMA(7,50,2); S=JMA(50,50,4); CrossUp(F,S) And C>=A
             line = ta.jma(close,7,50,2)
             long_entry = false
         }'''
-        compiled=DSLRuntime.compile(dsl, BacktestEngine.run(dsl,bars_count=20)["market_numeric"])
-        self.assertIn("line",compiled.series_colors)
-        self.assertEqual(len(compiled.series_colors["line"]),20)
+        close=np.asarray([100,101,103,102,104,107,105,108,110,109,111,114,113,116,118,117,119,122,120,123],float)
+        market={"open":close,"high":close+1,"low":close-1,"close":close,"volume":np.ones(len(close))}
+        compiled=DSLRuntime.compile(dsl,market)
+        trend_colors=getattr(compiled.values["line"],"trend_colors",None)
+        self.assertIsNotNone(trend_colors)
+        self.assertEqual(len(trend_colors),20)
 
     def test_jma_chart_points_have_rising_and_falling_colors(self):
         dsl='''strategy "JmaChartColor" {
@@ -325,8 +328,8 @@ A=Avg(C,60); F=JMA(7,50,2); S=JMA(50,50,4); CrossUp(F,S) And C>=A
         result=BacktestEngine.run(dsl,bars_count=80)
         series=next(item for item in result["indicators"] if item["name"]=="j")
         colors={point.get("color") for point in series["data"] if point.get("color")}
-        self.assertIn("#1e78ff",colors)
-        self.assertIn("#ff7a1a",colors)
+        self.assertTrue(series["direction_colored"])
+        self.assertEqual(colors,{series["up_color"],series["down_color"]})
 
     def test_supertrend_returns_state_and_chart_colors(self):
         dsl='''strategy "SuperTrend" {
@@ -346,17 +349,20 @@ A=Avg(C,60); F=JMA(7,50,2); S=JMA(50,50,4); CrossUp(F,S) And C>=A
 
     def test_mtf_exposes_only_previous_confirmed_higher_timeframe_bar(self):
         market={
-            "open":[100,101,102,103,104,105],"high":[101,102,103,104,105,106],
-            "low":[99,100,101,102,103,104],"close":[100,101,102,103,104,105],
-            "volume":[1,1,1,1,1,1],"time":["20260825090000","20260825090500","20260825091000",
-                                                      "20260825091500","20260825092000","20260825092500"]}
+            "open":np.asarray([100,101,102,103,104,105],float),
+            "high":np.asarray([101,102,103,104,105,106],float),
+            "low":np.asarray([99,100,101,102,103,104],float),
+            "close":np.asarray([100,101,102,103,104,105],float),
+            "volume":np.ones(6),
+            "date":np.asarray([20260825]*6,float),
+            "time":np.asarray([90000,90500,91000,91500,92000,92500],float),
+        }
         dsl='''strategy "MTFConfirmed" {
             timeframe = "5m"
             c15 = mtf.close("15m")
             long_entry = false
         }'''
-        compiled=DSLRuntime.compile(dsl,{key:np.asarray(value) for key,value in market.items() if key!="time"},
-                                    market_times=market["time"],base_timeframe="5m")
+        compiled=DSLRuntime.compile(dsl,market)
         values=compiled.values["c15"]
         self.assertTrue(np.isnan(values[0]))
         self.assertTrue(np.isnan(values[1]))
@@ -385,8 +391,9 @@ A=Avg(C,60); F=JMA(7,50,2); S=JMA(50,50,4); CrossUp(F,S) And C>=A
         }'''
         result=BacktestEngine.run(dsl,bars_count=60)
         names={item["name"] for item in result["indicators"]}
-        self.assertIn("armed",names)
         self.assertIn("level",names)
+        self.assertIn("armed",result["diagnostics"]["signal_counts"])
+        self.assertIn("long_entry",result["diagnostics"]["signal_counts"])
 
     def test_dsl_accepts_valid_limit_order_and_rejects_missing_price(self):
         valid='''strategy "Limit" {
@@ -411,17 +418,17 @@ A=Avg(C,60); F=JMA(7,50,2); S=JMA(50,50,4); CrossUp(F,S) And C>=A
                 "close":[101,111,108,109],"volume":[1000]*4}
         result=BacktestEngine.run(dsl,market=market)
         self.assertTrue(any(item["side"]=="BUY" for item in result["trades"]))
-        history=result["broker_history"]
+        history=result["diagnostics"]["broker_history"]
         self.assertIn("ACCEPTED",{item["status"] for item in history})
         self.assertIn("FILLED",{item["status"] for item in history})
 
     def test_broker_order_lifecycle_limit_stop_oco_and_day_expiry(self):
         from core.broker import BrokerEmulator, BrokerOrder, OrderStatus
         broker=BrokerEmulator()
-        a=broker.submit(BrokerOrder("A","BUY","LIMIT",limit_price=95,tif="GTC",oco_group="G"))
-        b=broker.submit(BrokerOrder("B","BUY","STOP",stop_price=105,tif="GTC",oco_group="G"))
+        a=broker.submit(BrokerOrder("A","BUY","LIMIT",limit_price=95,tif="GTC",oco="G"))
+        b=broker.submit(BrokerOrder("B","BUY","STOP",stop_price=105,tif="GTC",oco="G"))
         self.assertEqual(a.status,OrderStatus.ACCEPTED)
-        broker.process_bar(bar_index=0,open_price=100,high_price=101,low_price=94,close_price=96)
+        broker.process_bar(100,101,94,96)
         self.assertEqual(a.status,OrderStatus.FILLED)
         self.assertEqual(b.status,OrderStatus.CANCELED)
         day=broker.submit(BrokerOrder("DAY","BUY","LIMIT",limit_price=1,tif="DAY"))
@@ -433,10 +440,10 @@ A=Avg(C,60); F=JMA(7,50,2); S=JMA(50,50,4); CrossUp(F,S) And C>=A
             db_path=Path(folder)/"dsl.db"
             init_db(db_path)
             init_db(db_path)
-            rows=get_all_strategies(db_path)
+            rows=get_categories(db_path)
             self.assertGreaterEqual(len(rows),5)
             self.assertTrue({"indicator","signal","strength","strategy","drawing"}.issubset(
-                {row["category"] for row in rows}))
+                {row["artifact_type"] for row in rows if row["parent_id"] is None}))
         html=(Path(__file__).parent/"core"/"templates"/"index.html").read_text(encoding="utf-8")
         ui=(Path(__file__).parent/"core"/"static"/"ui.js").read_text(encoding="utf-8")
         self.assertIn('/static/ui.js',html)
@@ -501,11 +508,12 @@ signal = close > close[1]
         result={"metrics":{"total_return":"+4.95%","mdd":"-4.92%","trade_count":"6회",
                            "win_rate":"50.0%","profit_factor":"1.8"}}
         analyzed=analyze_strategy_result(result)
-        self.assertTrue(analyzed["summary"])
+        self.assertTrue(analyzed["issues"])
+        feedback=json.dumps(analyzed,ensure_ascii=False)
         prompt=generate_full_llm_prompt("더 개선",artifact_type="strategy",current_dsl='strategy "x" {}',
-                                        execution_feedback=analyzed["summary"])
-        self.assertIn("[실행 결과 피드백]",prompt)
-        self.assertIn("총수익률",prompt)
+                                        validation_error=feedback)
+        self.assertIn("[검증 피드백]",prompt)
+        self.assertIn("+4.95%",prompt)
 
 
 if __name__ == "__main__":
