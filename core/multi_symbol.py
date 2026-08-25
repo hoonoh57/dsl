@@ -1,9 +1,8 @@
 """Deterministic multi-symbol tactical analysis for the Quant DSL factory.
 
-This module is deliberately an orchestration layer around the existing single-
-instrument DSL/backtest engine.  It does not introduce a second execution
-language or bypass BrokerEmulator.  Higher layers decide *where* and *which
-unit* may trade; the existing DSL remains the per-instrument tactical SSOT.
+This module is an orchestration/evidence layer around the existing validated
+single-instrument DSL/backtest engine.  It does not introduce a second trading
+language or bypass BrokerEmulator.
 """
 from __future__ import annotations
 
@@ -13,14 +12,14 @@ import hashlib
 import json
 import math
 from statistics import mean, median
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
+from typing import Any, Mapping, Optional, Sequence
 
 import numpy as np
 
 from core.backtest import BacktestEngine
 
 
-SCHEMA_VERSION = "multi_symbol_tactical/v1"
+SCHEMA_VERSION = "multi_symbol_tactical/v2"
 
 
 def _stable_hash(value: Any) -> str:
@@ -69,8 +68,8 @@ def _canonical_rows(market: Mapping[str, Any]) -> list:
 class OpportunityWindow:
     """Higher-layer market opportunity window.
 
-    Bars before the window remain available to indicators for warm-up, but
-    entries are only allowed while this window is active.
+    Bars before the window remain available for indicator warm-up.  The window
+    controls entry authorization, not indicator calculation.
     """
 
     start: str
@@ -91,6 +90,14 @@ class RegimeContext:
     windows: tuple[OpportunityWindow, ...] = ()
     evidence: Mapping[str, Any] = field(default_factory=dict)
 
+    def validate(self) -> None:
+        if not self.regime_id.strip():
+            raise ValueError("regime_id가 필요합니다.")
+        if len(set(self.eligible_units)) != len(self.eligible_units):
+            raise ValueError("eligible_units에 중복이 있습니다.")
+        for window in self.windows:
+            window.validate()
+
     def allows(self, unit_id: str) -> bool:
         if not self.active:
             return False
@@ -99,13 +106,7 @@ class RegimeContext:
 
 @dataclass(frozen=True)
 class MissionSpec:
-    """Outcome label contract for a tactical cohort.
-
-    The mission label is measured *after* the capture time and is evidence, not
-    an input feature.  The default MFE label uses the capture-bar close as the
-    reference and starts from the next bar so the capture bar cannot leak its
-    already-completed high/low into future MFE.
-    """
+    """Outcome-label contract for a tactical cohort."""
 
     name: str = "MFE_GTE"
     mfe_threshold_pct: Optional[float] = None
@@ -117,6 +118,37 @@ class MissionSpec:
             raise ValueError("capture_price_field는 open/high/low/close 중 하나여야 합니다.")
         if self.mfe_threshold_pct is not None and not math.isfinite(float(self.mfe_threshold_pct)):
             raise ValueError("mfe_threshold_pct는 유한한 숫자여야 합니다.")
+
+
+@dataclass(frozen=True)
+class CommonPolicySpec:
+    """Scenario-wide reusable execution constraints.
+
+    Only non-None fields override per-instrument settings.  This keeps unit-
+    specific DSL semantics separate from common execution policy.
+    """
+
+    entry_start_time: Optional[int] = None
+    entry_end_time: Optional[int] = None
+    max_entries_per_day: Optional[int] = None
+    stop_loss_pct: Optional[float] = None
+    take_profit_pct: Optional[float] = None
+    trailing_enabled: Optional[bool] = None
+    trailing_activation_pct: Optional[float] = None
+    trailing_distance_pct: Optional[float] = None
+    allocation_pct: Optional[float] = None
+    signal_mode: Optional[str] = None
+    commission_pct: Optional[float] = None
+    sell_tax_pct: Optional[float] = None
+    slippage_pct: Optional[float] = None
+
+    def overrides(self) -> dict:
+        return {key: value for key, value in asdict(self).items() if value is not None}
+
+    def apply(self, settings: Mapping[str, Any]) -> dict:
+        merged = dict(settings)
+        merged.update(self.overrides())
+        return merged
 
 
 @dataclass(frozen=True)
@@ -132,6 +164,8 @@ class TacticalUnitSpec:
     def validate(self) -> None:
         if not self.unit_id.strip():
             raise ValueError("unit_id가 필요합니다.")
+        if not self.unit_type.strip():
+            raise ValueError("unit_type이 필요합니다.")
         if not self.symbols:
             raise ValueError("전투부대 symbols가 비어 있습니다.")
         if len(set(self.symbols)) != len(self.symbols):
@@ -158,7 +192,7 @@ class InstrumentTask:
 
 
 class MultiSymbolAnalysisEngine:
-    """Parallel, deterministic orchestration over independent instrument DSLs."""
+    """Parallel deterministic orchestration over independent instrument DSLs."""
 
     RANK_FIELDS = {
         "relative_strength_pct",
@@ -176,11 +210,34 @@ class MultiSymbolAnalysisEngine:
         for window in windows:
             window.validate()
             validated.append((_time_key(window.start), _time_key(window.end, end_of_day=True)))
-        gate = []
-        for value in market["time"]:
-            key = _time_key(value)
-            gate.append(any(start <= key <= end for start, end in validated))
-        return np.asarray(gate, dtype=bool)
+        return np.asarray(
+            [
+                any(start <= _time_key(value) <= end for start, end in validated)
+                for value in market["time"]
+            ],
+            dtype=bool,
+        )
+
+    @staticmethod
+    def _benchmark_identity(
+        benchmark: Optional[Mapping[str, Any]], reference_symbol: str
+    ) -> dict:
+        if benchmark is None:
+            if reference_symbol:
+                return {"reference_symbol": reference_symbol, "market_hash": None}
+            return {"reference_symbol": "", "market_hash": None}
+        rows = _canonical_rows(benchmark)
+        meta = dict(benchmark.get("_meta") or {})
+        instrument = str(meta.get("instrument") or "")
+        if reference_symbol and instrument and instrument != reference_symbol:
+            raise ValueError(
+                f"reference_symbol({reference_symbol})과 benchmark instrument({instrument})가 일치하지 않습니다."
+            )
+        return {
+            "reference_symbol": reference_symbol or instrument,
+            "market_hash": _stable_hash(rows),
+            "timeframe": meta.get("timeframe"),
+        }
 
     @staticmethod
     def _aligned_relative(market: Mapping[str, Any], benchmark: Optional[Mapping[str, Any]]) -> dict:
@@ -277,10 +334,13 @@ class MultiSymbolAnalysisEngine:
                 "available": True,
                 "capture_time": str(capture_time),
                 "capture_price": capture_price,
+                "capture_price_field": mission.capture_price_field,
+                "include_capture_bar": mission.include_capture_bar,
                 "future_bars": 0,
                 "mfe_pct": 0.0,
                 "mae_pct": 0.0,
                 "mission_success": False if mission.mfe_threshold_pct is not None else None,
+                "mission_threshold_pct": mission.mfe_threshold_pct,
             }
         future_high = max(float(market["high"][i]) for i in session_indices)
         future_low = min(float(market["low"][i]) for i in session_indices)
@@ -301,16 +361,22 @@ class MultiSymbolAnalysisEngine:
         }
 
     @staticmethod
-    def _run_one(task: InstrumentTask, entry_gate: Optional[np.ndarray]) -> dict:
+    def _run_one(
+        task: InstrumentTask,
+        entry_gate: Optional[np.ndarray],
+        common_policy: Optional[CommonPolicySpec],
+    ) -> dict:
         task.validate()
-        result = BacktestEngine.run(
+        settings = dict(task.settings)
+        if common_policy is not None:
+            settings = common_policy.apply(settings)
+        return BacktestEngine.run(
             task.dsl_code,
-            settings=dict(task.settings),
+            settings=settings,
             market=dict(task.market),
             data_timeframe=(task.market.get("_meta") or {}).get("timeframe"),
             entry_gate=entry_gate,
         )
-        return result
 
     @classmethod
     def run(
@@ -320,12 +386,16 @@ class MultiSymbolAnalysisEngine:
         unit: TacticalUnitSpec,
         tasks: Sequence[InstrumentTask],
         mission: Optional[MissionSpec] = None,
+        common_policy: Optional[CommonPolicySpec] = None,
         benchmark_market: Optional[Mapping[str, Any]] = None,
         max_workers: int = 4,
     ) -> dict:
+        regime.validate()
         unit.validate()
         mission = mission or MissionSpec()
         mission.validate()
+        if unit.rank_by not in cls.RANK_FIELDS:
+            raise ValueError(f"지원하지 않는 rank_by: {unit.rank_by}")
         if max_workers < 1:
             raise ValueError("max_workers는 1 이상이어야 합니다.")
         task_by_symbol = {task.symbol: task for task in tasks}
@@ -335,7 +405,10 @@ class MultiSymbolAnalysisEngine:
         extra = [symbol for symbol in task_by_symbol if symbol not in set(unit.symbols)]
         if missing or extra:
             raise ValueError(f"unit/tasks symbol 불일치: missing={missing}, extra={extra}")
+        for task in tasks:
+            task.validate()
 
+        benchmark_identity = cls._benchmark_identity(benchmark_market, unit.reference_symbol)
         scenario_payload = {
             "schema": SCHEMA_VERSION,
             "regime": {
@@ -344,6 +417,7 @@ class MultiSymbolAnalysisEngine:
                 "active": regime.active,
                 "eligible_units": list(regime.eligible_units),
                 "windows": [asdict(item) for item in regime.windows],
+                "evidence": dict(regime.evidence),
             },
             "unit": {
                 "unit_id": unit.unit_id,
@@ -352,37 +426,52 @@ class MultiSymbolAnalysisEngine:
                 "capture_times": dict(unit.capture_times),
                 "reference_symbol": unit.reference_symbol,
                 "rank_by": unit.rank_by,
+                "metadata": dict(unit.metadata),
             },
             "mission": asdict(mission),
+            "common_policy": asdict(common_policy) if common_policy is not None else None,
+            "benchmark": benchmark_identity,
             "tasks": [
                 {
                     "symbol": task_by_symbol[symbol].symbol,
                     "dsl_hash": _stable_hash(task_by_symbol[symbol].dsl_code),
                     "market_hash": _stable_hash(_canonical_rows(task_by_symbol[symbol].market)),
                     "settings": dict(task_by_symbol[symbol].settings),
+                    "metadata": dict(task_by_symbol[symbol].metadata),
                 }
                 for symbol in unit.symbols
             ],
         }
         scenario_hash = _stable_hash(scenario_payload)
+        scenario_definition = dict(scenario_payload)
+        scenario_definition["scenario_hash"] = scenario_hash
+
         if not regime.allows(unit.unit_id):
+            run_hash = _stable_hash({"scenario_hash": scenario_hash, "status": "REGIME_BLOCKED"})
             return {
                 "schema": SCHEMA_VERSION,
                 "status": "REGIME_BLOCKED",
                 "scenario_hash": scenario_hash,
+                "scenario_definition": scenario_definition,
+                "run_hash": run_hash,
                 "regime": scenario_payload["regime"],
                 "unit": scenario_payload["unit"],
                 "mission": scenario_payload["mission"],
+                "common_policy": scenario_payload["common_policy"],
+                "benchmark": benchmark_identity,
                 "results": [],
                 "ranking": [],
-                "cohort": {"symbols": len(unit.symbols), "executed": 0},
+                "cohort": {"symbols": len(unit.symbols), "executed": 0, "worker_count": 0},
             }
 
         ordered_tasks = [task_by_symbol[symbol] for symbol in unit.symbols]
         gates = [cls._entry_gate(task.market, regime.windows) for task in ordered_tasks]
         worker_count = min(int(max_workers), len(ordered_tasks))
         with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="dsl-multi") as executor:
-            futures = [executor.submit(cls._run_one, task, gate) for task, gate in zip(ordered_tasks, gates)]
+            futures = [
+                executor.submit(cls._run_one, task, gate, common_policy)
+                for task, gate in zip(ordered_tasks, gates)
+            ]
             backtests = []
             for task, future in zip(ordered_tasks, futures):
                 try:
@@ -397,38 +486,39 @@ class MultiSymbolAnalysisEngine:
             relative = cls._aligned_relative(task.market, benchmark_market)
             capture = cls._capture_evidence(task.market, unit.capture_times.get(task.symbol), mission)
             metrics = result.get("metrics_numeric", {})
-            rows.append({
-                "symbol": task.symbol,
-                "metadata": dict(task.metadata),
-                "strategy_return_pct": float(metrics.get("total_return_pct", 0.0) or 0.0),
-                "mdd_pct": float(metrics.get("mdd_pct", 0.0) or 0.0),
-                "profit_factor": metrics.get("profit_factor"),
-                "closed_trades": int(metrics.get("closed_trade_count", 0) or 0),
-                "total_cost": float(metrics.get("total_cost", 0.0) or 0.0),
-                "relative": relative,
-                "capture": capture,
-                "backtest": result,
-            })
-
-        rank_by = unit.rank_by
-        if rank_by not in cls.RANK_FIELDS:
-            raise ValueError(f"지원하지 않는 rank_by: {rank_by}")
+            rows.append(
+                {
+                    "symbol": task.symbol,
+                    "metadata": dict(task.metadata),
+                    "strategy_return_pct": float(metrics.get("total_return_pct", 0.0) or 0.0),
+                    "mdd_pct": float(metrics.get("mdd_pct", 0.0) or 0.0),
+                    "profit_factor": metrics.get("profit_factor"),
+                    "closed_trades": int(metrics.get("closed_trade_count", 0) or 0),
+                    "total_cost": float(metrics.get("total_cost", 0.0) or 0.0),
+                    "relative": relative,
+                    "capture": capture,
+                    "backtest": result,
+                }
+            )
 
         def rank_value(item: dict) -> float:
-            if rank_by == "strategy_return_pct":
+            if unit.rank_by == "strategy_return_pct":
                 value = item["strategy_return_pct"]
-            elif rank_by == "capture_mfe_pct":
+            elif unit.rank_by == "capture_mfe_pct":
                 value = item["capture"].get("mfe_pct") if item["capture"].get("available") else None
             else:
-                value = item["relative"].get(rank_by) if item["relative"].get("available") else None
+                value = item["relative"].get(unit.rank_by) if item["relative"].get("available") else None
             return float(value) if value is not None and math.isfinite(float(value)) else float("-inf")
 
-        ranked_rows = sorted(rows, key=lambda item: (-rank_value(item), unit.symbols.index(item["symbol"])))
+        ranked_rows = sorted(
+            rows,
+            key=lambda item: (-rank_value(item), unit.symbols.index(item["symbol"])),
+        )
         ranking = [
             {
                 "rank": index + 1,
                 "symbol": item["symbol"],
-                "rank_by": rank_by,
+                "rank_by": unit.rank_by,
                 "score": None if rank_value(item) == float("-inf") else rank_value(item),
             }
             for index, item in enumerate(ranked_rows)
@@ -436,8 +526,12 @@ class MultiSymbolAnalysisEngine:
 
         returns = [item["strategy_return_pct"] for item in rows]
         mission_rows = [item for item in rows if item["capture"].get("available")]
-        mission_positive = [item for item in mission_rows if item["capture"].get("mission_success") is True]
-        retained = [item for item in mission_positive if item["strategy_return_pct"] > 0.0]
+        mission_positive = [
+            item for item in mission_rows if item["capture"].get("mission_success") is True
+        ]
+        retained = [
+            item for item in mission_positive if item["strategy_return_pct"] > 0.0
+        ]
         cohort = {
             "symbols": len(rows),
             "executed": len(rows),
@@ -447,30 +541,40 @@ class MultiSymbolAnalysisEngine:
             "profitable_symbols": sum(item["strategy_return_pct"] > 0.0 for item in rows),
             "mission_labeled_symbols": len(mission_rows),
             "mission_positive_symbols": len(mission_positive),
-            "mission_positive_rate": (len(mission_positive) / len(mission_rows)) if mission_rows else None,
-            "mission_positive_profitable_retention": (len(retained) / len(mission_positive)) if mission_positive else None,
+            "mission_positive_rate": (
+                len(mission_positive) / len(mission_rows) if mission_rows else None
+            ),
+            "mission_positive_profitable_retention": (
+                len(retained) / len(mission_positive) if mission_positive else None
+            ),
         }
-        run_hash = _stable_hash({
-            "scenario_hash": scenario_hash,
-            "rows": [
-                {
-                    "symbol": item["symbol"],
-                    "strategy_return_pct": item["strategy_return_pct"],
-                    "mdd_pct": item["mdd_pct"],
-                    "relative": item["relative"],
-                    "capture": item["capture"],
-                }
-                for item in rows
-            ],
-        })
+        run_hash = _stable_hash(
+            {
+                "scenario_hash": scenario_hash,
+                "status": "COMPLETED",
+                "rows": [
+                    {
+                        "symbol": item["symbol"],
+                        "strategy_return_pct": item["strategy_return_pct"],
+                        "mdd_pct": item["mdd_pct"],
+                        "relative": item["relative"],
+                        "capture": item["capture"],
+                    }
+                    for item in rows
+                ],
+            }
+        )
         return {
             "schema": SCHEMA_VERSION,
             "status": "COMPLETED",
             "scenario_hash": scenario_hash,
+            "scenario_definition": scenario_definition,
             "run_hash": run_hash,
             "regime": scenario_payload["regime"],
             "unit": scenario_payload["unit"],
             "mission": scenario_payload["mission"],
+            "common_policy": scenario_payload["common_policy"],
+            "benchmark": benchmark_identity,
             "results": rows,
             "ranking": ranking,
             "cohort": cohort,
