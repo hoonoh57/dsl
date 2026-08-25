@@ -1,9 +1,8 @@
 """Structured Stage 1 evidence derived from one deterministic backtest result."""
 from __future__ import annotations
+
 from collections import Counter
 from typing import Any, Dict, Optional
-
-from core.stage1_order_evidence import strategy_market_order_lifecycle
 
 
 class EvidenceBuilder:
@@ -78,6 +77,8 @@ class EvidenceBuilder:
             mfe = float(trade.get("mfe_pct", 0.0) or 0.0)
             trade_evidence.append({
                 "trade_id": trade.get("trade_id"),
+                "entry_order_id": trade.get("entry_order_id"),
+                "exit_order_id": trade.get("exit_order_id"),
                 "direction": trade.get("direction"),
                 "signal_time": trade.get("signal_time"),
                 "order_time": trade.get("signal_time"),
@@ -103,11 +104,17 @@ class EvidenceBuilder:
         tax = sum(item["tax"] for item in costs)
         slippage = sum(item["slippage"] for item in costs)
         worst = sorted(trade_evidence, key=lambda item: float(item.get("net_pnl", 0.0)))[:5]
-        givebacks = sorted(trade_evidence, key=lambda item: float(item.get("mfe_giveback_pct", 0.0)), reverse=True)[:5]
-        market_lifecycle = strategy_market_order_lifecycle(executions)
-        pending_lifecycle = list(diagnostics.get("broker_history", []))
+        givebacks = sorted(
+            trade_evidence,
+            key=lambda item: float(item.get("mfe_giveback_pct", 0.0)),
+            reverse=True,
+        )[:5]
+        broker_history = list(diagnostics.get("broker_history", []))
+        strategy_market = [row for row in broker_history if row.get("origin") == "STRATEGY_MARKET"]
+        risk_exit = [row for row in broker_history if row.get("origin") == "RISK_EXIT"]
+        pending_lifecycle = [row for row in broker_history if row.get("origin") == "DSL_PENDING"]
         return {
-            "schema": "stage1_evidence/v3",
+            "schema": "stage1_evidence/v4",
             "experiment_id": experiment.get("id"),
             "data": experiment.get("provenance", {}),
             "execution_settings": settings,
@@ -132,8 +139,11 @@ class EvidenceBuilder:
                 "exit_reason_distribution": dict(exit_reasons),
             },
             "order_lifecycle": {
-                "strategy_market": market_lifecycle,
+                "authority": diagnostics.get("execution_authority", "UNKNOWN"),
+                "strategy_market": strategy_market,
+                "risk_exit": risk_exit,
                 "pending_limit_stop": pending_lifecycle,
+                "all": broker_history,
             },
             "trade_summary": {
                 "count": len(closed),
@@ -158,6 +168,6 @@ class EvidenceBuilder:
             "limitations": {
                 "largest_missed_moves": "not_reported_without_a_separate_causal_definition",
                 "exposure": "holding-bar approximation for current single-position Stage 1 engine",
-                "market_order_lifecycle": "replayed from actual strategy-signal executions through the same deterministic BrokerEmulator for audit evidence",
+                "order_lifecycle": "authoritative BrokerEmulator history used directly; no audit replay",
             },
         }
