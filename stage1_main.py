@@ -25,9 +25,11 @@ from core.kiwoom_rest import KiwoomRESTClient, KiwoomAPIError
 from core.strategy_factory import DataContract, StrategyFactory, discover_dsl_parameters
 from core.stage1_data_store import load_market_snapshot, save_market_snapshot
 from core.stage1_target_loop import TargetLoopService
+from core.stage1_llm_memory import LLMExchangeMemory
 
 factory = StrategyFactory()
 target_loops = TargetLoopService(factory)
+llm_memory = LLMExchangeMemory(factory.store)
 ROOT = Path(__file__).resolve().parent
 
 
@@ -71,6 +73,7 @@ class FeedbackRequest(BaseModel):
 class ApplyLLMRequest(BaseModel):
     experiment_id: int
     llm_response: str
+    prompt_text: str = ""
     hypothesis: str = ""
     expected_effect: str = ""
     promote: bool = False
@@ -202,15 +205,21 @@ def stage1_seeker(req: SeekRequest):
 @app.post("/api/stage1/feedback")
 def stage1_feedback(req: FeedbackRequest):
     try:
-        return factory.feedback_package(req.experiment_id, target_return=req.target_return)
+        package = factory.feedback_package(req.experiment_id, target_return=req.target_return)
+        history = llm_memory.prompt_history_context(package["root_id"])
+        package["previous_raw_exchanges"] = history
+        package["prompt"] += "\n\n[이전 raw LLM Prompt/Response 기록]\n" + history
+        return package
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.post("/api/stage1/apply-llm")
 def stage1_apply_llm(req: ApplyLLMRequest):
+    before = None
     try:
-        market, _ = _market_for_experiment(req.experiment_id)
+        _, before = _market_for_experiment(req.experiment_id)
+        market = load_market_snapshot(before["provenance"]["data_hash"])
         result = factory.apply_llm_response(
             experiment_id=req.experiment_id,
             llm_response=req.llm_response,
@@ -219,8 +228,24 @@ def stage1_apply_llm(req: ApplyLLMRequest):
             expected_effect=req.expected_effect,
             promote=req.promote,
         )
-        return {"status": "success", **result, "chart": factory.chart_audit(result["experiment"])}
+        exchange_id = llm_memory.record(
+            before_experiment_id=req.experiment_id,
+            after_experiment_id=result["experiment"]["id"],
+            prompt_text=req.prompt_text,
+            response_text=req.llm_response,
+            hypothesis=req.hypothesis,
+            status=result["verdict"],
+        )
+        return {"status": "success", **result, "exchange_id": exchange_id,
+                "chart": factory.chart_audit(result["experiment"])}
     except Exception as exc:
+        if before is not None:
+            try:
+                llm_memory.record(before_experiment_id=req.experiment_id, after_experiment_id=None,
+                                  prompt_text=req.prompt_text, response_text=req.llm_response,
+                                  hypothesis=req.hypothesis, status="REJECTED_VALIDATION")
+            except Exception:
+                pass
         raise HTTPException(status_code=400, detail=str(exc))
 
 
@@ -257,13 +282,9 @@ def stage1_stop(req: StopRequest):
 @app.post("/api/stage1/target-loops")
 def stage1_target_loop_create(req: TargetLoopCreateRequest):
     try:
-        return target_loops.create(
-            root_id=req.root_id,
-            target_return=req.target_return,
-            iteration_limit=req.iteration_limit,
-            backtest_budget=req.backtest_budget,
-            no_improvement_limit=req.no_improvement_limit,
-        )
+        return target_loops.create(root_id=req.root_id, target_return=req.target_return,
+                                   iteration_limit=req.iteration_limit, backtest_budget=req.backtest_budget,
+                                   no_improvement_limit=req.no_improvement_limit)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -279,14 +300,9 @@ def stage1_target_loop_get(loop_id: int):
 @app.post("/api/stage1/target-loops/{loop_id}/observe")
 def stage1_target_loop_observe(loop_id: int, req: TargetLoopObserveRequest):
     try:
-        return target_loops.observe(
-            loop_id=loop_id,
-            experiment_id=req.experiment_id,
-            backtests_used_delta=req.backtests_used_delta,
-            accepted=req.accepted,
-            plateau=req.plateau,
-            engine_blocked=req.engine_blocked,
-        )
+        return target_loops.observe(loop_id=loop_id, experiment_id=req.experiment_id,
+                                    backtests_used_delta=req.backtests_used_delta, accepted=req.accepted,
+                                    plateau=req.plateau, engine_blocked=req.engine_blocked)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -312,7 +328,9 @@ def stage1_experiment(experiment_id: int):
 @app.get("/api/stage1/methodology/{root_id}")
 def stage1_methodology(root_id: int):
     try:
-        return factory.methodology_summary(root_id)
+        summary = factory.methodology_summary(root_id)
+        summary["raw_llm_exchanges"] = llm_memory.recent(root_id, 100)
+        return summary
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
