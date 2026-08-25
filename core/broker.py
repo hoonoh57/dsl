@@ -53,6 +53,7 @@ class BrokerEmulator:
             "order_id": order.id,
             "side": order.side,
             "type": order.type,
+            "quantity": float(order.quantity),
             "tif": order.tif,
             "status": status.value,
             "reason": order.reason,
@@ -63,42 +64,44 @@ class BrokerEmulator:
         self.history.append(dict(row))
         return order
 
-    def submit(self, order: BrokerOrder):
+    def submit(self, order: BrokerOrder, event=None):
         order.type = str(order.type).upper()
         order.side = str(order.side).upper()
         order.tif = str(order.tif).upper()
-        self._transition(order, OrderStatus.CREATED, event="submit")
+        created_event = event if event is not None else "submit"
+        accepted_event = event if event is not None else "accepted"
+        self._transition(order, OrderStatus.CREATED, event=created_event)
         if order.id in self.orders:
-            return self._reject(order, "duplicate id")
+            return self._reject(order, "duplicate id", event=event)
         if order.type not in self.TYPES:
-            return self._reject(order, "unsupported order type")
+            return self._reject(order, "unsupported order type", event=event)
         if order.tif not in self.TIFS:
-            return self._reject(order, "unsupported tif")
+            return self._reject(order, "unsupported tif", event=event)
         if order.side not in self.SIDES:
-            return self._reject(order, "unsupported side")
+            return self._reject(order, "unsupported side", event=event)
         if order.quantity <= 0:
-            return self._reject(order, "quantity must be positive")
+            return self._reject(order, "quantity must be positive", event=event)
         if order.type in {"LIMIT", "STOP_LIMIT"} and order.limit_price is None:
-            return self._reject(order, "limit price required")
+            return self._reject(order, "limit price required", event=event)
         if order.type in {"STOP", "STOP_LIMIT"} and order.stop_price is None:
-            return self._reject(order, "stop price required")
+            return self._reject(order, "stop price required", event=event)
         self.orders[order.id] = order
-        return self._transition(order, OrderStatus.ACCEPTED, event="accepted")
+        return self._transition(order, OrderStatus.ACCEPTED, event=accepted_event)
 
-    def _reject(self, order, reason):
-        return self._transition(order, OrderStatus.REJECTED, reason=reason, event="rejected")
+    def _reject(self, order, reason, event=None):
+        return self._transition(order, OrderStatus.REJECTED, reason=reason, event=event if event is not None else "rejected")
 
-    def cancel(self, order_id, reason="user canceled"):
+    def cancel(self, order_id, reason="user canceled", event=None):
         order = self.orders[order_id]
         if order.status in {OrderStatus.ACCEPTED, OrderStatus.TRIGGERED}:
-            self._transition(order, OrderStatus.CANCELED, reason=reason, event="canceled")
+            self._transition(order, OrderStatus.CANCELED, reason=reason, event=event if event is not None else "canceled")
         return order
 
-    def expire_day_orders(self, reason="DAY expired"):
+    def expire_day_orders(self, reason="DAY expired", event=None):
         expired = []
         for order in list(self.orders.values()):
             if order.tif == "DAY" and order.status in {OrderStatus.ACCEPTED, OrderStatus.TRIGGERED}:
-                self._transition(order, OrderStatus.EXPIRED, reason=reason, event="session_end")
+                self._transition(order, OrderStatus.EXPIRED, reason=reason, event=event if event is not None else "session_end")
                 expired.append(order)
         return expired
 
@@ -121,19 +124,19 @@ class BrokerEmulator:
                     if order.type == "STOP":
                         price = max(float(open_), order.stop_price) if buy else min(float(open_), order.stop_price)
                     else:
-                        self._transition(order, OrderStatus.TRIGGERED, event=event or "stop_triggered")
+                        self._transition(order, OrderStatus.TRIGGERED, event=event if event is not None else "stop_triggered")
                         limit_hit = low <= order.limit_price if buy else high >= order.limit_price
                         if limit_hit:
                             price = float(order.limit_price)
             if price is not None:
-                self._transition(order, OrderStatus.FILLED, price=price, event=event or "bar_fill")
+                self._transition(order, OrderStatus.FILLED, price=price, event=event if event is not None else "bar_fill")
                 fills.append(order)
                 if order.oco:
                     for sibling in self.orders.values():
                         if sibling.id != order.id and sibling.oco == order.oco:
-                            self.cancel(sibling.id, "OCO sibling filled")
+                            self.cancel(sibling.id, "OCO sibling filled", event=event)
             elif end_of_session and order.tif == "DAY":
-                self._transition(order, OrderStatus.EXPIRED, reason="DAY expired", event=event or "session_end")
+                self._transition(order, OrderStatus.EXPIRED, reason="DAY expired", event=event if event is not None else "session_end")
         return fills
 
     def snapshot_history(self):
