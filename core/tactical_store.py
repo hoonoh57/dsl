@@ -80,8 +80,13 @@ class TacticalScenarioStore:
         regime_id = str(regime.get("regime_id") or "").strip()
         if not unit_id or not regime_id:
             raise ValueError("scenario definition에는 unit.unit_id와 regime.regime_id가 필요합니다.")
-        scenario_hash = str(definition.get("scenario_hash") or _hash(definition))
-        stored_definition = dict(definition)
+        hash_payload = {key: value for key, value in definition.items() if key != "scenario_hash"}
+        expected_hash = _hash(hash_payload)
+        claimed_hash = str(definition.get("scenario_hash") or "").strip()
+        if claimed_hash and claimed_hash != expected_hash:
+            raise ValueError("scenario_hash가 definition 내용과 일치하지 않습니다.")
+        scenario_hash = expected_hash
+        stored_definition = dict(hash_payload)
         stored_definition["scenario_hash"] = scenario_hash
         payload = _canonical_json(stored_definition)
         conn = self.connect()
