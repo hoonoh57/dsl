@@ -150,6 +150,64 @@ class Stage1ExecutionGoldenTest(unittest.TestCase):
         self.assertAlmostEqual(rows[-1]["quantity"], entry["quantity"], places=12)
         self.assertAlmostEqual(rows[-1]["fill_price"], entry["price"], places=12)
 
+    def test_deferred_entry_signals_do_not_accumulate_orders_while_position_is_occupied(self):
+        dsl = '''strategy "PendingWhileOccupied" {
+            timeframe = "1d"
+            enter = close > 0
+            pending_signal = close > 0
+            on(enter) { order.buy(type = "MARKET") }
+            on(pending_signal) { order.buy(type = "LIMIT", limit = 50, tif = "GTC") }
+        }'''
+        market = {
+            "time": ["2026-01-01", "2026-01-02", "2026-01-03"],
+            "open": [100.0, 101.0, 102.0],
+            "high": [101.0, 102.0, 103.0],
+            "low": [99.0, 100.0, 101.0],
+            "close": [100.0, 101.0, 102.0],
+            "volume": [1000.0] * 3,
+        }
+        result = BacktestEngine.run(
+            dsl,
+            market=market,
+            settings={"commission_pct": 0.0, "sell_tax_pct": 0.0, "slippage_pct": 0.0},
+        )
+        self.assertEqual([row["kind"] for row in result["trades"]], ["ENTRY"])
+        self.assertEqual(result["diagnostics"]["pending_order_history"], [])
+        self.assertEqual(result["diagnostics"]["rejections"]["pending_suppressed_position_occupied"], 3)
+
+    def test_next_open_exit_blocks_deferred_same_bar_reentry_but_allows_later_signal(self):
+        dsl = '''strategy "DeferredReentry" {
+            timeframe = "1d"
+            enter = close >= 100
+            leave = close < 95
+            reenter = close < 95
+            on(enter) { order.buy(type = "MARKET") }
+            on(leave) { order.close_long() }
+            on(reenter) { order.buy(type = "LIMIT", limit = 100, tif = "GTC") }
+        }'''
+        market = {
+            "time": ["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04"],
+            "open": [100.0, 95.0, 85.0, 75.0],
+            "high": [102.0, 96.0, 86.0, 76.0],
+            "low": [99.0, 88.0, 78.0, 68.0],
+            "close": [100.0, 90.0, 80.0, 70.0],
+            "volume": [1000.0] * 4,
+        }
+        result = BacktestEngine.run(
+            dsl,
+            market=market,
+            settings={"signal_mode": "next_open", "commission_pct": 0.0,
+                      "sell_tax_pct": 0.0, "slippage_pct": 0.0},
+        )
+        entries = [row for row in result["trades"] if row["kind"] == "ENTRY"]
+        exits = [row for row in result["trades"] if row["kind"] == "EXIT"]
+        self.assertEqual([row["time"] for row in entries], ["2026-01-02", "2026-01-04"])
+        self.assertEqual([row["time"] for row in exits], ["2026-01-03"])
+        self.assertEqual(result["diagnostics"]["rejections"]["same_bar_reentry"], 1)
+        pending_history = result["diagnostics"]["pending_order_history"]
+        self.assertEqual({row["signal_time"] for row in pending_history}, {"2026-01-03"})
+        self.assertEqual([row["status"] for row in pending_history], ["CREATED", "ACCEPTED", "FILLED"])
+
 
 if __name__ == "__main__":
     unittest.main()
