@@ -64,12 +64,28 @@ strategy "이름" {
 1. 등록된 데이터와 함수만 사용한다.
 2. 모든 변수는 사용 전에 선언한다.
 3. 주문 조건은 불리언 또는 불리언 시계열이어야 한다.
-4. 0 이하의 지표 기간을 사용하지 않는다.
+4. 지표 기간·봉 수 인수는 의미상 유효한 0 이상의 범위를 사용하며, 기간(length/period)은 1 이상으로 생성한다.
 5. 미래 참조, 외부 파일, 네트워크, 임의 코드 실행은 금지한다.
 6. 기존 결과물을 수정할 때 사용자가 제거하라고 하지 않은 동작은 보존한다.
 7. 현재 주문 명령은 `order.buy`, `order.sell_short`, `order.close_long`, `order.close_short`, `order.close_position`이다.
 8. 진입 주문 유형은 `MARKET`, `LIMIT`, `STOP`, `STOP_LIMIT`이다. 가격 인수는 `limit`, `stop`, 수명은 `tif="GTC"|"DAY"`, 연동 취소는 `oco`를 쓴다.
 9. `on` 조건은 반드시 boolean 또는 boolean series여야 한다.
+
+## Stage 1 명시적 비지원 기능
+
+아래 기능은 향후 DSL 2.0 확장 후보일 수 있으나 **현재 Capability가 아니다. LLM은 생성하지 않는다.**
+
+- 주문 `quantity` 인수, 부분 체결, 부분 청산, 피라미딩, 복수 동시 포지션.
+- `on_tick`, `on_fill` 이벤트와 열린 봉 rollback/recalculation 문법.
+- 사용자 함수 선언, `for`/`while` 반복문, 재귀.
+- tuple/다중 출력 지표 문법. 예: MACD signal/histogram을 한 호출에서 구조 분해하는 문법.
+- `request.security` 같은 임의 종목 요청, multi-symbol context, 동적 외부 데이터 요청.
+- 진행 중 상위 주기 값을 읽는 MTF, lookahead/repainting 선택지.
+- DSL 내부의 파일 I/O, 네트워크 호출, 임의 Python/JavaScript 실행.
+- `plot`, `line`, `box`, `label`, canvas/chart-library 호출 같은 직접 drawing 문법. 차트는 프로그램이 계산 결과를 Chart Document로 투영하고 공용 Chart SSOT가 그린다.
+- Capability Manifest에 없는 TA/math/state/session/MTF 함수.
+
+지원되지 않는 기능이 사용자 의도에 필요하면 유사한 숨은 문법을 만들지 말고, 현재 Capability 안에서 표현 가능한 대안을 사용하거나 해당 요구를 현재 DSL로 표현할 수 없음을 명시한다.
 
 ## 실행 및 체결 정책
 
@@ -123,7 +139,7 @@ strategy "JMA_Filtered_Cross" {
 - 오류가 전달되면 기존 의도를 보존하면서 전체 DSL을 다시 반환한다.
 
 ## 변경 이력
-- 1.4.0: 일반 `state`, 중첩 `on_bar if/else`, 확정값 전용 MTF, LIMIT/STOP/STOP_LIMIT 주문 수명주기, Wilder RMA/ATR/RSI/ADX 추가.
+- 1.4.0: 일반 `state`, 중첩 `on_bar if/else`, 확정값 전용 MTF, LIMIT/STOP/STOP_LIMIT 주문 수명주기, Wilder RMA/ATR/RSI/ADX 추가. Stage 1 비지원 capability를 명시해 미래 DSL 2.0 기능의 오생성을 차단.
 - 1.3.0: 결정적 상태 함수와 cascading 조건, batch/streaming prefix 동일성 규칙 추가.
 - 1.2.0: scalar/series 및 number/boolean 정적 타입, 함수 arity, input 타입 검증 추가.
 - 1.1.0: fail-closed AST 파서, 주문 이벤트 검증, 명시적 체결 정책과 회계 규칙 추가.
