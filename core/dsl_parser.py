@@ -222,10 +222,19 @@ class DSLParser:
             order_type = "MARKET"; tif = "GTC"
             for item in call.keywords:
                 if item.arg in {"type", "tif", "id", "oco"} and not isinstance(item.value, ast.Constant): raise DSLParseError(f"주문 {item.arg}은 문자열 상수여야 합니다.", line, code="BAD_ORDER_LITERAL")
+                if item.arg in {"type", "tif", "id", "oco"} and isinstance(item.value, ast.Constant) and not isinstance(item.value.value, str): raise DSLParseError(f"주문 {item.arg}은 문자열 상수여야 합니다.", line, code="BAD_ORDER_LITERAL")
                 if item.arg == "type": order_type = str(item.value.value).upper()
                 elif item.arg == "tif": tif = str(item.value.value).upper()
             if order_type not in cls.ORDER_TYPES: raise DSLParseError(f"지원하지 않는 주문 유형: {order_type}", line, code="UNSUPPORTED_ORDER_TYPE")
             if tif not in cls.TIFS: raise DSLParseError(f"지원하지 않는 TIF: {tif}", line, code="UNSUPPORTED_TIF")
             name_set = set(names)
-            if order_type in {"LIMIT", "STOP_LIMIT"} and "limit" not in name_set: raise DSLParseError("LIMIT 주문에는 limit 가격이 필요합니다.", line, code="MISSING_LIMIT")
-            if order_type in {"STOP", "STOP_LIMIT"} and "stop" not in name_set: raise DSLParseError("STOP 주문에는 stop 가격이 필요합니다.", line, code="MISSING_STOP")
+            if order_type == "MARKET" and ({"limit", "stop"} & name_set): raise DSLParseError("MARKET 주문에는 limit/stop 가격을 지정할 수 없습니다.", line, code="IRRELEVANT_ORDER_PRICE")
+            if order_type == "LIMIT":
+                if "limit" not in name_set: raise DSLParseError("LIMIT 주문에는 limit 가격이 필요합니다.", line, code="MISSING_LIMIT")
+                if "stop" in name_set: raise DSLParseError("LIMIT 주문에는 stop 가격을 지정할 수 없습니다.", line, code="IRRELEVANT_STOP")
+            if order_type == "STOP":
+                if "stop" not in name_set: raise DSLParseError("STOP 주문에는 stop 가격이 필요합니다.", line, code="MISSING_STOP")
+                if "limit" in name_set: raise DSLParseError("STOP 주문에는 limit 가격을 지정할 수 없습니다.", line, code="IRRELEVANT_LIMIT")
+            if order_type == "STOP_LIMIT":
+                if "limit" not in name_set: raise DSLParseError("STOP_LIMIT 주문에는 limit 가격이 필요합니다.", line, code="MISSING_LIMIT")
+                if "stop" not in name_set: raise DSLParseError("STOP_LIMIT 주문에는 stop 가격이 필요합니다.", line, code="MISSING_STOP")
