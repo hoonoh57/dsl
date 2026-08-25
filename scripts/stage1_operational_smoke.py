@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Deterministic live-stack smoke test for the Stage 1 Strategy Factory.
 
-The harness intentionally uses only public HTTP contracts.  It creates a new
-append-only smoke root, never promotes a candidate, and verifies that a rejected
-LLM response does not create a replacement Experiment.
+The harness intentionally uses only public HTTP contracts. It creates a new
+isolated append-only smoke root, verifies immutable rejection, exercises one
+valid structural LLM iteration followed by re-Seeker, and explicitly promotes
+only the final candidate inside that disposable smoke root.
 """
 from __future__ import annotations
 
@@ -25,6 +26,19 @@ DSL = '''strategy "OperationalSmoke" {
     f = ta.sma(close, fast)
     s = ta.sma(close, slow)
     long_entry = ta.crossover(f, s)
+    long_exit = ta.crossunder(f, s)
+    on(long_entry) { order.buy(type = "MARKET") }
+    on(long_exit) { order.close_long() }
+}'''
+
+REVISED_DSL = '''strategy "OperationalSmoke" {
+    timeframe = "1d"
+    input fast = 3
+    input slow = 8
+    f = ta.sma(close, fast)
+    s = ta.sma(close, slow)
+    regime = close > ta.sma(close, 20)
+    long_entry = ta.crossover(f, s) and regime
     long_exit = ta.crossunder(f, s)
     on(long_entry) { order.buy(type = "MARKET") }
     on(long_exit) { order.close_long() }
@@ -93,6 +107,15 @@ def require(condition: bool, message: str) -> None:
         raise SmokeFailure(message)
 
 
+def complete_session(api: Client, session_id: int, batches=12) -> dict[str, Any]:
+    for _ in range(batches):
+        result = api.post(f"/api/stage1/seeker-sessions/{session_id}/process", {"batch_size": 2}).body
+        if (result.get("session") or {}).get("status") == "COMPLETED":
+            return result
+        time.sleep(0.02)
+    raise SmokeFailure(f"Seeker session {session_id} did not complete")
+
+
 def run(stage1_base: str, chart_base: str, timeout: float) -> dict[str, Any]:
     api = Client(stage1_base, timeout)
     chart = Client(chart_base, timeout)
@@ -114,7 +137,7 @@ def run(stage1_base: str, chart_base: str, timeout: float) -> dict[str, Any]:
     baseline = api.post(
         "/api/stage1/baseline",
         {
-            "intent": "SYSTEM_SMOKE_DO_NOT_PROMOTE",
+            "intent": "SYSTEM_SMOKE_ISOLATED_ROOT",
             "dsl_code": DSL,
             "market_spec": {
                 "source": "synthetic_fixture",
@@ -165,14 +188,7 @@ def run(stage1_base: str, chart_base: str, timeout: float) -> dict[str, Any]:
     session_id = int(session.get("id") or 0)
     require(session_id > 0 and session.get("total_candidates") == 4, "Seeker session plan mismatch")
 
-    completed = None
-    for _ in range(8):
-        result = api.post(f"/api/stage1/seeker-sessions/{session_id}/process", {"batch_size": 2}).body
-        if (result.get("session") or {}).get("status") == "COMPLETED":
-            completed = result
-            break
-        time.sleep(0.02)
-    require(completed is not None, "Seeker session did not complete")
+    completed = complete_session(api, session_id)
     best = completed.get("experiment") or {}
     best_id = int(best.get("id") or 0)
     require(best_id > base_id, "Seeker did not create a best Experiment")
@@ -210,7 +226,62 @@ def run(stage1_base: str, chart_base: str, timeout: float) -> dict[str, Any]:
     after_reject = api.get("/api/stage1/experiments?" + query).get("experiments", [])
     require(len(after_reject) == len(before_reject), "Rejected LLM response created an Experiment")
 
-    oos = api.post(f"/api/stage1/oos/{best_id}", {}).body
+    structural = api.post(
+        "/api/stage1/apply-llm",
+        {
+            "experiment_id": best_id,
+            "llm_response": f"```dsl\n{REVISED_DSL}\n```",
+            "prompt_text": prompt,
+            "hypothesis": "add one fixed long-term regime gate before re-optimizing existing inputs",
+            "expected_effect": "reduce entries outside the long-term positive regime without changing execution semantics",
+            "promote": False,
+        },
+    ).body
+    require(structural.get("status") == "success", "Valid structural LLM response failed")
+    structural_experiment = structural.get("experiment") or {}
+    structural_id = int(structural_experiment.get("id") or 0)
+    require(structural_id > best_id, "Structural LLM iteration did not create an Experiment")
+    require(structural_experiment.get("operation") == "LLM_STRUCTURAL", "Structural operation mismatch")
+    require(int(structural_experiment.get("parent_id") or 0) == best_id, "Structural parent mismatch")
+    require(structural.get("verdict") in {"ACCEPTED_IMPROVEMENT", "REJECTED_NO_GAIN"}, "Structural verdict mismatch")
+    require(bool(structural.get("exchange_id")), "Raw LLM exchange was not recorded")
+    require(bool(structural.get("episode_id")), "Pre-Seeker structural episode was not recorded")
+    require((structural.get("structural_diff") or {}).get("changed") is True, "Structural diff did not detect the revised DSL")
+
+    rediscovered = api.post("/api/stage1/parameters/discover", {"dsl_code": REVISED_DSL}).body
+    revised_names = [item.get("name") for item in rediscovered.get("parameters", [])]
+    require(revised_names == ["fast", "slow"], f"Revised input discovery mismatch: {revised_names}")
+
+    reseek = api.post(
+        "/api/stage1/seeker-sessions",
+        {
+            "experiment_id": structural_id,
+            "parameters": [
+                {"name": "fast", "target": "dsl", "values": [2, 3]},
+                {"name": "slow", "target": "dsl", "values": [7, 8]},
+            ],
+            "method": "grid",
+            "objective": "MAX_RETURN",
+            "seed": 42,
+            "max_candidates": 16,
+        },
+    ).body
+    reseek_id = int(reseek.get("id") or 0)
+    require(reseek_id > session_id, "re-Seeker session was not created")
+    reseek_completed = complete_session(api, reseek_id)
+    final_experiment = reseek_completed.get("experiment") or {}
+    final_id = int(final_experiment.get("id") or 0)
+    require(final_id > structural_id, "re-Seeker did not create final Experiment")
+    require(final_experiment.get("operation") == "SEEKER_BEST", "re-Seeker final operation mismatch")
+    require(int(final_experiment.get("parent_id") or 0) == structural_id, "re-Seeker final parent mismatch")
+    require(bool(final_experiment.get("finalized_episode_id")), "post-Seeker finalized Improvement Episode missing")
+
+    final_detail = api.get(f"/api/stage1/experiments/{final_id}")
+    lineage = final_detail.get("lineage") or []
+    require([item.get("operation") for item in lineage] == ["BASELINE", "SEEKER_BEST", "LLM_STRUCTURAL", "SEEKER_BEST"],
+            "Final Experiment lineage does not preserve the full structural loop")
+
+    oos = api.post(f"/api/stage1/oos/{final_id}", {}).body
     require(oos.get("status") == "success", "Fixed holdout evaluation failed")
     oos_metrics = (oos.get("result") or {}).get("metrics_numeric", {})
     require("total_return_pct" in oos_metrics, "OOS metrics are missing total_return_pct")
@@ -233,33 +304,45 @@ def run(stage1_base: str, chart_base: str, timeout: float) -> dict[str, Any]:
     observed = api.post(
         f"/api/stage1/target-loops/{loop_id}/observe",
         {
-            "experiment_id": best_id,
+            "experiment_id": final_id,
             "backtests_used_delta": 4,
             "accepted": False,
             "plateau": False,
             "engine_blocked": False,
+            "oos_return_pct": float(oos_metrics.get("total_return_pct") or 0.0),
             "duplicate_hypothesis": False,
             "parameter_spike_ratio": 1.0,
         },
     ).body
-    require((observed.get("state") or {}).get("current_experiment_id") == best_id, "Target Loop did not observe the Seeker Experiment")
+    require((observed.get("state") or {}).get("current_experiment_id") == final_id, "Target Loop did not observe the final Experiment")
+    require((observed.get("state") or {}).get("applied_head_experiment_id") == base_id,
+            "Target Loop mutated current head before explicit promotion")
+
+    promoted = api.post("/api/stage1/promote", {"experiment_id": final_id}).body
+    require(promoted.get("status") == "success", "Explicit promotion failed")
+    require(int((promoted.get("head") or {}).get("id") or 0) == final_id, "Explicit promotion did not move current head")
 
     methodology = api.get(f"/api/stage1/methodology/{root_id}")
     require(methodology.get("schema") == "stage1_methodology_validation/v3", "Methodology schema mismatch")
     require((methodology.get("oos") or {}).get("available") is True, "Methodology did not observe OOS evidence")
+    require(methodology.get("episode_rate_basis") == "POST_SEEKER_FINAL", "Methodology did not prefer finalized post-Seeker episodes")
+    require(int(methodology.get("finalized_post_seeker_episodes") or 0) >= 1, "Methodology missing finalized structural episode")
     require(methodology.get("claim") == "descriptive_only_until_OOS_and_multi_strategy_methodology_validation", "Methodology claim boundary changed")
 
-    chart_document = api.get(f"/api/stage1/chart-document/{best_id}")
+    chart_document = api.get(f"/api/stage1/chart-document/{final_id}")
     require((chart_document.get("document") or {}).get("version") == "chart-document/v1", "Chart Document endpoint failed")
 
     return {
         "baseline_id": base_id,
         "best_id": best_id,
+        "structural_id": structural_id,
+        "final_id": final_id,
         "root_id": root_id,
         "session_id": session_id,
+        "reseek_id": reseek_id,
         "loop_id": loop_id,
         "oos_return_pct": float(oos_metrics.get("total_return_pct") or 0.0),
-        "experiments": len(after_reject),
+        "experiments": len(api.get("/api/stage1/experiments?" + query).get("experiments", [])),
     }
 
 
@@ -277,6 +360,7 @@ def main() -> int:
     print(
         "[PASS] Stage 1 operational smoke: "
         f"baseline #{result['baseline_id']} -> seeker #{result['best_id']} -> "
+        f"structural #{result['structural_id']} -> reseeker #{result['final_id']} -> "
         f"OOS {result['oos_return_pct']:+.2f}%"
     )
     return 0
