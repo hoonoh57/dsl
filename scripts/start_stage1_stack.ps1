@@ -281,7 +281,7 @@ try {
             if ($startedChart -and $null -ne $chartProcess) { Stop-Process -Id $chartProcess.Id -Force -ErrorAction SilentlyContinue }
         }
         $passLine = [string]($smokeOutput | Select-Object -Last 1)
-        if ($passLine -notlike '[PASS]*') { $passLine = '[PASS] Stage 1 operational smoke completed.' }
+        if (-not $passLine.StartsWith('[PASS]')) { $passLine = '[PASS] Stage 1 operational smoke completed.' }
         Write-Host $passLine
         exit 0
     }
