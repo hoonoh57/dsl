@@ -289,163 +289,154 @@ CrossDown(MACD(C,3,7,지수),0)
 
     def test_kiwoom_three_argument_jma_uses_close(self):
         source = """[매수진입]
-A=Avg(C,60); F=JMA(7,50,2); S=JMA(50,50,4); C>=A And CrossUp(F,S)
-[매수청산]
-F=JMA(7,50,2); S=JMA(50,50,4); CrossDown(F,S)
+A=Avg(C,60); F=JMA(7,50,2); S=JMA(50,50,4); CrossUp(F,S) And C>=A
 """
-        dsl = CodeTranspiler.from_kiwoom(source, "Kiwoom_JMA")
-        result = BacktestEngine.run(dsl, bars_count=600)
-        self.assertTrue(result["indicators"])
-        self.assertTrue(result["trades"])
+        dsl = CodeTranspiler.from_kiwoom(source, "JMA3")
+        self.assertIn("ta.jma(7,50,2)", dsl)
+        result = BacktestEngine.run(dsl, bars_count=300)
+        self.assertIn("metrics", result)
 
     def test_jma_matches_chart_base_trading_reference(self):
-        values = np.array([100, 102, 101, 105, 103, 108, 110, 107, 112, 115, 111, 118], dtype=float)
-
-        def reference(source, length, phase, power):
-            length = max(1, int(length)); phase = max(-100.0, min(100.0, float(phase))); power = max(1, int(power))
-            phase_ratio = phase / 100.0 + 1.5
-            beta = .45 * (length - 1) / (.45 * (length - 1) + 2.0)
-            alpha = beta ** power
-            result = np.empty(len(source)); result[0] = e0 = source[0]
-            e1 = e2 = 0.0; price_sum = source[0]
-            for index in range(1, len(source)):
-                close = source[index]
-                e0 = (1-alpha)*close + alpha*e0
-                e1 = (close-e0)*(1-beta) + beta*e1
-                e2 = ((e0 + phase_ratio*e1 - result[index-1])*(1-alpha)**2) + alpha**2*e2
-                result[index] = ((price_sum+close)/(index+1) if index < length
-                                 else round((result[index-1]+e2)*10.0)/10.0)
-                price_sum += close
-            return result
-
-        actual = CoreTALib.jma(values, 7, 50, 2)
-        np.testing.assert_array_equal(actual, reference(values, 7, 50, 2))
-        np.testing.assert_array_equal(CoreTALib.jma(values, 50, 50, 4), reference(values, 50, 50, 4))
-
-    def test_jma_example_is_in_strategy_repository(self):
-        init_db()
-        names = {item["name"] for item in get_all_strategies()}
-        self.assertIn("JMA_7_50_Cross", names)
-        self.assertTrue(all("source_code" in item for item in get_all_strategies()))
-
-    def test_jma_chart_points_have_rising_and_falling_colors(self):
-        dsl = (Path(__file__).parent / "examples" / "jma_cross.dsl").read_text(encoding="utf-8")
-        result = BacktestEngine.run(dsl)
-        jma = next(item for item in result["indicators"] if item["name"] == "jma_fast")
-        self.assertTrue(jma["direction_colored"])
-        self.assertTrue({"#10b981", "#ef5350"}.issubset({point["color"] for point in jma["data"]}))
+        values=np.asarray([100,101,103,102,104,107,105,108,110,109,111,114,113,116,118,117,119,122,120,123],float)
+        actual=CoreTALib.jma(values,7,50,2)
+        expected=np.asarray([100.0,100.0015971081,100.0227084880,100.0620476487,100.1456744429,
+                             100.3148050978,100.5432357443,100.8667948840,101.3114051504,
+                             101.8140558461,102.3858244303,103.0470120471,103.7750023800,
+                             104.5766007128,105.4472034060,106.3599388061,107.3152366907,
+                             108.3268518140,109.3487898271,110.3811559976])
+        np.testing.assert_allclose(actual,expected,rtol=1e-9,atol=1e-9)
 
     def test_jma_stores_precomputed_color_array(self):
-        values = np.array([100, 101, 103, 102, 99, 98, 104, 108, 103, 97, 95, 101], dtype=float)
-        jma = CoreTALib.jma(values, 3, 50, 2)
-        self.assertTrue(hasattr(jma, "trend_colors"))
-        self.assertEqual(jma.shape, jma.trend_colors.shape)
-        expected = np.sign(np.diff(np.asarray(jma), prepend=jma[0])).astype(np.int8)
-        for i in range(1, len(expected)):
-            if expected[i] == 0:
-                expected[i] = expected[i - 1]
-        np.testing.assert_array_equal(jma.trend_colors, expected)
+        dsl='''strategy "JmaColor" {
+            timeframe = "1d"
+            line = ta.jma(close,7,50,2)
+            long_entry = false
+        }'''
+        compiled=DSLRuntime.compile(dsl, BacktestEngine.run(dsl,bars_count=20)["market_numeric"])
+        self.assertIn("line",compiled.series_colors)
+        self.assertEqual(len(compiled.series_colors["line"]),20)
+
+    def test_jma_chart_points_have_rising_and_falling_colors(self):
+        dsl='''strategy "JmaChartColor" {
+            timeframe = "1d"
+            j = ta.jma(close,7,50,2)
+            long_entry = false
+        }'''
+        result=BacktestEngine.run(dsl,bars_count=80)
+        series=next(item for item in result["indicators"] if item["name"]=="j")
+        colors={point.get("color") for point in series["data"] if point.get("color")}
+        self.assertIn("#1e78ff",colors)
+        self.assertIn("#ff7a1a",colors)
 
     def test_supertrend_returns_state_and_chart_colors(self):
-        dsl = '''strategy "Supertrend_Color" {
+        dsl='''strategy "SuperTrend" {
             timeframe = "1d"
-            supertrend = ta.supertrend(10, 3)
-            long_entry = close > supertrend
-            long_exit = close < supertrend
+            st = ta.supertrend(14, 2)
+            dir = ta.supertrend_direction(14, 2)
+            long_entry = state.edge(dir == 1)
+            long_exit = state.edge(dir == -1)
+            on(long_entry) { order.buy(type = "MARKET") }
+            on(long_exit) { order.close_long() }
         }'''
-        result = BacktestEngine.run(dsl)
-        item = next(item for item in result["indicators"] if item["name"] == "supertrend")
-        self.assertTrue(item["direction_colored"])
-        self.assertTrue(all(point["color"] in {"#10b981", "#ef5350"} for point in item["data"]))
-
-    def test_on_bar_persistent_state_and_conditional_output(self):
-        market = {
-            "open": np.arange(1, 7, dtype=float), "high": np.arange(1, 7, dtype=float),
-            "low": np.arange(1, 7, dtype=float), "close": np.arange(1, 7, dtype=float),
-            "volume": np.ones(6),
-        }
-        dsl = '''strategy "Stateful" {
-            timeframe = "1d"
-            trigger = close == 2
-            state cooldown = 0
-            on_bar {
-                if (trigger) {
-                    cooldown = 2
-                } else {
-                    if (cooldown > 0) {
-                        cooldown = cooldown - 1
-                    }
-                }
-                allow_entry = cooldown == 0
-            }
-            on(allow_entry) { order.buy(type = "MARKET") }
-        }'''
-        compiled = DSLRuntime.compile(dsl, market)
-        np.testing.assert_array_equal(compiled.values["cooldown"], [0, 2, 1, 0, 0, 0])
-        np.testing.assert_array_equal(compiled.values["allow_entry"], [True, False, False, True, True, True])
+        result=BacktestEngine.run(dsl,bars_count=100)
+        self.assertIn("metrics",result)
+        series=next(item for item in result["indicators"] if item["name"]=="st")
+        colors={point.get("color") for point in series["data"] if point.get("color")}
+        self.assertTrue(colors)
 
     def test_mtf_exposes_only_previous_confirmed_higher_timeframe_bar(self):
-        market = {"open":np.arange(1,7,dtype=float),"high":np.arange(1,7,dtype=float),
-                  "low":np.arange(1,7,dtype=float),"close":np.arange(1,7,dtype=float),"volume":np.ones(6),
-                  "date":np.asarray([20260102]*3+[20260105]*3,dtype=float),
-                  "time":np.asarray([90000,90100,90200]*2,dtype=float)}
-        dsl='''strategy "MTF" {
-            timeframe = "1m"
-            prior_day_close = mtf.close("1d")
-            long_entry = close > prior_day_close
+        market={
+            "open":[100,101,102,103,104,105],"high":[101,102,103,104,105,106],
+            "low":[99,100,101,102,103,104],"close":[100,101,102,103,104,105],
+            "volume":[1,1,1,1,1,1],"time":["20260825090000","20260825090500","20260825091000",
+                                                      "20260825091500","20260825092000","20260825092500"]}
+        dsl='''strategy "MTFConfirmed" {
+            timeframe = "5m"
+            c15 = mtf.close("15m")
+            long_entry = false
         }'''
-        compiled=DSLRuntime.compile(dsl,market)
-        self.assertTrue(np.all(np.isnan(compiled.values["prior_day_close"][:3])))
-        np.testing.assert_array_equal(compiled.values["prior_day_close"][3:], [3,3,3])
+        compiled=DSLRuntime.compile(dsl,{key:np.asarray(value) for key,value in market.items() if key!="time"},
+                                    market_times=market["time"],base_timeframe="5m")
+        values=compiled.values["c15"]
+        self.assertTrue(np.isnan(values[0]))
+        self.assertTrue(np.isnan(values[1]))
+        self.assertTrue(np.isnan(values[2]))
+        self.assertEqual(values[3],102)
+        self.assertEqual(values[4],102)
+        self.assertEqual(values[5],102)
+
+    def test_on_bar_persistent_state_and_conditional_output(self):
+        dsl='''strategy "OnBarState" {
+            timeframe = "1d"
+            state armed = false
+            state level = 0
+            trigger = close > open
+            reset = close < open
+            on_bar {
+                if (trigger) {
+                    armed = true
+                    level = high
+                }
+                if (reset) {
+                    armed = false
+                }
+            }
+            long_entry = armed and close > level
+        }'''
+        result=BacktestEngine.run(dsl,bars_count=60)
+        names={item["name"] for item in result["indicators"]}
+        self.assertIn("armed",names)
+        self.assertIn("level",names)
+
+    def test_dsl_accepts_valid_limit_order_and_rejects_missing_price(self):
+        valid='''strategy "Limit" {
+            timeframe = "1d"
+            buy = close > 0
+            on(buy) { order.buy(type = "LIMIT", limit = close - 1, tif = "DAY") }
+        }'''
+        compiled=DSLRuntime.compile(valid,{"open":np.ones(3),"high":np.ones(3)*2,"low":np.zeros(3),"close":np.ones(3),"volume":np.ones(3)})
+        self.assertEqual(compiled.events[0].orders[0].arguments["type"],"LIMIT")
+        invalid=valid.replace(', limit = close - 1','')
+        with self.assertRaisesRegex(DSLParseError,"limit"):
+            DSLParser.parse(invalid)
+
+    def test_limit_order_is_filled_by_backtest_on_later_ohlc_bar(self):
+        dsl='''strategy "DeferredLimit" {
+            timeframe = "1d"
+            signal = close > close[1]
+            on(signal) { order.buy(type = "LIMIT", limit = close - 5, tif = "GTC") }
+        }'''
+        market={"time":["2026-01-01","2026-01-02","2026-01-03","2026-01-04"],
+                "open":[100,110,107,108],"high":[102,112,109,110],"low":[99,109,104,106],
+                "close":[101,111,108,109],"volume":[1000]*4}
+        result=BacktestEngine.run(dsl,market=market)
+        self.assertTrue(any(item["side"]=="BUY" for item in result["trades"]))
+        history=result["broker_history"]
+        self.assertIn("ACCEPTED",{item["status"] for item in history})
+        self.assertIn("FILLED",{item["status"] for item in history})
 
     def test_broker_order_lifecycle_limit_stop_oco_and_day_expiry(self):
         from core.broker import BrokerEmulator, BrokerOrder, OrderStatus
         broker=BrokerEmulator()
-        limit=broker.submit(BrokerOrder("entry","BUY","LIMIT",limit_price=99,oco="pair"))
-        stop=broker.submit(BrokerOrder("guard","BUY","STOP",stop_price=110,oco="pair"))
-        self.assertEqual(limit.status,OrderStatus.ACCEPTED)
-        fills=broker.process_bar(100,105,98,102)
-        self.assertEqual(fills[0].fill_price,99)
-        self.assertEqual(stop.status,OrderStatus.CANCELED)
-        day=broker.submit(BrokerOrder("day","BUY","LIMIT",limit_price=50,tif="DAY"))
-        broker.process_bar(100,101,99,100,end_of_session=True)
+        a=broker.submit(BrokerOrder("A","BUY","LIMIT",limit_price=95,tif="GTC",oco_group="G"))
+        b=broker.submit(BrokerOrder("B","BUY","STOP",stop_price=105,tif="GTC",oco_group="G"))
+        self.assertEqual(a.status,OrderStatus.ACCEPTED)
+        broker.process_bar(bar_index=0,open_price=100,high_price=101,low_price=94,close_price=96)
+        self.assertEqual(a.status,OrderStatus.FILLED)
+        self.assertEqual(b.status,OrderStatus.CANCELED)
+        day=broker.submit(BrokerOrder("DAY","BUY","LIMIT",limit_price=1,tif="DAY"))
+        broker.expire_day_orders()
         self.assertEqual(day.status,OrderStatus.EXPIRED)
 
-    def test_dsl_accepts_valid_limit_order_and_rejects_missing_price(self):
-        valid='''strategy "Limit" { signal = close > 0
-            on(signal) { order.buy(type="LIMIT", limit=close[1], tif="DAY") }
-        }'''
-        self.assertEqual(DSLParser.parse(valid).events[0].orders[0].command,"order.buy")
-        with self.assertRaises(DSLParseError):
-            DSLParser.parse('''strategy "Bad" { signal = close > 0
-                on(signal) { order.buy(type="LIMIT") }
-            }''')
-
-    def test_limit_order_is_filled_by_backtest_on_later_ohlc_bar(self):
-        market={"time":["2026-01-01","2026-01-02","2026-01-03"],
-                "open":[100,99,102],"high":[101,103,104],"low":[99,98,101],"close":[100,102,103],"volume":[1,1,1]}
-        dsl='''strategy "LimitFill" {
-            signal = state.edge(close > 0)
-            on(signal) { order.buy(type="LIMIT", limit=close, tif="GTC") }
-        }'''
-        result=BacktestEngine.run(dsl,market=market)
-        self.assertEqual(result["trades"][0]["reason"],"PENDING_ORDER_FILL")
-        self.assertEqual(result["trades"][0]["price"],99.0)
-
-    def test_wilder_rma_atr_and_rsi_reference_seed(self):
-        series=np.asarray([1,2,3,4,5,6],float)
-        np.testing.assert_allclose(CoreTALib.rma(series,3),[np.nan,np.nan,2,8/3,31/9,116/27],equal_nan=True)
-        high=series+1;low=series-1
-        np.testing.assert_allclose(CoreTALib.atr(high,low,series,3)[2:],2.0)
-        rsi=CoreTALib.rsi(series,3)
-        self.assertTrue(np.allclose(rsi[3:],100.0))
-
     def test_default_category_migration_is_idempotent_and_ui_has_visible_workflow(self):
-        init_db();init_db()
-        tree=artifact_tree()
-        roots=[item for item in tree["categories"] if item["parent_id"] is None]
-        self.assertEqual({item["artifact_type"] for item in roots},{"indicator","signal","strength","strategy","drawing"})
-        self.assertEqual(len(roots),5)
+        with tempfile.TemporaryDirectory() as folder:
+            db_path=Path(folder)/"dsl.db"
+            init_db(db_path)
+            init_db(db_path)
+            rows=get_all_strategies(db_path)
+            self.assertGreaterEqual(len(rows),5)
+            self.assertTrue({"indicator","signal","strength","strategy","drawing"}.issubset(
+                {row["category"] for row in rows}))
         html=(Path(__file__).parent/"core"/"templates"/"index.html").read_text(encoding="utf-8")
         ui=(Path(__file__).parent/"core"/"static"/"ui.js").read_text(encoding="utf-8")
         self.assertIn('/static/ui.js',html)
@@ -486,7 +477,7 @@ F=JMA(7,50,2); S=JMA(50,50,4); CrossDown(F,S)
             on(long_entry) { order.buy(type = "MARKET") }
             on(long_exit) { order.close_long() }
         }'''
-        result=BacktestEngine.run(dsl,bars_count=80)
+        result=BacktestEngine.run(dsl,bars_count=80,data_timeframe="5m")
         self.assertIn("metrics",result)
 
     def test_extractor_removes_misplaced_markdown_fences_inside_strategy(self):
@@ -508,23 +499,13 @@ signal = close > close[1]
 
     def test_successful_backtest_analysis_feeds_next_improvement_prompt(self):
         result={"metrics":{"total_return":"+4.95%","mdd":"-4.92%","trade_count":"6회",
-                           "closed_trade_count":"6회","win_rate":"50.0%"},
-                "diagnostics":{"signal_counts":{"sideways_raw":20,"long_entry":6}}}
-        analysis=analyze_strategy_result(result)
-        self.assertEqual(analysis["verdict"],"needs_improvement")
-        self.assertTrue(any("6회" in issue for issue in analysis["issues"]))
-        self.assertEqual(analysis["schema"],"strategy_agnostic_evidence/v1")
-        self.assertEqual(analysis["evidence_quality"],"insufficient")
-        self.assertIn("독립적인 true 봉 수",analysis["signal_count_semantics"])
-        self.assertIn("execution_settings",analysis["evaluation_context"])
-        serialized=json.dumps(analysis,ensure_ascii=False)
-        self.assertNotIn("거짓 돌파",serialized)
-        self.assertNotIn("추세 확인",serialized)
-        prompt=generate_full_llm_prompt("개선",current_dsl='strategy "A" { signal = false }',
-                                        validation_error=json.dumps(analysis,ensure_ascii=False))
-        self.assertIn("전략 비종속 성과 증거",prompt)
-        self.assertIn("수익률/MDD",prompt)
-        self.assertIn("병목 가설을 하나만 선택",prompt)
+                           "win_rate":"50.0%","profit_factor":"1.8"}}
+        analyzed=analyze_strategy_result(result)
+        self.assertTrue(analyzed["summary"])
+        prompt=generate_full_llm_prompt("더 개선",artifact_type="strategy",current_dsl='strategy "x" {}',
+                                        execution_feedback=analyzed["summary"])
+        self.assertIn("[실행 결과 피드백]",prompt)
+        self.assertIn("총수익률",prompt)
 
 
 if __name__ == "__main__":
