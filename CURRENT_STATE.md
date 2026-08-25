@@ -1,38 +1,30 @@
 # Quant DSL Current State
 
-Status: **MULTI_LAYER_P0_SYSTEM_VALIDATED / REMEDIATION_REQUIRED**
+Status: **P1_1516_VERTICAL_SLICE_IMPLEMENTED_AWAITING_TRUSTED_VALIDATION / REMEDIATION_REQUIRED**
 Updated: 2026-08-26 KST
 
 ## Authority
 
 Read in this order:
 
-1. `MULTI_LAYER_DSL_ARCHITECTURE.md` — current product architecture addendum and three-layer tactical requirement. **Where it conflicts with the older sequential Stage 2/3/4 assumption, this document wins.**
-2. `PRODUCT_IMPLEMENTATION_PLAN.md` — original product roadmap and validated Stage 1 kernel plan.
-3. `STAGE1_EXECUTION_POLICY.md` — continuous implementation / verification operating policy.
-4. `QUANT_DSL_PLAYBOOK.md` — official generated-DSL language contract.
-5. `DSL_ENGINE_AUDIT.md` — engine trust-boundary criteria.
+1. `MULTI_LAYER_DSL_ARCHITECTURE.md` — current product architecture and Tactical Unit methodology.
+2. `P1_TACTICAL_DATA_IMPLEMENTATION.md` — current P1 1516 data/provider/UI implementation checkpoint.
+3. `PRODUCT_IMPLEMENTATION_PLAN.md` — original product roadmap and validated Stage 1 kernel plan.
+4. `STAGE1_EXECUTION_POLICY.md` — continuous implementation / verification operating policy.
+5. `QUANT_DSL_PLAYBOOK.md` — official generated-DSL language contract.
+6. `DSL_ENGINE_AUDIT.md` — engine trust-boundary criteria.
 
-## Product definition after consolidated UI review
+## Product definition
 
-The trusted single-symbol engine is a **tactical execution kernel / workbench**, not the final research methodology.
+The validated single-symbol engine is the instrument-level tactical kernel, not the final research methodology.
 
-The product is not:
-
-```text
-random single symbol
- -> write one strategy
- -> optimize numeric parameters
- -> final 20% bars as universal OOS
-```
-
-The product is:
+The product path remains:
 
 ```text
 Market Regime / Opportunity Window
  -> eligible Tactical Unit
  -> point-in-time multi-symbol cohort
- -> relative / lead-lag / leader-follower evidence
+ -> relative / lead-lag / group evidence
  -> unit-specific DSL tactic
  -> common execution policy
  -> parallel deterministic execution
@@ -40,214 +32,150 @@ Market Regime / Opportunity Window
  -> promote / reject / remember
 ```
 
-Examples of distinct Tactical Units include `1516 @ 09:05`, High-Beta, Leading-Sector, Theme/Policy and future condition-search cohorts. Each may own different feature logic, mission labels and strategy families.
+`1516 @ 09:05`, High-Beta, Leading-Sector, Theme/Policy and future condition-search cohorts are separate Tactical Units and may own different features and tactics.
 
-For `1516 @ 09:05`, the captured cohort is fixed first; same-day post-capture `MFE >= 10%` is an outcome label, not a cohort-selection input.
+For `1516 @ 09:05`, cohort membership is frozen first. Post-search `max_ret_in_period` / `label_10` are outcome evidence only and may not participate in cohort construction or pre-execution candidate ranking.
 
-## Trusted validation checkpoints
+## Trusted validation checkpoint before this P1 tranche
 
-### Historical Stage 1 kernel checkpoint
-
-Before the multi-layer extension, the trusted local Windows PowerShell 5.1 verifier completed:
+The current branch base was the multi-layer P0 checkpoint that had a trusted local Windows PowerShell 5.1 Full verifier PASS:
 
 ```text
 [PASS] Stage 1 verification completed: mode=Full.
 ```
 
-That remains valid evidence for the single-symbol kernel boundary.
+That PASS remains evidence for the P0 base commit. It does **not** automatically validate the P1 mutations described below.
 
-### Multi-layer P0 checkpoint — trusted PASS
+## P1 1516 vertical slice now implemented
 
-After the multi-layer architecture, parallel engine, common entry policy, Kiwoom history/warm-up work, Tactical Cohort/Scenario/Validation components and API integration were added, the user pulled the complete mutation set and ran:
+### Production point-in-time cohort provider
 
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_stage1.ps1 -Mode Full
-```
+`core/tactical_providers.py`
 
-Result:
+- `Performance1516CohortProvider` reads one exact `performance_result` group by search date/time/condition/hold period.
+- point-in-time member features are kept separate from future return labels.
+- no nearest-date, alternate-condition, alternate-hold or dummy fallback is permitted.
+- `label_10` is checked against `max_ret_in_period` and malformed/ambiguous groups fail closed.
+- `PointInTimeMetricCohortProvider` supplies a configurable exact-snapshot contract for later High-Beta / sector sources without inventing a source table.
+
+### Stored minute-bar provider
+
+`core/tactical_market.py`
+
+- explicitly configured MySQL database/table;
+- schema alias discovery for code/time/OHLCV;
+- separate-date/time or datetime timestamp support;
+- strict timestamp/OHLCV validation;
+- required warm-up coverage;
+- exact timeframe/table contract;
+- no generated or dummy bars.
+
+Current defaults target the existing 5-minute data-lake naming convention but remain explicit and fail closed when the actual table contract differs.
+
+### 1516 tactical orchestration
+
+`core/tactical_research.py`
+
+The 1516 run path is:
 
 ```text
-[PASS] Stage 1 verification completed: mode=Full.
+exact frozen cohort
+ -> canonical per-symbol bars
+ -> capture + 1 second entry authorization
+ -> existing MultiSymbolAnalysisEngine / BrokerEmulator
+ -> immutable Tactical Scenario/Run
+ -> official 1516 outcome merge only after execution
+ -> retention / precision evidence
 ```
 
-This is the first trusted executable Full PASS for the current multi-layer P0 codebase. It validates the current repository's Stage 1 regression boundary plus all newly discovered `test_stage1_*.py` multi-layer contracts included by the verifier.
+For a 09:05:00 cohort the common entry gate is `09:05:01`. Therefore the bar that contains the search observation itself cannot be used as a post-capture entry fill.
 
-It does **not** prove:
+Point-in-time feature ranking such as `feature:search_volume` is computed from frozen member metadata only. Future returns and `label_10` are not ranking inputs.
 
-- profitability/generalization of any tactical unit;
-- production readiness of 1516 / High-Beta / Leading-Sector data providers;
-- donor repository-wide Chart compliance;
+### Multi-symbol Chart Evidence
+
+`core/tactical_chart_document.py`
+
+- emits only generic `chart-document/v1` bars/series/markers/geometries;
+- focus/comparison symbols come from point-in-time ranking;
+- post-outcome labels are not used to choose what is displayed as selected/near comparison evidence;
+- capture cutoff and regime windows are represented as generic vertical-region evidence.
+
+The shared Chart SSOT remains the only chart-native rendering owner.
+
+### Cohort-level validation summary
+
+`core/tactical_validation_runner.py`
+
+- consumes the existing immutable `TacticalValidationManifest`;
+- aggregates Train / Validation / OOS reports by frozen cohort hash;
+- refuses missing, duplicate or unmanifested cohort reports;
+- does not reconstruct partitions from outcomes.
+
+### Tactical application/UI
+
+`tactical_main.py` serves the existing Stage 1 app plus:
+
+```text
+/tactical
+GET  /api/stage1/tactical/1516/cohort
+POST /api/stage1/tactical/1516/run
+GET  /api/stage1/tactical/health
+```
+
+The cohort inspection endpoint intentionally excludes future outcomes. The run endpoint combines outcomes only after execution and returns the shared Chart Document evidence.
+
+`core/templates/tactical.html` and `core/static/tactical.js` implement the first multi-symbol research UI.
+
+### New regression coverage
+
+The existing Stage 1 discovery pattern will include:
+
+- `test_stage1_tactical_providers.py`
+- `test_stage1_tactical_market.py`
+- `test_stage1_tactical_research.py`
+- `test_stage1_tactical_chart_document.py`
+- `test_stage1_tactical_validation_runner.py`
+
+No legacy assertion was weakened to add this tranche.
+
+## Current validation status
+
+The P1 source has been implemented and source-reviewed, but a trusted Windows Full verifier has **not yet been recorded for these mutations**.
+
+Therefore do not claim:
+
+- P1 Full PASS;
+- production profitability/generalization;
+- completed High-Beta provider integration;
+- completed Leading-Sector provider integration;
 - live trading readiness;
-- process/distributed performance superiority.
+- donor repository-wide Chart compliance.
 
-## Consolidated UI findings already repaired
+`REMEDIATION_REQUIRED` remains authoritative.
 
-The UI review found and repaired concrete product defects without weakening assertions:
+## Remaining P1 work before consolidated human validation
 
-- Experiment A/B chart selection was made explicit through A/B chart actions.
-- Closed-trade selection highlights the row and produces selected-trade evidence plus ENTRY/EXIT/holding-region chart emphasis.
-- promotion refresh behavior was corrected so current-head state can be reloaded correctly after server restart.
-- OOS strict-JSON failure from non-finite metrics such as infinite PF was repaired at the API/storage boundary while preserving engine-internal numeric semantics.
+Continue implementation without per-feature user validation:
 
-The same UI review exposed the larger product-scope drift now governed by `MULTI_LAYER_DSL_ARCHITECTURE.md`.
+1. operational launcher integration for `tactical_main:app` and tactical health/smoke;
+2. tactical operational/stress harness including larger cohorts, worker-count determinism and missing-data faults;
+3. concrete High-Beta source discovery/integration without guessing an undocumented table;
+4. concrete Leading-Sector / leader-follower source discovery/integration;
+5. multi-unit scenario/date/window validation workbench and evidence comparison;
+6. then run one consolidated trusted Windows Full verification;
+7. only after the automated boundary is green, perform consolidated WYSIWYG/UI validation.
 
-## Current validated multi-layer P0 capabilities
+## Failure policy
 
-### Existing kernel preserved
-
-Parser/Semantic/Runtime/Backtest/Broker/Seeker/Experiment/Chart SSOT remain the instrument-level core. No second trading engine or ad-hoc cross-symbol DSL runtime was introduced.
-
-### Common tactical policy — `core/backtest.py`
-
-Validated higher-layer entry controls:
+Any executable failure must first be classified as one of:
 
 ```text
-entry_gate                 # per-bar higher-layer authorization
-entry_start_time           # HHMMSS inclusive
-entry_end_time             # HHMMSS exclusive, 240000 sentinel allowed
-max_entries_per_day        # 0 = unlimited
+test defect
+product defect
+authority drift
+environment issue
+unknown
 ```
 
-The policy affects actual entries only; indicator warm-up data remains available to DSL calculations. Rejection diagnostics distinguish:
-
-```text
-higher_layer_gate_blocked
-entry_time_blocked
-entry_count_blocked
-```
-
-Default values preserve previous behavior.
-
-### Parallel tactical engine — `core/multi_symbol.py`
-
-Validated orchestration/evidence objects include:
-
-- `OpportunityWindow`
-- `RegimeContext`
-- `MissionSpec`
-- `TacticalUnitSpec`
-- `InstrumentTask`
-- `MultiSymbolAnalysisEngine`
-
-Current behavior includes:
-
-- regime can block a Tactical Unit before any backtest executes;
-- opportunity windows gate entries while retaining complete warm-up history;
-- multiple symbols execute through a bounded thread pool;
-- result order remains deterministic independent of worker count;
-- a symbol execution failure fails the scenario instead of silently dropping that symbol;
-- exact timestamp matching only — no nearest-time substitution;
-- benchmark relative strength, beta, correlation and bounded lead/lag analysis;
-- post-capture same-day MFE/MAE mission evidence;
-- explicit ranking metric;
-- deterministic scenario/run identity including relevant benchmark/context provenance.
-
-### Point-in-time cohorts — `core/tactical_cohort.py`
-
-Validated boundaries:
-
-- a Tactical Unit cohort is frozen at an explicit `as_of` timestamp;
-- capture times may not come from the future relative to the cohort snapshot;
-- post-capture outcome fields such as mission success cannot leak into input cohort features;
-- missing requested cohort data fails closed instead of falling back to an unrelated universe.
-
-### Immutable tactical research memory — `core/tactical_store.py`
-
-Validated persistence model:
-
-```text
-tactical_scenarios
-tactical_runs
-tactical_heads
-```
-
-Scenario and Run evidence are immutable/content-identified. Execution does not implicitly change the applied head; promotion is explicit.
-
-### Tactical validation — `core/tactical_validation.py`
-
-The multi-layer validation unit is a point-in-time cohort/scenario boundary rather than an arbitrary final fraction of one stock's bars. Train/validation/OOS cohort overlap is rejected.
-
-The legacy single-symbol holdout remains useful as an instrument-level diagnostic, but it is not the final Tactical Unit generalization authority.
-
-### Kiwoom history / `_AL` / warm-up — `core/kiwoom_rest.py`
-
-Validated provider contracts now include:
-
-- explicit KRX/NXT/SOR symbol form support, including `_AL` for SOR/all-market data;
-- continuation-aware multi-page chart retrieval;
-- required-history / warm-up coverage checks;
-- fail-closed behavior when the requested history cannot be proven available.
-
-This allows indicator state to be built from pre-entry data (for example 08:00 onward where available) while keeping entry authorization as a separate execution policy.
-
-### Application/API slice — `stage1_main.py`, `core/tactical_service.py`
-
-Current vertical slice includes multi-symbol tactical analysis through the existing Stage 1 application boundary while preserving Broker/Backtest authority.
-
-The multi-layer endpoint returns strict-JSON-safe evidence and keeps the instrument-level DSL as the strategy SSOT.
-
-## Current test coverage added to the trusted verifier boundary
-
-The Full verifier now exercises the newly added multi-layer contracts through normal `test_stage1_*.py` discovery, including:
-
-- `test_stage1_multilayer.py`
-- `test_stage1_tactical_store.py`
-- `test_stage1_tactical_validation.py`
-- `test_stage1_kiwoom_history.py`
-- `test_stage1_oos_json_contract.py`
-
-These cover common time/count gates, opportunity windows, regime blocking, deterministic multi-worker results, benchmark identity, post-capture labels, point-in-time leakage rejection, immutable scenario/run storage, cohort OOS separation, Kiwoom continuation/history semantics and strict JSON output.
-
-## Current product status
-
-`MULTI_LAYER_P0_SYSTEM_VALIDATED` means:
-
-- the current multi-layer P0 source is connected;
-- the trusted Windows Full verifier is green on the current repository state;
-- the validated single-symbol kernel remains intact under the new orchestration layer.
-
-`REMEDIATION_REQUIRED` remains because the product is not yet at the final tactical research/workbench target. P1 data/provider/UI integration is still required before claiming the intended multi-unit research workflow is complete.
-
-## P1 — next coherent implementation tranche
-
-Priority order:
-
-1. **Production point-in-time Tactical Unit providers**
-   - `1516 @ 09:05` performance/capture cohorts from the actual performance DB path;
-   - High-Beta cohort snapshots from existing beta research assets;
-   - Leading-Sector / leader-follower cohort snapshots from market/sector research assets.
-
-2. **Canonical feature/context bundle per Tactical Unit**
-   - capture-time trading value / momentum / beta / relative-strength fields;
-   - market/regime context;
-   - sector/group/theme metadata where known at the cutoff;
-   - strict separation of input features from future outcome labels.
-
-3. **Multi-symbol Evidence UI on shared Chart SSOT**
-   - market/index + selected symbols;
-   - regime/opportunity shading;
-   - selected / near-miss / control comparison;
-   - exact entry/exit/capture audit.
-
-4. **Scenario/date/window validation runner**
-   - train/validation/OOS by immutable cohort snapshots;
-   - Tactical Unit-level recall/precision/mission-retention metrics;
-   - no random-stock or arbitrary final-bar methodology as final authority.
-
-5. **Tactical-unit-specific Strategy Factory loop**
-   - Seeker/LLM iteration scoped to one unit/context contract;
-   - preserve different strategy families for 1516, High-Beta, Leading-Sector, Theme/Policy.
-
-6. **Then P2**
-   - sector/group cascade;
-   - narrative/theme context;
-   - portfolio/capital competition;
-   - process/distributed parallelism only after measured need and benchmark evidence.
-
-## Verification policy
-
-Do not ask the user for per-file or per-feature validation. Continue implementation and remote/static remediation in coherent tranches. After a coherent P1 slice is connected, perform one consolidated trusted Windows verification. Any failure must first be classified as test defect / product defect / authority drift / environment issue / unknown; do not weaken tests or add product fallbacks to manufacture green results.
-
-## Next action
-
-Proceed with P1 production cohort/provider integration and shared multi-symbol evidence workflow. Do not reopen the old random-single-symbol methodology as the product's final research path.
+Do not weaken assertions, add compatibility allowlists, use dummy data, substitute nearby cohorts or bypass Broker/Chart authority to manufacture a PASS.
