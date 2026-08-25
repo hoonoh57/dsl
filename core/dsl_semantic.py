@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Dict
 from core.dsl_parser import IfNode, SetNode, StrategyNode
 from core.function_registry import FUNCTION_SPECS
+from core.assignment_flow import collect_bar_output_names, partition_assignments
 
 
 class ValueType(str, Enum):
@@ -184,39 +185,67 @@ class DSLSemanticAnalyzer:
 
     @classmethod
     def analyze(cls, document: StrategyNode):
+        before_bar, after_bar = partition_assignments(document)
         symbols = dict(cls.MARKET)
-        for item in document.assignments:
+
+        for item in before_bar:
             value = ExpressionTypeChecker(symbols, item.line).check(item.expression)
             if item.is_input and value not in {ValueType.SCALAR_NUMBER, ValueType.SCALAR_BOOL, ValueType.STRING}:
                 raise DSLSemanticError(f"input은 scalar만 허용합니다: {item.name}", item.line, code="SERIES_INPUT")
             symbols[item.name] = value
+
         state_names = set()
+        state_scalar_types: dict[str, ValueType] = {}
         for item in document.states:
             value = ExpressionTypeChecker(symbols, item.line).check(item.expression)
             if value not in {ValueType.SCALAR_NUMBER, ValueType.SCALAR_BOOL}:
                 raise DSLSemanticError(f"state 초기값은 scalar 숫자/boolean만 허용합니다: {item.name}", item.line, code="BAD_STATE_INITIALIZER")
-            symbols[item.name] = value; state_names.add(item.name)
+            symbols[item.name] = value
+            state_names.add(item.name)
+            state_scalar_types[item.name] = value
+
         event_symbols = dict(symbols)
 
         def analyze_bar(items):
             for item in items:
                 if isinstance(item, IfNode):
                     condition = ExpressionTypeChecker(symbols, item.line, allow_calls=False).check(item.condition)
-                    if not _boolean(condition): raise DSLSemanticError("if 조건은 boolean이어야 합니다.", item.line, code="BAD_IF_TYPE")
-                    analyze_bar(item.body); analyze_bar(item.otherwise)
+                    if not _boolean(condition):
+                        raise DSLSemanticError("if 조건은 boolean이어야 합니다.", item.line, code="BAD_IF_TYPE")
+                    analyze_bar(item.body)
+                    analyze_bar(item.otherwise)
                 elif isinstance(item, SetNode):
                     value = ExpressionTypeChecker(symbols, item.line, allow_calls=False).check(item.expression)
                     scalar_value = ValueType.SCALAR_BOOL if value in {ValueType.SCALAR_BOOL, ValueType.SERIES_BOOL} else ValueType.SCALAR_NUMBER
                     if item.name in state_names:
-                        current = symbols[item.name]
-                        if _boolean(current) != _boolean(scalar_value): raise DSLSemanticError(f"state 형식을 변경할 수 없습니다: {item.name}", item.line, code="STATE_TYPE_CHANGE")
+                        current = state_scalar_types[item.name]
+                        if _boolean(current) != _boolean(scalar_value):
+                            raise DSLSemanticError(f"state 형식을 변경할 수 없습니다: {item.name}", item.line, code="STATE_TYPE_CHANGE")
                     symbols[item.name] = scalar_value
                     event_symbols[item.name] = ValueType.SERIES_BOOL if _boolean(scalar_value) else ValueType.SERIES_NUMBER
+
         analyze_bar(document.on_bar)
+
+        # Every declared state is materialized as one value per bar, even if a
+        # particular state is not assigned in on_bar on every bar.
+        for name, scalar_type in state_scalar_types.items():
+            event_symbols[name] = ValueType.SERIES_BOOL if _boolean(scalar_type) else ValueType.SERIES_NUMBER
+        for name in collect_bar_output_names(document.on_bar):
+            if name not in event_symbols and name in symbols:
+                scalar_type = symbols[name]
+                event_symbols[name] = ValueType.SERIES_BOOL if _boolean(scalar_type) else ValueType.SERIES_NUMBER
+
+        for item in after_bar:
+            value = ExpressionTypeChecker(event_symbols, item.line).check(item.expression)
+            if item.is_input and value not in {ValueType.SCALAR_NUMBER, ValueType.SCALAR_BOOL, ValueType.STRING}:
+                raise DSLSemanticError(f"input은 scalar만 허용합니다: {item.name}", item.line, code="SERIES_INPUT")
+            event_symbols[item.name] = value
+
         for event in document.events:
             checker = ExpressionTypeChecker(event_symbols, event.line)
             value = checker.check(event.condition)
-            if not _boolean(value): raise DSLSemanticError("on 조건은 boolean이어야 합니다.", event.line, code="BAD_EVENT_TYPE")
+            if not _boolean(value):
+                raise DSLSemanticError("on 조건은 boolean이어야 합니다.", event.line, code="BAD_EVENT_TYPE")
             for order in event.orders:
                 if not order.arguments.strip():
                     continue
