@@ -58,7 +58,8 @@ class Stage1VerifierContractTest(unittest.TestCase):
         self.assertEqual(self.script.count("[PASS]"), 1)
         self.assertIn("Stage 1 verification completed: mode=", self.script)
         self.assertIn("[FAIL]", self.script)
-        self.assertIn("Select-Object -Last 8", self.script)
+        self.assertIn("Select-Object -Last 60", self.script)
+        self.assertIn("[Environment]::NewLine", self.script)
 
     def test_verifier_is_powershell_51_safe_and_feature_blind(self):
         self.assertIn("Set-StrictMode -Version 2.0", self.script)
