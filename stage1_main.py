@@ -29,6 +29,7 @@ from core.stage1_hypothesis_memory import HypothesisMemory
 from core.stage1_diff import summarize_dsl_change
 from core.stage1_methodology import MethodologyValidator
 from core.stage1_oos import OOSRegistry
+from core.stage1_chart_document import build_chart_document
 
 factory = StrategyFactory()
 target_loops = TargetLoopService(factory)
@@ -163,6 +164,11 @@ def _market_for_experiment(experiment_id: int):
     return load_market_snapshot(experiment["provenance"]["data_hash"]), experiment
 
 
+def _chart_document_for_experiment(experiment: dict):
+    market = load_market_snapshot(experiment["provenance"]["data_hash"])
+    return build_chart_document(experiment, market)
+
+
 def _record_failed_llm_episode(before: dict, req: ApplyLLMRequest, verdict: str, reason: str):
     try:
         return factory.store.create_episode(
@@ -228,6 +234,7 @@ def stage1_baseline(req: BaselineRequest):
             "status": "success",
             "experiment": experiment,
             "chart": factory.chart_audit(experiment),
+            "chart_document": _chart_document_for_experiment(experiment),
             "evidence": EvidenceBuilder.build(experiment),
             "oos_split": split_payload,
         }
@@ -252,6 +259,7 @@ def stage1_seeker(req: SeekRequest):
             promote=req.promote,
         )
         return {"status": "success", **result, "chart": factory.chart_audit(result["experiment"]),
+                "chart_document": _chart_document_for_experiment(result["experiment"]),
                 "evidence": EvidenceBuilder.build(result["experiment"], result["study"])}
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -286,6 +294,7 @@ def stage1_seek_session_process(session_id: int, req: SeekSessionProcessRequest)
         result = resumable_seeker.process(session_id, req.batch_size)
         if result.get("experiment"):
             result["chart"] = factory.chart_audit(result["experiment"])
+            result["chart_document"] = _chart_document_for_experiment(result["experiment"])
             result["evidence"] = EvidenceBuilder.build(result["experiment"], result["session"])
         return result
     except Exception as exc:
@@ -357,6 +366,7 @@ def stage1_apply_llm(req: ApplyLLMRequest):
             "structural_diff": structural_diff,
             "similar_prior_hypotheses": similar,
             "chart": factory.chart_audit(result["experiment"]),
+            "chart_document": _chart_document_for_experiment(result["experiment"]),
             "evidence": EvidenceBuilder.build(result["experiment"]),
         }
     except (DSLParseError, DSLRuntimeError, ValueError) as exc:
@@ -472,6 +482,15 @@ def stage1_oos_result(experiment_id: int):
         raise HTTPException(status_code=404, detail=str(exc))
 
 
+@app.get("/api/stage1/chart-document/{experiment_id}")
+def stage1_chart_document(experiment_id: int):
+    try:
+        experiment = factory.store.get_experiment(experiment_id)
+        return {"experiment_id": experiment_id, "document": _chart_document_for_experiment(experiment)}
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
 @app.get("/api/stage1/experiments")
 def stage1_experiments(root_id: Optional[int] = None, limit: int = 200):
     try:
@@ -488,6 +507,7 @@ def stage1_experiment(experiment_id: int):
             "experiment": experiment,
             "lineage": factory.store.lineage(experiment_id),
             "chart": factory.chart_audit(experiment),
+            "chart_document": _chart_document_for_experiment(experiment),
             "evidence": EvidenceBuilder.build(experiment),
             "oos": oos_registry.result(experiment_id),
         }
