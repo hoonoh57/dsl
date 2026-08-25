@@ -1,12 +1,12 @@
 """Stage 1 methodology validation summaries.
 
-This service reports descriptive evidence for A/B/C comparison. It does not
-claim predictive edge until OOS and multi-strategy validation are available.
+This service reports descriptive A/B/C, OOS and parameter-surface evidence.  It
+never turns those descriptive results into a profitability/generalization claim.
 """
 from __future__ import annotations
 
 import json
-from statistics import mean
+from statistics import mean, median
 
 from core.stage1_hypothesis_memory import similarity
 from core.strategy_factory import StrategyFactoryStore
@@ -24,6 +24,60 @@ class MethodologyValidator:
     def _table_exists(conn, name: str) -> bool:
         row = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone()
         return bool(row)
+
+    @staticmethod
+    def _sensitivity(rows) -> dict:
+        candidates = []
+        for row in rows:
+            parameters = json.loads(row["parameters_json"] or "{}")
+            candidates.append({"parameters": parameters, "score": float(row["score"] or 0.0)})
+        if not candidates:
+            return {"available": False, "reason": "No completed seeker candidates."}
+        scores = [item["score"] for item in candidates]
+        by_parameter = {}
+        names = sorted({name for item in candidates for name in item["parameters"]})
+        for name in names:
+            groups = {}
+            for item in candidates:
+                if name not in item["parameters"]:
+                    continue
+                key = str(item["parameters"][name])
+                groups.setdefault(key, []).append(item["score"])
+            surface = []
+            for value, values in groups.items():
+                surface.append({
+                    "value": value,
+                    "count": len(values),
+                    "max_score": max(values),
+                    "mean_score": mean(values),
+                    "median_score": median(values),
+                    "min_score": min(values),
+                })
+            surface.sort(key=lambda item: item["max_score"], reverse=True)
+            best = surface[0] if surface else None
+            runner_up = surface[1] if len(surface) > 1 else best
+            separation = 0.0 if not best or not runner_up else float(best["max_score"]) - float(runner_up["max_score"])
+            range_score = (max(item["max_score"] for item in surface) - min(item["max_score"] for item in surface)) if surface else 0.0
+            by_parameter[name] = {
+                "best_value": best["value"] if best else None,
+                "best_score": best["max_score"] if best else None,
+                "best_vs_runner_up_score_gap": separation,
+                "max_score_range": range_score,
+                "surface": surface,
+            }
+        ordered = sorted(scores, reverse=True)
+        second = ordered[1] if len(ordered) > 1 else ordered[0]
+        spike_ratio = abs(ordered[0]) / max(1e-9, abs(second)) if abs(ordered[0]) > abs(second) else 1.0
+        return {
+            "available": True,
+            "candidate_count": len(candidates),
+            "best_score": max(scores),
+            "median_score": median(scores),
+            "mean_score": mean(scores),
+            "worst_score": min(scores),
+            "top_vs_second_spike_ratio": spike_ratio,
+            "parameters": by_parameter,
+        }
 
     def summarize(self, root_id: int) -> dict:
         experiments = list(reversed(self.store.list_experiments(root_id=root_id, limit=10000)))
@@ -70,6 +124,8 @@ class MethodologyValidator:
             (root_id,),
         ).fetchall()
         session_rows = []
+        sensitivity_rows = []
+        sensitivity_session_id = None
         if self._table_exists(conn, "stage1_seek_sessions"):
             session_rows = conn.execute(
                 """SELECT ss.* FROM stage1_seek_sessions ss
@@ -77,6 +133,14 @@ class MethodologyValidator:
                    WHERE e.root_id=? ORDER BY ss.id""",
                 (root_id,),
             ).fetchall()
+            completed = [row for row in session_rows if row["status"] == "COMPLETED"]
+            if completed:
+                latest = completed[-1]
+                sensitivity_session_id = int(latest["id"])
+                sensitivity_rows = conn.execute(
+                    "SELECT parameters_json,score FROM stage1_seek_session_candidates WHERE session_id=? ORDER BY ordinal",
+                    (sensitivity_session_id,),
+                ).fetchall()
         loop_rows = conn.execute("SELECT * FROM stage1_target_loops WHERE root_id=? ORDER BY id", (root_id,)).fetchall()
         oos_rows = []
         if self._table_exists(conn, "stage1_oos_results"):
@@ -134,6 +198,8 @@ class MethodologyValidator:
             }
             for item in episodes[-200:]
         ]
+        sensitivity = self._sensitivity(sensitivity_rows)
+        sensitivity["session_id"] = sensitivity_session_id
 
         return {
             "schema": "stage1_methodology_validation/v3",
@@ -167,6 +233,7 @@ class MethodologyValidator:
             ),
             "average_structural_return_pct": mean(structural_returns) if structural_returns else None,
             "oos": oos_summary,
+            "parameter_sensitivity": sensitivity,
             "episode_memory": episode_memory,
             "claim": "descriptive_only_until_OOS_and_multi_strategy_methodology_validation",
         }
