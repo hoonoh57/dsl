@@ -11,9 +11,9 @@ from core.strategy_factory import StrategyFactory, StrategyFactoryStore
 class TargetLoopService:
     """Track research progress without mutating the applied strategy implicitly.
 
-    ``best_experiment_id`` is the best observed candidate in this loop.  The
-    Experiment Store's current head is changed only when ``accepted=True`` is
-    passed explicitly (normally through the dedicated Promote action).
+    The loop may identify/recommend a better candidate, but the Experiment Store
+    current head is changed only by the dedicated explicit Promote action.  This
+    prevents Seeker/LLM iteration from silently overwriting the applied best.
     """
 
     def __init__(self, factory: Optional[StrategyFactory] = None):
@@ -128,24 +128,20 @@ class TargetLoopService:
         else:
             state["consecutive_no_improvement"] = int(state.get("consecutive_no_improvement", 0)) + 1
 
-        if accepted is True:
-            self.store.promote(experiment_id)
-            state["applied_head_experiment_id"] = experiment_id
-        else:
-            try:
-                state["applied_head_experiment_id"] = self.store.current_head(loop["root_id"])["id"]
-            except Exception:
-                pass
+        try:
+            state["applied_head_experiment_id"] = self.store.current_head(loop["root_id"])["id"]
+        except Exception:
+            pass
 
         if duplicate_hypothesis:
             state["duplicate_hypothesis_count"] = int(state.get("duplicate_hypothesis_count", 0)) + 1
         else:
             state["duplicate_hypothesis_count"] = 0
 
+        prior_best_oos = state.get("best_oos_return_pct")
         if oos_return_pct is not None:
             state["last_oos_return_pct"] = float(oos_return_pct)
-            previous_best_oos = state.get("best_oos_return_pct")
-            if previous_best_oos is None or float(oos_return_pct) > float(previous_best_oos):
+            if prior_best_oos is None or float(oos_return_pct) > float(prior_best_oos):
                 state["best_oos_return_pct"] = float(oos_return_pct)
         if parameter_spike_ratio is not None:
             state["last_parameter_spike_ratio"] = float(parameter_spike_ratio)
@@ -164,8 +160,8 @@ class TargetLoopService:
             engine_blocked=engine_blocked,
         )
 
-        if status == "CONTINUE" and oos_return_pct is not None and state.get("best_oos_return_pct") is not None:
-            degradation = float(state["best_oos_return_pct"]) - float(oos_return_pct)
+        if status == "CONTINUE" and oos_return_pct is not None and prior_best_oos is not None:
+            degradation = float(prior_best_oos) - float(oos_return_pct)
             if degradation > float(guards.get("oos_degradation_limit_pct", 5.0)):
                 status = "OOS_DEGRADED"
         if status == "CONTINUE" and int(state.get("duplicate_hypothesis_count", 0)) >= int(
@@ -182,7 +178,8 @@ class TargetLoopService:
         state["last_observation"] = {
             "experiment_id": experiment_id,
             "improved_is": improved,
-            "accepted": accepted is True,
+            "candidate_recommended": accepted is True,
+            "promotion_required": experiment_id != state.get("applied_head_experiment_id"),
             "oos_return_pct": oos_return_pct,
             "duplicate_hypothesis": bool(duplicate_hypothesis),
             "parameter_spike_ratio": parameter_spike_ratio,
