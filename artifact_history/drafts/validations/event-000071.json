@@ -1,0 +1,13 @@
+{
+  "event_id": 71,
+  "artifact_id": null,
+  "artifact_type": "signal",
+  "user_request": "잘못된 결과 수정",
+  "prompt_text": "",
+  "llm_response": "코드가 없습니다",
+  "extracted_dsl": "",
+  "status": "failed",
+  "diagnostic_json": "{\"stage\": \"extractor\", \"error_code\": \"VALUEERROR\", \"message\": \"LLM 응답에서 완전한 strategy DSL 코드 블록을 찾지 못했습니다.\", \"line\": null, \"column\": null, \"expression\": \"\", \"dsl_version\": \"1.4.0\"}",
+  "playbook_version": "1.4.0",
+  "playbook_hash": "3289f55734c41da8912e62e3a9c1f87b15c89196664816bd99ad7c9a78a5efa3"
+}

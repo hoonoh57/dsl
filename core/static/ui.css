@@ -1,0 +1,18 @@
+/* Prompt-first UI: keep the three actions and artifact type visible. */
+.app{grid-template-columns:230px 1fr!important}
+.tree-tools{display:block!important}
+.tree-tools button{display:none!important}
+.tree-tools #new-artifact{display:block!important;width:100%;padding:10px}
+.main{grid-template-rows:auto 420px 1fr!important}
+.top{height:auto!important;min-height:62px;flex-wrap:wrap}
+.title{min-width:220px}
+.prompt-workspace{grid-template-columns:1fr 1fr!important;grid-template-rows:1fr 92px!important}
+.side{grid-column:1/-1;display:grid!important;grid-template-columns:430px 1fr!important;grid-template-rows:1fr!important;border-top:1px solid var(--line)}
+.side-actions{display:none!important}
+.metrics{grid-template-columns:repeat(4,1fr)!important}
+#log{border-top:0!important;border-left:1px solid var(--line)}
+.source-box.open{left:240px!important;top:70px!important}
+.artifact-type{min-width:120px;border-color:#53658f!important}
+.top-action{white-space:nowrap;min-height:38px}
+.top #validate{background:#4e7ff0}.top #save{background:#3dac7c}.top #discard{background:#5a3340}
+@media(max-width:1150px){.prompt-workspace{grid-template-columns:1fr 1fr!important;grid-template-rows:1fr 92px!important}.side{display:grid!important}.top .badge{display:none}.app{grid-template-columns:190px 1fr!important}}

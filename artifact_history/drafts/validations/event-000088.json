@@ -1,0 +1,13 @@
+{
+  "event_id": 88,
+  "artifact_id": null,
+  "artifact_type": "strategy",
+  "user_request": "JMA 전략 생성",
+  "prompt_text": "",
+  "llm_response": "설명\n```dsl\nstrategy \"JMA_7_50_Cross\" {\n    timeframe = \"1d\"\n\n    close_sma60 = ta.sma(close, 60)\n    jma_fast = ta.jma(close, 7, 50, 2)\n    jma_slow = ta.jma(close, 50, 50, 4)\n\n    long_entry = close >= close_sma60 and ta.crossover(jma_fast, jma_slow)\n    long_exit = ta.crossunder(jma_fast, jma_slow)\n    short_entry = false\n    short_exit = false\n\n    on(long_entry) {\n        order.buy(type = \"MARKET\")\n    }\n\n    on(long_exit) {\n        order.close_long()\n    }\n}\n\n```",
+  "extracted_dsl": "strategy \"JMA_7_50_Cross\" {\n    timeframe = \"1d\"\n\n    close_sma60 = ta.sma(close, 60)\n    jma_fast = ta.jma(close, 7, 50, 2)\n    jma_slow = ta.jma(close, 50, 50, 4)\n\n    long_entry = close >= close_sma60 and ta.crossover(jma_fast, jma_slow)\n    long_exit = ta.crossunder(jma_fast, jma_slow)\n    short_entry = false\n    short_exit = false\n\n    on(long_entry) {\n        order.buy(type = \"MARKET\")\n    }\n\n    on(long_exit) {\n        order.close_long()\n    }\n}",
+  "status": "validated",
+  "diagnostic_json": "{\"stage\": \"complete\", \"message\": \"DSL 검증과 차트 삽입 데이터 생성에 성공했습니다.\", \"indicator_count\": 3, \"trade_count\": 4, \"bars\": 200, \"signal_counts\": {\"long_entry\": 2, \"long_exit\": 9, \"__long_entry\": 2, \"__long_exit\": 9, \"__short_entry\": 0, \"__short_exit\": 0}}",
+  "playbook_version": "1.4.0",
+  "playbook_hash": "3289f55734c41da8912e62e3a9c1f87b15c89196664816bd99ad7c9a78a5efa3"
+}

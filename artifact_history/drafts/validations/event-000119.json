@@ -1,0 +1,13 @@
+{
+  "event_id": 119,
+  "artifact_id": null,
+  "artifact_type": "indicator",
+  "user_request": "오류 위치 보존",
+  "prompt_text": "",
+  "llm_response": "```dsl\nstrategy \"Broken\" {\n            timeframe = \"1d\"\n            value = ta.not_registered(close, 10)\n            long_entry = false\n        }\n```",
+  "extracted_dsl": "strategy \"Broken\" {\n            timeframe = \"1d\"\n            value = ta.not_registered(close, 10)\n            long_entry = false\n        }",
+  "status": "failed",
+  "diagnostic_json": "{\"stage\": \"runtime\", \"error_code\": \"DSLRUNTIMEERROR\", \"message\": \"line 3, column 1: 지원하지 않는 함수: ta.not_registered\", \"line\": 3, \"column\": 1, \"expression\": \"value = ta.not_registered(close, 10)\", \"dsl_version\": \"1.4.0\"}",
+  "playbook_version": "1.4.0",
+  "playbook_hash": "3289f55734c41da8912e62e3a9c1f87b15c89196664816bd99ad7c9a78a5efa3"
+}

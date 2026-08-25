@@ -1,0 +1,13 @@
+{
+  "event_id": 116,
+  "artifact_id": null,
+  "artifact_type": "strategy",
+  "user_request": "test",
+  "prompt_text": "prompt",
+  "llm_response": "strategy \"Connection\" { signal = close > 0 }",
+  "extracted_dsl": "strategy \"Connection\" { signal = close > 0 }",
+  "status": "data_error",
+  "diagnostic_json": "{\"stage\": \"market_data\", \"error_code\": \"KIWOOM_CONNECTION_ERROR\", \"message\": \"키움 API 연결 실패: socket denied\", \"line\": null, \"column\": null, \"expression\": \"\", \"dsl_version\": \"1.4.0\", \"hint\": \"키움 REST 연결 상태와 .env의 KIWOOM_ENV/API 키 및 Windows 네트워크 권한을 확인하세요. DSL 수정 대상이 아닙니다.\"}",
+  "playbook_version": "1.4.0",
+  "playbook_hash": "3289f55734c41da8912e62e3a9c1f87b15c89196664816bd99ad7c9a78a5efa3"
+}
