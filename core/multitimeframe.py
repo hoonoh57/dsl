@@ -19,6 +19,7 @@ class MultiTimeframeContext:
         match = re.match(r"^(\d+)(m|h|d|w)$", str(timeframe))
         if not match: raise MultiTimeframeError(f"지원하지 않는 MTF 주기: {timeframe}")
         value, unit = int(match.group(1)), match.group(2)
+        if value <= 0: raise MultiTimeframeError(f"MTF 주기는 1 이상이어야 합니다: {timeframe}")
         return value * {"m":1,"h":60,"d":1440,"w":10080}[unit]
 
     def _datetimes(self):
