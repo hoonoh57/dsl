@@ -124,6 +124,9 @@ class TargetLoopCreateRequest(BaseModel):
     iteration_limit: int = 20
     backtest_budget: int = 50000
     no_improvement_limit: int = 5
+    oos_degradation_limit_pct: float = 5.0
+    duplicate_hypothesis_limit: int = 2
+    parameter_spike_limit: float = 3.0
 
 
 class TargetLoopObserveRequest(BaseModel):
@@ -132,6 +135,9 @@ class TargetLoopObserveRequest(BaseModel):
     accepted: Optional[bool] = None
     plateau: bool = False
     engine_blocked: bool = False
+    oos_return_pct: Optional[float] = None
+    duplicate_hypothesis: bool = False
+    parameter_spike_ratio: Optional[float] = None
 
 
 def _market_from_spec(spec: MarketSpec):
@@ -192,7 +198,13 @@ def stage1_ui():
 
 @app.get("/api/stage1/health")
 def stage1_health():
-    return {"status": "ready", "schema": "stage1_factory/v1", "execution_policy": "continuous-build-then-stress-test"}
+    return {
+        "status": "ready",
+        "schema": "stage1_factory/v1",
+        "execution_policy": "continuous-build-then-stress-test",
+        "execution_authority": "BrokerEmulator",
+        "chart_contract": "chart-document/v1",
+    }
 
 
 @app.post("/api/stage1/parameters/discover")
@@ -229,7 +241,8 @@ def stage1_baseline(req: BaselineRequest):
         )
         if fraction > 0:
             split_payload = oos_registry.bind_split(
-                experiment["root_id"], full_market, train_market, holdout_market, fraction, split_index)
+                experiment["root_id"], full_market, train_market, holdout_market, fraction, split_index
+            )
         return {
             "status": "success",
             "experiment": experiment,
@@ -258,9 +271,13 @@ def stage1_seeker(req: SeekRequest):
             max_candidates=req.max_candidates,
             promote=req.promote,
         )
-        return {"status": "success", **result, "chart": factory.chart_audit(result["experiment"]),
-                "chart_document": _chart_document_for_experiment(result["experiment"]),
-                "evidence": EvidenceBuilder.build(result["experiment"], result["study"])}
+        return {
+            "status": "success",
+            **result,
+            "chart": factory.chart_audit(result["experiment"]),
+            "chart_document": _chart_document_for_experiment(result["experiment"]),
+            "evidence": EvidenceBuilder.build(result["experiment"], result["study"]),
+        }
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -371,7 +388,11 @@ def stage1_apply_llm(req: ApplyLLMRequest):
         }
     except (DSLParseError, DSLRuntimeError, ValueError) as exc:
         if before is not None:
-            verdict = "INVALID_DSL" if isinstance(exc, (DSLParseError, DSLRuntimeError)) or "DSL" in str(exc) or "strategy" in str(exc) else "ENGINE_BLOCKED"
+            verdict = (
+                "INVALID_DSL"
+                if isinstance(exc, (DSLParseError, DSLRuntimeError)) or "DSL" in str(exc) or "strategy" in str(exc)
+                else "ENGINE_BLOCKED"
+            )
             _record_failed_llm_episode(before, req, verdict, str(exc))
             try:
                 llm_memory.record(
@@ -403,18 +424,20 @@ def stage1_promote(req: PromoteRequest):
 def stage1_stop(req: StopRequest):
     try:
         experiment = factory.store.get_experiment(req.experiment_id)
-        return {"state": factory.stop_state(
-            experiment,
-            target_return=req.target_return,
-            iteration=req.iteration,
-            iteration_limit=req.iteration_limit,
-            backtests_used=req.backtests_used,
-            backtest_budget=req.backtest_budget,
-            consecutive_no_improvement=req.consecutive_no_improvement,
-            no_improvement_limit=req.no_improvement_limit,
-            plateau=req.plateau,
-            engine_blocked=req.engine_blocked,
-        )}
+        return {
+            "state": factory.stop_state(
+                experiment,
+                target_return=req.target_return,
+                iteration=req.iteration,
+                iteration_limit=req.iteration_limit,
+                backtests_used=req.backtests_used,
+                backtest_budget=req.backtest_budget,
+                consecutive_no_improvement=req.consecutive_no_improvement,
+                no_improvement_limit=req.no_improvement_limit,
+                plateau=req.plateau,
+                engine_blocked=req.engine_blocked,
+            )
+        }
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -428,6 +451,9 @@ def stage1_target_loop_create(req: TargetLoopCreateRequest):
             iteration_limit=req.iteration_limit,
             backtest_budget=req.backtest_budget,
             no_improvement_limit=req.no_improvement_limit,
+            oos_degradation_limit_pct=req.oos_degradation_limit_pct,
+            duplicate_hypothesis_limit=req.duplicate_hypothesis_limit,
+            parameter_spike_limit=req.parameter_spike_limit,
         )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -451,6 +477,9 @@ def stage1_target_loop_observe(loop_id: int, req: TargetLoopObserveRequest):
             accepted=req.accepted,
             plateau=req.plateau,
             engine_blocked=req.engine_blocked,
+            oos_return_pct=req.oos_return_pct,
+            duplicate_hypothesis=req.duplicate_hypothesis,
+            parameter_spike_ratio=req.parameter_spike_ratio,
         )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
