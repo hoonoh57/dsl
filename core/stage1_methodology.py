@@ -62,19 +62,27 @@ class MethodologyValidator:
                 duplicate_pairs += 1
 
         conn = self.store.connect()
-        search_rows = conn.execute("""SELECT s.*, COUNT(c.id) AS candidate_count
-            FROM stage1_search_studies s LEFT JOIN stage1_search_candidates c ON c.study_id=s.id
-            JOIN stage1_experiments e ON e.id=s.parent_experiment_id
-            WHERE e.root_id=? GROUP BY s.id ORDER BY s.id""", (root_id,)).fetchall()
+        search_rows = conn.execute(
+            """SELECT s.*, COUNT(c.id) AS candidate_count
+               FROM stage1_search_studies s LEFT JOIN stage1_search_candidates c ON c.study_id=s.id
+               JOIN stage1_experiments e ON e.id=s.parent_experiment_id
+               WHERE e.root_id=? GROUP BY s.id ORDER BY s.id""",
+            (root_id,),
+        ).fetchall()
         session_rows = []
         if self._table_exists(conn, "stage1_seek_sessions"):
-            session_rows = conn.execute("""SELECT ss.* FROM stage1_seek_sessions ss
-                JOIN stage1_experiments e ON e.id=ss.parent_experiment_id
-                WHERE e.root_id=? ORDER BY ss.id""", (root_id,)).fetchall()
+            session_rows = conn.execute(
+                """SELECT ss.* FROM stage1_seek_sessions ss
+                   JOIN stage1_experiments e ON e.id=ss.parent_experiment_id
+                   WHERE e.root_id=? ORDER BY ss.id""",
+                (root_id,),
+            ).fetchall()
         loop_rows = conn.execute("SELECT * FROM stage1_target_loops WHERE root_id=? ORDER BY id", (root_id,)).fetchall()
         oos_rows = []
         if self._table_exists(conn, "stage1_oos_results"):
-            oos_rows = conn.execute("SELECT * FROM stage1_oos_results WHERE root_id=? ORDER BY evaluated_at", (root_id,)).fetchall()
+            oos_rows = conn.execute(
+                "SELECT * FROM stage1_oos_results WHERE root_id=? ORDER BY evaluated_at", (root_id,)
+            ).fetchall()
         conn.close()
 
         search_candidate_budget = sum(int(row["candidate_count"] or 0) for row in search_rows)
@@ -82,12 +90,17 @@ class MethodologyValidator:
         backtest_budget_used = max(search_candidate_budget, session_budget)
         loop_states = [json.loads(row["state_json"] or "{}") for row in loop_rows]
         if loop_states:
-            backtest_budget_used = max(backtest_budget_used, max(int(item.get("backtests_used", 0) or 0) for item in loop_states))
+            backtest_budget_used = max(
+                backtest_budget_used,
+                max(int(item.get("backtests_used", 0) or 0) for item in loop_states),
+            )
 
         oos_returns = {}
         for row in oos_rows:
             payload = json.loads(row["result_json"] or "{}")
-            oos_returns[int(row["experiment_id"])] = float(payload.get("metrics_numeric", {}).get("total_return_pct", 0.0) or 0.0)
+            oos_returns[int(row["experiment_id"])] = float(
+                payload.get("metrics_numeric", {}).get("total_return_pct", 0.0) or 0.0
+            )
         baseline_oos = oos_returns.get(int(baseline["id"]))
         seeker_oos = [oos_returns[int(item["id"])] for item in seeker if int(item["id"]) in oos_returns]
         structural_oos = [oos_returns[int(item["id"])] for item in structural if int(item["id"]) in oos_returns]
@@ -96,7 +109,8 @@ class MethodologyValidator:
             before_id = item.get("before_experiment_id")
             after_id = item.get("after_experiment_id")
             if before_id in oos_returns and after_id in oos_returns:
-                before = by_id.get(int(before_id)); after = by_id.get(int(after_id))
+                before = by_id.get(int(before_id))
+                after = by_id.get(int(after_id))
                 if before and after and self._ret(after) > self._ret(before) and oos_returns[int(after_id)] < oos_returns[int(before_id)]:
                     overfit_rejections += 1
 
@@ -109,6 +123,17 @@ class MethodologyValidator:
             "C_best_structural_return_pct": max(structural_oos) if structural_oos else None,
             "reason": None if oos_available else "No immutable holdout evaluation has been recorded for this root.",
         }
+        episode_memory = [
+            {
+                "episode_id": item.get("id"),
+                "before_experiment_id": item.get("before_experiment_id"),
+                "after_experiment_id": item.get("after_experiment_id"),
+                "hypothesis": item.get("hypothesis"),
+                "verdict": item.get("verdict"),
+                "reason": item.get("reason"),
+            }
+            for item in episodes[-200:]
+        ]
 
         return {
             "schema": "stage1_methodology_validation/v3",
@@ -136,8 +161,12 @@ class MethodologyValidator:
             "search_studies": len(search_rows),
             "resumable_search_sessions": len(session_rows),
             "target_loops": len(loop_rows),
-            "iterations_to_first_accepted": next((index + 1 for index, item in enumerate(episodes) if item.get("verdict") == "ACCEPTED_IMPROVEMENT"), None),
+            "iterations_to_first_accepted": next(
+                (index + 1 for index, item in enumerate(episodes) if item.get("verdict") == "ACCEPTED_IMPROVEMENT"),
+                None,
+            ),
             "average_structural_return_pct": mean(structural_returns) if structural_returns else None,
             "oos": oos_summary,
+            "episode_memory": episode_memory,
             "claim": "descriptive_only_until_OOS_and_multi_strategy_methodology_validation",
         }
