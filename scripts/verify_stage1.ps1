@@ -90,6 +90,30 @@ function Get-NodePath {
     return $node
 }
 
+function Get-FreeTcpPort([string]$HostName, [string]$PythonPath) {
+    $previousErrorActionPreference = $ErrorActionPreference
+    $output = @()
+    $exitCode = -1
+    try {
+        $ErrorActionPreference = 'Continue'
+        $probe = 'import socket,sys; s=socket.socket(); s.bind((sys.argv[1],0)); print(s.getsockname()[1]); s.close()'
+        $output = & $PythonPath -c $probe $HostName 2>&1
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+    if ($exitCode -ne 0) {
+        throw ('Unable to allocate an isolated verification port on ' + $HostName + '.')
+    }
+    $portText = [string]($output | Select-Object -Last 1)
+    $port = 0
+    if (-not [int]::TryParse($portText.Trim(), [ref]$port) -or $port -lt 1 -or $port -gt 65535) {
+        throw ('Invalid isolated verification port: ' + $portText)
+    }
+    return $port
+}
+
 function Invoke-External(
     [string]$Label,
     [string]$FilePath,
@@ -168,11 +192,26 @@ try {
         Invoke-External 'Stage 1 full stress' $python @($StressHarness, '--full') $DslRoot
     }
 
+    # The verifier owns an isolated live-smoke instance by default. Common
+    # development ports may already belong to unrelated services; verification
+    # must neither kill nor silently reuse them. Explicit user-supplied ports
+    # remain authoritative and retain the launcher's fail-closed collision rule.
+    $smokeStage1Port = $Stage1Port
+    $smokeChartPort = $ChartPort
+    if (-not $PSBoundParameters.ContainsKey('Stage1Port')) {
+        $smokeStage1Port = Get-FreeTcpPort $BindHost $python
+    }
+    if (-not $PSBoundParameters.ContainsKey('ChartPort')) {
+        do {
+            $smokeChartPort = Get-FreeTcpPort $BindHost $python
+        } while ($smokeChartPort -eq $smokeStage1Port)
+    }
+
     $smokeArgs = @(
         '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $Launcher,
         '-Action', 'Smoke', '-ChartRepo', $ChartRepo,
-        '-BindHost', $BindHost, '-Stage1Port', [string]$Stage1Port,
-        '-ChartPort', [string]$ChartPort, '-NoBrowser'
+        '-BindHost', $BindHost, '-Stage1Port', [string]$smokeStage1Port,
+        '-ChartPort', [string]$smokeChartPort, '-NoBrowser'
     )
     if ($InstallDependencies) { $smokeArgs += '-InstallDependencies' }
     Invoke-External 'live operational smoke' $powershell $smokeArgs $DslRoot
