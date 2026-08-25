@@ -2,6 +2,7 @@ import unittest
 
 from core.backtest import BacktestEngine
 from core.multi_symbol import (
+    CommonPolicySpec,
     InstrumentTask,
     MissionSpec,
     MultiSymbolAnalysisEngine,
@@ -62,6 +63,24 @@ class Stage1MultiLayerTest(unittest.TestCase):
         self.assertGreaterEqual(rejections["entry_time_blocked"], 1)
         self.assertGreaterEqual(rejections["entry_count_blocked"], 1)
 
+    def test_scenario_common_policy_overrides_each_task_consistently(self):
+        tasks = [
+            InstrumentTask("A", DSL, market(symbol="A")),
+            InstrumentTask("B", DSL, market(symbol="B"), settings={"entry_start_time": 0}),
+        ]
+        regime = RegimeContext("risk-on")
+        unit = TacticalUnitSpec("HIGH_BETA", "HIGH_BETA", ("A", "B"), rank_by="strategy_return_pct")
+        policy = CommonPolicySpec(entry_start_time=90500, entry_end_time=92000, max_entries_per_day=1)
+        result = MultiSymbolAnalysisEngine.run(
+            regime=regime, unit=unit, tasks=tasks, common_policy=policy, max_workers=2
+        )
+        for item in result["results"]:
+            entries = [row for row in item["backtest"]["trades"] if row["kind"] == "ENTRY"]
+            self.assertEqual([row["time"] for row in entries], ["20260825090500"])
+            self.assertEqual(item["backtest"]["settings"]["entry_start_time"], 90500)
+            self.assertEqual(item["backtest"]["settings"]["max_entries_per_day"], 1)
+        self.assertEqual(result["common_policy"]["entry_start_time"], 90500)
+
     def test_higher_layer_opportunity_window_gates_entries_without_truncating_warmup(self):
         task = InstrumentTask("A", DSL, market(symbol="A"))
         regime = RegimeContext(
@@ -78,7 +97,7 @@ class Stage1MultiLayerTest(unittest.TestCase):
         self.assertEqual([row["time"] for row in entries], ["20260825090500"])
         self.assertGreater(backtest["diagnostics"]["rejections"]["higher_layer_gate_blocked"], 0)
 
-    def test_ineligible_tactical_unit_is_blocked_before_execution(self):
+    def test_ineligible_tactical_unit_is_blocked_before_execution_and_is_hashable(self):
         task = InstrumentTask("A", DSL, market(symbol="A"))
         regime = RegimeContext("risk-on", active=True, eligible_units=("HIGH_BETA",))
         unit = TacticalUnitSpec("1516_0905", "CONDITION_SEARCH", ("A",), rank_by="strategy_return_pct")
@@ -86,6 +105,8 @@ class Stage1MultiLayerTest(unittest.TestCase):
         self.assertEqual(result["status"], "REGIME_BLOCKED")
         self.assertEqual(result["results"], [])
         self.assertEqual(result["cohort"]["executed"], 0)
+        self.assertTrue(result["run_hash"])
+        self.assertEqual(result["scenario_definition"]["scenario_hash"], result["scenario_hash"])
 
     def test_parallel_multi_symbol_result_is_deterministic_and_ranked_relative_to_benchmark(self):
         times = [
@@ -112,13 +133,14 @@ class Stage1MultiLayerTest(unittest.TestCase):
             InstrumentTask("WEAK", DSL, trend_market(weak_close, "WEAK")),
             InstrumentTask("STRONG", DSL, trend_market(strong_close, "STRONG")),
         ]
-        regime = RegimeContext("risk-on")
+        regime = RegimeContext("risk-on", evidence={"source": "market-regime"})
         unit = TacticalUnitSpec(
             "HIGH_BETA",
             "HIGH_BETA",
             ("WEAK", "STRONG"),
             reference_symbol="KOSPI",
             rank_by="relative_strength_pct",
+            metadata={"cohort": "point-in-time"},
         )
         one = MultiSymbolAnalysisEngine.run(
             regime=regime, unit=unit, tasks=tasks, benchmark_market=benchmark, max_workers=1
@@ -130,6 +152,27 @@ class Stage1MultiLayerTest(unittest.TestCase):
         self.assertEqual(two["ranking"][0]["symbol"], "STRONG")
         self.assertEqual(one["scenario_hash"], two["scenario_hash"])
         self.assertEqual(one["run_hash"], two["run_hash"])
+        self.assertTrue(two["benchmark"]["market_hash"])
+        self.assertEqual(two["scenario_definition"]["regime"]["evidence"]["source"], "market-regime")
+
+        changed_benchmark = trend_market([100, 99, 101, 98, 102, 97], "KOSPI")
+        changed = MultiSymbolAnalysisEngine.run(
+            regime=regime, unit=unit, tasks=tasks, benchmark_market=changed_benchmark, max_workers=2
+        )
+        self.assertNotEqual(two["scenario_hash"], changed["scenario_hash"])
+
+    def test_reference_symbol_mismatch_fails_closed(self):
+        task = InstrumentTask("A", DSL, market(symbol="A"))
+        unit = TacticalUnitSpec(
+            "HIGH_BETA", "HIGH_BETA", ("A",), reference_symbol="KOSPI", rank_by="relative_strength_pct"
+        )
+        with self.assertRaisesRegex(ValueError, "reference_symbol"):
+            MultiSymbolAnalysisEngine.run(
+                regime=RegimeContext("risk-on"),
+                unit=unit,
+                tasks=[task],
+                benchmark_market=market(symbol="KOSDAQ"),
+            )
 
     def test_capture_mfe_is_a_post_capture_label_not_an_input(self):
         times = [
