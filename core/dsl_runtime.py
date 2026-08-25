@@ -11,6 +11,7 @@ import numpy as np
 from core.indicators import CoreTALib
 from core.dsl_parser import DSLParseError, DSLParser
 from core.dsl_semantic import DSLSemanticAnalyzer, DSLSemanticError
+from core.assignment_flow import partition_assignments
 from core.state import CoreStateLib
 from core.bar_runtime import BarRuntimeError, execute_on_bar
 from core.multitimeframe import MultiTimeframeContext
@@ -397,18 +398,28 @@ class DSLRuntime:
         values.setdefault("date", np.arange(size, dtype=float))
         values.setdefault("time", np.arange(size, dtype=float))
         evaluator = ExpressionEvaluator(values, size)
-        for assignment in document.assignments:
+        before_bar, after_bar = partition_assignments(document)
+
+        def evaluate_assignment(assignment):
             try:
                 values[assignment.name] = evaluator.evaluate(assignment.expression)
             except DSLRuntimeError as exc:
                 raise DSLRuntimeError(
                     f"line {assignment.line}, column 1: {exc}; expression: {assignment.name} = {assignment.expression}"
                 ) from exc
+
+        for assignment in before_bar:
+            evaluate_assignment(assignment)
+
         if document.states or document.on_bar:
             try:
                 execute_on_bar(values, document.states, document.on_bar, size)
             except (BarRuntimeError, ArithmeticError, ValueError) as exc:
                 raise DSLRuntimeError(f"on_bar 실행 실패: {exc}") from exc
+
+        for assignment in after_bar:
+            evaluate_assignment(assignment)
+
         events = []
         for event in document.events:
             try:
