@@ -1,8 +1,9 @@
 """Resumable deterministic Parameter Seeker sessions for Stage 1 UI/API.
 
-The synchronous ParameterSeeker remains the small/test path.  This service owns
+The synchronous ParameterSeeker remains the small/test path. This service owns
 long-running product searches: deterministic candidate plans, batch progress,
-cancel/resume and a cross-session evaluation cache keyed by DSL/settings/data.
+cancel/resume, cross-session evaluation cache, and finalized post-Seeker
+Improvement Episodes for LLM structural candidates.
 """
 from __future__ import annotations
 
@@ -11,7 +12,6 @@ import json
 import math
 import random
 import time
-from typing import Any, Dict, Optional
 
 from core.backtest import BacktestEngine
 from core.stage1_data_store import load_market_snapshot
@@ -71,6 +71,10 @@ class ResumableSeekerService:
     @staticmethod
     def _json(value):
         return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+
+    @staticmethod
+    def _return_pct(experiment: dict) -> float:
+        return float(experiment.get("result", {}).get("metrics_numeric", {}).get("total_return_pct", 0.0) or 0.0)
 
     def create(self, *, parent_experiment_id: int, parameter_specs: list[dict], method="grid",
                objective="MAX_RETURN", seed=42, max_candidates=5000) -> dict:
@@ -182,6 +186,25 @@ class ResumableSeekerService:
         if not session.get("result_experiment_id"): return None
         return self.store.get_experiment(int(session["result_experiment_id"]))
 
+    def _finalize_structural_episode(self, parent: dict, child: dict):
+        if parent.get("operation") != "LLM_STRUCTURAL" or not parent.get("parent_id"):
+            return None
+        before = self.store.get_experiment(int(parent["parent_id"]))
+        before_return = self._return_pct(before)
+        after_return = self._return_pct(child)
+        verdict = "ACCEPTED_IMPROVEMENT" if after_return > before_return else "REJECTED_NO_GAIN"
+        reason = f"after_seeker return {before_return:.4f}% -> {after_return:.4f}%"
+        return self.store.create_episode(
+            before_id=before["id"],
+            after_id=child["id"],
+            observation=json.dumps(before.get("analysis", {}).get("findings", []), ensure_ascii=False),
+            hypothesis=str(parent.get("hypothesis") or ""),
+            proposal=parent["dsl_code"],
+            expected_effect=str(parent.get("expected_effect") or ""),
+            verdict=verdict,
+            reason=reason,
+        )
+
     def _finalize(self, session_id: int):
         session = self.get(session_id)
         if session.get("result_experiment_id"): return self._result_experiment(session)
@@ -200,5 +223,10 @@ class ResumableSeekerService:
         analysis = ResultAnalyzer.analyze(result, search_summary)
         child = self.store.create_experiment(parent_id=parent["id"], operation="SEEKER_BEST", strategy_name=parent["strategy_name"],
             intent=parent["intent"], dsl_code=dsl_code, parameters=parameters, execution=settings, provenance=parent["provenance"], result=result, analysis=analysis)
+        finalized_episode_id = self._finalize_structural_episode(parent, child)
         conn = self.store.connect(); conn.execute("UPDATE stage1_seek_sessions SET status='COMPLETED',result_experiment_id=?,updated_at=? WHERE id=?",
-                                                  (child["id"], time.time(), session_id)); conn.commit(); conn.close(); return child
+                                                  (child["id"], time.time(), session_id)); conn.commit(); conn.close()
+        if finalized_episode_id is not None:
+            child = dict(child)
+            child["finalized_episode_id"] = finalized_episode_id
+        return child
