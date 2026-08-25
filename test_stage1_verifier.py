@@ -18,6 +18,7 @@ class Stage1VerifierContractTest(unittest.TestCase):
         self.assertIn("'compileall', '-q', '.'", self.script)
         self.assertIn("'test_core.py'", self.script)
         self.assertIn("'unittest', 'discover', '-v', '-p', 'test_stage1_*.py'", self.script)
+        self.assertIn("'Stage 1 scoped Chart SSOT contracts'", self.script)
         self.assertIn("'Stage 1 quick stress'", self.script)
         self.assertIn("'--full'", self.script)
         self.assertIn("'-Action', 'Smoke'", self.script)
@@ -28,6 +29,20 @@ class Stage1VerifierContractTest(unittest.TestCase):
         self.assertIn("Invoke-External 'preflight' $powershell", self.script)
         self.assertIn("Invoke-External 'live operational smoke' $powershell", self.script)
         self.assertNotIn("& $Launcher", self.script)
+
+    def test_scoped_chart_dependency_contracts_do_not_claim_full_donor_compliance(self):
+        self.assertIn("Get-NodePath", self.script)
+        self.assertIn("'--test', '--test-reporter=tap'", self.script)
+        for name in (
+            "chart_document_renderer.test.mjs",
+            "chart_drawing_primitives_contract.test.mjs",
+            "chart_drawing_ssot_boundary.test.mjs",
+            "responsive_chart_surface.test.mjs",
+            "stable_pane_identity_surface.test.mjs",
+        ):
+            self.assertIn(name, self.script)
+        self.assertNotIn("scripts/run-tests.mjs", self.script)
+        self.assertNotIn("npm test", self.script)
 
     def test_success_output_is_single_final_pass_line(self):
         self.assertEqual(self.script.count("[PASS]"), 1)
