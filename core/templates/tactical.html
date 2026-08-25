@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tactical Multi-Symbol Lab</title>
+<style>
+:root{--bg:#0b0e13;--panel:#131821;--line:#293446;--text:#e9eef5;--muted:#8f9bad;--blue:#4d7ff3;--green:#28a97b;--red:#df5b58}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,sans-serif}
+button,input,select,textarea{font:inherit}.top{height:54px;display:flex;gap:8px;align-items:center;padding:8px 12px;background:#11161e;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2}
+.brand{font-size:16px;font-weight:800}.grow{flex:1}.control{background:#202937;color:var(--text);border:1px solid #354154;border-radius:5px;padding:7px}
+button{border:0;border-radius:5px;background:#344154;color:#fff;padding:7px 10px;font-weight:700;cursor:pointer}.primary{background:var(--blue)}.good{background:var(--green)}
+.grid{display:grid;grid-template-columns:420px 1fr;min-height:calc(100vh - 54px)}.left{padding:10px;border-right:1px solid var(--line);background:var(--panel);overflow:auto}.right{display:grid;grid-template-rows:360px auto;min-width:0}
+textarea{width:100%;background:#0e131a;color:#e6ebf2;border:1px solid #303a4b;border-radius:5px;padding:8px;font:12px/1.45 Consolas,monospace;resize:vertical}
+.row{display:flex;gap:6px;margin-bottom:7px}.row>*{min-width:0}.field{display:grid;grid-template-columns:110px 1fr;gap:6px;align-items:center;margin:5px 0}.muted{color:var(--muted)}
+#chart{min-height:0;border-bottom:1px solid var(--line)}iframe{width:100%;height:100%;border:0;background:#1e1e1e}.summary{padding:9px}.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px}.metric{background:#171e29;border:1px solid var(--line);padding:7px;border-radius:5px}.metric small{display:block;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:5px 6px;border-bottom:1px solid #273142;text-align:right}th:first-child,td:first-child{text-align:left}
+.badge{padding:5px 8px;border-radius:12px;background:#222b38;color:#b6c0ce}.ok{background:#16392e;color:#7de0b8}.fail{background:#402321;color:#ff9c98}
+@media(max-width:1050px){.grid{grid-template-columns:1fr}.left{border-right:0}.right{grid-template-rows:320px auto}}
+</style>
+</head>
+<body>
+<header class="top">
+<div class="brand">Tactical Multi-Symbol Lab</div>
+<span class="badge" id="state">Ready</span><div class="grow"></div>
+<a href="/stage1" style="color:#9eb8ff">Stage 1 Factory</a>
+</header>
+<div class="grid">
+<aside class="left">
+<div class="field"><label>Search date</label><input id="search-date" class="control" type="date"></div>
+<div class="field"><label>Search time</label><input id="search-time" class="control" value="09:05:00"></div>
+<div class="field"><label>Condition</label><input id="condition" class="control" value="1516"></div>
+<div class="field"><label>Hold</label><input id="hold" class="control" value="7시간"></div>
+<div class="field"><label>Performance DB</label><input id="perf-db" class="control" value="performance_db"></div>
+<div class="field"><label>Market DB</label><input id="market-db" class="control" value="master_db"></div>
+<div class="field"><label>Market table</label><input id="market-table" class="control" value="minute_candles_5m"></div>
+<div class="field"><label>Timeframe</label><select id="timeframe" class="control"><option selected>5m</option></select></div>
+<div class="field"><label>Warm-up bars</label><input id="bars" class="control" type="number" value="180"></div>
+<div class="field"><label>Entry cutoff</label><input id="cutoff" class="control" type="number" value="151000"></div>
+<div class="field"><label>Workers</label><input id="workers" class="control" type="number" value="4"></div>
+<div class="field"><label>Benchmark</label><input id="benchmark" class="control" placeholder="optional"></div>
+<div class="row"><button id="load">Cohort 확인</button><button id="run" class="good">1516 도상훈련 실행</button></div>
+<p class="muted">Cohort 확인 단계에서는 사후 max return / label_10을 API에 노출하지 않습니다. 실행이 끝난 뒤에만 공식 outcome과 전략 결과를 결합합니다.</p>
+<textarea id="dsl" rows="15">strategy "Tactical_1516" {
+    timeframe = "5m"
+    input fast_len = 7
+    input slow_len = 50
+    fast = ta.jma(close, fast_len, 50, 2)
+    slow = ta.jma(close, slow_len, 50, 4)
+    long_entry = ta.crossover(fast, slow)
+    long_exit = ta.crossunder(fast, slow)
+    on(long_entry) { order.buy(type = "MARKET") }
+    on(long_exit) { order.close_long() }
+}</textarea>
+<pre id="cohort" style="white-space:pre-wrap;color:#aeb9c7"></pre>
+</aside>
+<main class="right">
+<div id="chart"></div>
+<section class="summary">
+<div class="metrics">
+<div class="metric"><small>Cohort</small><b id="m-cohort">-</b></div>
+<div class="metric"><small>10%+</small><b id="m-pos">-</b></div>
+<div class="metric"><small>Positive retained</small><b id="m-retain">-</b></div>
+<div class="metric"><small>Precision</small><b id="m-precision">-</b></div>
+<div class="metric"><small>Scenario</small><b id="m-scenario">-</b></div>
+</div>
+<table>
+<thead><tr><th>Symbol</th><th>Name</th><th>Search vol</th><th>Rank score</th><th>Strategy %</th><th>Official max %</th><th>Label10</th><th>MDD %</th></tr></thead>
+<tbody id="rows"></tbody>
+</table>
+</section>
+</main>
+</div>
+<script defer src="/static/tactical.js"></script>
+</body>
+</html>
