@@ -14,6 +14,7 @@ function ensureComparePanel(){
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:5px"><select id="compare-a" class="control"></select><select id="compare-b" class="control"></select></div>
   <div style="display:flex;gap:5px;margin-bottom:5px"><button id="compare-run" class="primary">비교</button><button id="compare-load-a">A 차트</button><button id="compare-load-b">B 차트</button></div>
   <div id="compare-result" style="max-height:190px;overflow:auto;font-size:11px;color:#c2ccd9"></div>
+  <div style="font-weight:800;margin:7px 0 4px">Parameter Sensitivity</div><div id="parameter-sensitivity" style="max-height:150px;overflow:auto;font-size:11px;color:#c2ccd9"></div>
   <div style="font-weight:800;margin:7px 0 4px">Improvement Episodes</div><div id="episode-memory" style="max-height:130px;overflow:auto;font-size:11px;color:#c2ccd9"></div>`;
   history.before(panel);
   $('compare-run').onclick=()=>runCompare().catch(showError);
@@ -30,7 +31,14 @@ async function refresh(){
   const options=rows.map(e=>`<option value="${e.id}">#${e.id} ${esc(e.operation)} · ${num(e.result?.metrics_numeric?.total_return_pct)}%</option>`).join('');
   $('compare-a').innerHTML=options; $('compare-b').innerHTML=options;
   const baseline=rows.find(e=>e.operation==='BASELINE')||rows[0]; if(baseline)$('compare-a').value=String(baseline.id); $('compare-b').value=String(id);
-  renderEpisodes(method); await runCompare();
+  renderSensitivity(method.parameter_sensitivity); renderEpisodes(method); await runCompare();
+}
+function renderSensitivity(sensitivity){
+  const host=$('parameter-sensitivity');if(!host)return;
+  if(!sensitivity?.available){host.innerHTML=`<span class="muted">${esc(sensitivity?.reason||'Seeker sensitivity 없음')}</span>`;return}
+  const rows=Object.entries(sensitivity.parameters||{}).map(([name,item])=>`<tr><td style="text-align:left">${esc(name)}</td><td>${esc(item.best_value)}</td><td>${num(item.best_score,3)}</td><td>${num(item.best_vs_runner_up_score_gap,3)}</td><td>${num(item.max_score_range,3)}</td></tr>`).join('');
+  const spike=Number(sensitivity.top_vs_second_spike_ratio||1);const tone=spike>=3?'#ff9c98':spike>=2?'#e6a43d':'#7de0b8';
+  host.innerHTML=`<div class="muted">Session #${sensitivity.session_id??'-'} · ${sensitivity.candidate_count} candidates · median ${num(sensitivity.median_score,3)} · <span style="color:${tone}">top spike ${num(spike,2)}×</span></div><table class="table"><thead><tr><th>Param</th><th>Best</th><th>Score</th><th>Gap</th><th>Range</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 function renderEpisodes(method){
   const host=$('episode-memory');if(!host)return;const episodes=[...(method.episode_memory||[])].reverse();
