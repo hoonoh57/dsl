@@ -15,10 +15,55 @@ $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $DslRoot = Split-Path -Parent $ScriptRoot
 $Launcher = Join-Path $ScriptRoot 'start_stage1_stack.ps1'
 $StressHarness = Join-Path $DslRoot 'stage1_stress.py'
-if ([string]::IsNullOrWhiteSpace($ChartRepo)) {
-    $ChartRepo = Join-Path (Split-Path -Parent $DslRoot) 'cascading-feature-solution'
+
+function Resolve-ChartRepo([string]$RequestedPath) {
+    if (-not [string]::IsNullOrWhiteSpace($RequestedPath)) {
+        return [System.IO.Path]::GetFullPath($RequestedPath)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($env:CASCADE_CHART_REPO)) {
+        $fromEnvironment = [System.IO.Path]::GetFullPath($env:CASCADE_CHART_REPO)
+        if (Test-Path -LiteralPath $fromEnvironment -PathType Container) {
+            return $fromEnvironment
+        }
+    }
+
+    $sibling = Join-Path (Split-Path -Parent $DslRoot) 'cascading-feature-solution'
+    if (Test-Path -LiteralPath $sibling -PathType Container) {
+        return [System.IO.Path]::GetFullPath($sibling)
+    }
+
+    $workspaceRoot = Split-Path -Parent (Split-Path -Parent $DslRoot)
+    $matches = @()
+    if (Test-Path -LiteralPath $workspaceRoot -PathType Container) {
+        $levelOne = Get-ChildItem -LiteralPath $workspaceRoot -Directory -ErrorAction SilentlyContinue
+        foreach ($first in $levelOne) {
+            $candidate = Join-Path $first.FullName 'cascading-feature-solution'
+            if (Test-Path -LiteralPath $candidate -PathType Container) {
+                $matches += [System.IO.Path]::GetFullPath($candidate)
+            }
+            $levelTwo = Get-ChildItem -LiteralPath $first.FullName -Directory -ErrorAction SilentlyContinue
+            foreach ($second in $levelTwo) {
+                $candidate = Join-Path $second.FullName 'cascading-feature-solution'
+                if (Test-Path -LiteralPath $candidate -PathType Container) {
+                    $matches += [System.IO.Path]::GetFullPath($candidate)
+                }
+            }
+        }
+    }
+
+    $matches = @($matches | Sort-Object -Unique)
+    if ($matches.Count -eq 1) {
+        return $matches[0]
+    }
+    if ($matches.Count -gt 1) {
+        throw ('Multiple Chart repos found. Pass -ChartRepo explicitly: ' + ($matches -join ', '))
+    }
+
+    return [System.IO.Path]::GetFullPath($sibling)
 }
-$ChartRepo = [System.IO.Path]::GetFullPath($ChartRepo)
+
+$ChartRepo = Resolve-ChartRepo $ChartRepo
 
 function Fail([string]$Message) {
     Write-Host ('[FAIL] ' + $Message)
