@@ -10,6 +10,25 @@ from core.stage1_data_store import load_market_snapshot, save_market_snapshot
 from core.strategy_factory import DataContract, StrategyFactory
 
 
+def _json_safe(value: Any):
+    """Return a strict-JSON-safe copy without changing engine-internal semantics.
+
+    Backtest metrics may legitimately contain +/-Infinity (for example profit
+    factor when there are gains and zero losses). Starlette/FastAPI emits strict
+    JSON and rejects those floats during response serialization, which otherwise
+    turns a successful OOS evaluation into HTTP 500 after the endpoint returns.
+    """
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, tuple):
+        return [_json_safe(item) for item in value]
+    return value
+
+
 class OOSRegistry:
     def __init__(self, factory: StrategyFactory):
         self.factory = factory
@@ -101,13 +120,14 @@ class OOSRegistry:
         if experiment["provenance"].get("data_hash") != split["train_data_hash"]:
             raise ValueError("Experiment가 등록된 train data hash에서 생성되지 않았습니다.")
         holdout = load_market_snapshot(split["holdout_data_hash"])
-        result = BacktestEngine.run(experiment["dsl_code"], settings=experiment["execution"], market=holdout,
-                                    data_timeframe=experiment["provenance"].get("timeframe"))
+        raw_result = BacktestEngine.run(experiment["dsl_code"], settings=experiment["execution"], market=holdout,
+                                        data_timeframe=experiment["provenance"].get("timeframe"))
+        result = _json_safe(raw_result)
         conn = self.store.connect()
         conn.execute("""INSERT OR REPLACE INTO stage1_oos_results(experiment_id,root_id,holdout_data_hash,result_json,evaluated_at)
                         VALUES (?,?,?,?,?)""",
                      (experiment_id, experiment["root_id"], split["holdout_data_hash"],
-                      json.dumps(result, ensure_ascii=False, sort_keys=True, default=str), time.time()))
+                      json.dumps(result, ensure_ascii=False, sort_keys=True, allow_nan=False), time.time()))
         conn.commit()
         conn.close()
         return {"experiment_id": experiment_id, "root_id": experiment["root_id"], "split": split, "result": result}
