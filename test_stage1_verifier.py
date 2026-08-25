@@ -54,6 +54,13 @@ class Stage1VerifierContractTest(unittest.TestCase):
         self.assertNotIn("scripts/run-tests.mjs", self.script)
         self.assertNotIn("npm test", self.script)
 
+    def test_native_stderr_is_captured_without_becoming_powershell_failure(self):
+        self.assertIn("$previousErrorActionPreference = $ErrorActionPreference", self.script)
+        self.assertIn("$ErrorActionPreference = 'Continue'", self.script)
+        self.assertIn("$exitCode = $LASTEXITCODE", self.script)
+        self.assertIn("$ErrorActionPreference = $previousErrorActionPreference", self.script)
+        self.assertIn("if ($exitCode -ne 0)", self.script)
+
     def test_success_output_is_single_final_pass_line(self):
         self.assertEqual(self.script.count("[PASS]"), 1)
         self.assertIn("Stage 1 verification completed: mode=", self.script)
