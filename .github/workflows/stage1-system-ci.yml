@@ -24,6 +24,6 @@ jobs:
       - name: Core regression
         run: python -m unittest -v test_core.py
       - name: Stage1 contracts
-        run: python -m unittest -v test_stage1_factory.py
+        run: python -m unittest -v test_stage1_factory.py test_stage1_extended.py
       - name: Stage1 quick stress
         run: python stage1_stress.py
