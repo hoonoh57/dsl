@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parent
 LAUNCHER = ROOT / "scripts" / "start_stage1_stack.ps1"
 SMOKE = ROOT / "scripts" / "stage1_operational_smoke.py"
 STAGE1_JS = ROOT / "core" / "static" / "stage1.js"
+STAGE1_TEMPLATE = ROOT / "core" / "templates" / "stage1.html"
 
 
 class Stage1StackLauncherContractTest(unittest.TestCase):
@@ -14,6 +15,7 @@ class Stage1StackLauncherContractTest(unittest.TestCase):
         cls.script = LAUNCHER.read_text(encoding="utf-8")
         cls.smoke = SMOKE.read_text(encoding="utf-8")
         cls.stage1_js = STAGE1_JS.read_text(encoding="utf-8")
+        cls.stage1_template = STAGE1_TEMPLATE.read_text(encoding="utf-8")
 
     def test_launcher_owns_process_orchestration_not_chart_rendering(self):
         self.assertIn("cascading-feature-solution", self.script)
@@ -76,6 +78,18 @@ class Stage1StackLauncherContractTest(unittest.TestCase):
         self.assertIn("SYSTEM_SMOKE_ISOLATED_ROOT", self.smoke)
         self.assertNotIn("lightweight-charts", self.smoke)
         self.assertNotIn("ChartDocumentRenderer", self.smoke)
+
+    def test_llm_ui_distinguishes_raw_candidate_from_applied_head(self):
+        self.assertIn("Viewing #", self.stage1_js)
+        self.assertIn("Applied head #", self.stage1_js)
+        self.assertIn("PRE_SEEKER_CANDIDATE", self.stage1_js)
+        self.assertIn("RUN_PARAMETER_SEEKER_BEFORE_FINAL_VERDICT", self.stage1_js)
+        self.assertIn("Seeker 재최적화 후 최종 판정", self.stage1_js)
+        self.assertIn("Raw LLM 구조 후보는 승격하지 않습니다", self.stage1_js)
+        self.assertIn("structuralFinalContext", self.stage1_js)
+        self.assertNotIn("const loop=await observeLoop(d.experiment.id,1,d.verdict.startsWith('ACCEPT'))", self.stage1_js)
+        self.assertIn("후보 검증·실행", self.stage1_template)
+        self.assertIn("Viewing -", self.stage1_template)
 
     def test_smoke_success_prefix_is_literal_not_wildcard(self):
         self.assertIn("$passLine.StartsWith('[PASS]')", self.script)
