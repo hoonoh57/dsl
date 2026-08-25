@@ -22,8 +22,15 @@ JMA_CROSS_DSL = '''strategy "JMA_7_50_Cross" {
     on(long_exit) { order.close_long() }
 }'''
 
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
+
+def _resolve_db_path(db_path=None) -> Path:
+    return Path(db_path) if db_path is not None else DB_PATH
+
+
+def init_db(db_path=None):
+    database_path = _resolve_db_path(db_path)
+    database_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(database_path)
     cur = conn.cursor()
     cur.execute("""
         CREATE TABLE IF NOT EXISTS strategies (
@@ -57,8 +64,6 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
 
-    # CREATE TABLE IF NOT EXISTS does not update databases created with an
-    # older schema. Add newly introduced columns without deleting user data.
     existing_columns = {
         row[1] for row in cur.execute("PRAGMA table_info(strategies)").fetchall()
     }
@@ -87,8 +92,6 @@ def init_db():
     category_names = [("지표", "indicator", 10), ("신호", "signal", 20),
                       ("강세·약세", "strength", 30), ("전략", "strategy", 40),
                       ("사용자형식", "drawing", 50)]
-    # SQLite UNIQUE(name, parent_id)는 NULL parent_id 중복을 막지 못한다.
-    # 기존 버전이 매 시작마다 만든 동일 루트를 결과물 손실 없이 병합한다.
     for category_name, artifact_type, order in category_names:
         rows = cur.execute("""SELECT id FROM categories
                             WHERE parent_id IS NULL AND artifact_type=? AND name=?
@@ -116,8 +119,6 @@ def init_db():
             "INSERT INTO strategies (name, description, dsl_code, source_type) VALUES (?, ?, ?, ?)",
             ("Dual_SMA_RSI_Breakout", "5/20 이평 골든크로스 및 RSI 필터", sample_dsl, "DSL")
         )
-    # Built-in examples are added idempotently even when the database already
-    # contains user strategies, so upgrades become visible in the repository.
     cur.execute(
         "INSERT OR IGNORE INTO strategies (name, description, dsl_code, source_type) VALUES (?, ?, ?, ?)",
         ("JMA_7_50_Cross", "종가≥SMA60 및 JMA(7,50,2)/JMA(50,50,4) 교차 전략", JMA_CROSS_DSL, "DSL")
@@ -126,6 +127,7 @@ def init_db():
                 (strategy_category,))
     conn.commit()
     conn.close()
+
 
 def get_all_strategies() -> List[Dict[str, Any]]:
     conn = sqlite3.connect(DB_PATH)
@@ -140,6 +142,7 @@ def get_all_strategies() -> List[Dict[str, Any]]:
           "artifact_type","user_request","llm_response","validation_status","playbook_version","playbook_hash","prompt_text")
     return [dict(zip(keys,row)) for row in rows]
 
+
 def insert_strategy(name: str, description: str, dsl_code: str, source_type: str, source_code: str = "") -> int:
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
@@ -152,6 +155,7 @@ def insert_strategy(name: str, description: str, dsl_code: str, source_type: str
     conn.close()
     return new_id
 
+
 def update_strategy(strat_id: int, name: str, description: str, dsl_code: str, source_type: str, source_code: str = ""):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
@@ -162,6 +166,7 @@ def update_strategy(strat_id: int, name: str, description: str, dsl_code: str, s
     conn.commit()
     conn.close()
 
+
 def delete_strategy(strat_id: int):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
@@ -169,18 +174,22 @@ def delete_strategy(strat_id: int):
     conn.commit()
     conn.close()
 
-def get_categories():
-    conn=sqlite3.connect(DB_PATH); conn.row_factory=sqlite3.Row
+
+def get_categories(db_path=None):
+    conn=sqlite3.connect(_resolve_db_path(db_path)); conn.row_factory=sqlite3.Row
     rows=conn.execute("SELECT id,name,parent_id,artifact_type,sort_order FROM categories ORDER BY sort_order,name").fetchall(); conn.close()
     return [dict(row) for row in rows]
+
 
 def create_category(name: str, artifact_type: str, parent_id=None):
     conn=sqlite3.connect(DB_PATH); cur=conn.cursor()
     cur.execute("INSERT INTO categories(name,parent_id,artifact_type) VALUES (?,?,?)",(name,parent_id,artifact_type))
     conn.commit(); value=cur.lastrowid; conn.close(); return value
 
+
 def update_category(category_id: int, name: str, artifact_type: str, parent_id=None):
     conn=sqlite3.connect(DB_PATH); conn.execute("UPDATE categories SET name=?,artifact_type=?,parent_id=? WHERE id=?",(name,artifact_type,parent_id,category_id)); conn.commit(); conn.close()
+
 
 def delete_category(category_id: int):
     conn=sqlite3.connect(DB_PATH)
@@ -188,6 +197,7 @@ def delete_category(category_id: int):
     artifacts=conn.execute("SELECT COUNT(*) FROM strategies WHERE category_id=?",(category_id,)).fetchone()[0]
     if children or artifacts: conn.close(); raise ValueError("하위 카테고리 또는 결과물이 있어 삭제할 수 없습니다.")
     conn.execute("DELETE FROM categories WHERE id=?",(category_id,)); conn.commit(); conn.close()
+
 
 def commit_artifact(artifact_id: Optional[int], *, name: str, description: str, category_id: int,
                     artifact_type: str, source_type: str, source_code: str, dsl_code: str,
@@ -218,10 +228,12 @@ def commit_artifact(artifact_id: Optional[int], *, name: str, description: str, 
         "playbook_version":playbook_version,"playbook_hash":playbook_hash},ensure_ascii=False,indent=2),encoding="utf-8")
     return artifact_id
 
+
 def get_artifact_versions(artifact_id: int):
     conn=sqlite3.connect(DB_PATH); conn.row_factory=sqlite3.Row
     rows=conn.execute("SELECT * FROM artifact_versions WHERE artifact_id=? ORDER BY version DESC",(artifact_id,)).fetchall(); conn.close()
     return [dict(row) for row in rows]
+
 
 def record_validation(**values):
     conn=sqlite3.connect(DB_PATH); cur=conn.cursor()
