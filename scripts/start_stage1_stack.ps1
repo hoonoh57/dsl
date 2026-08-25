@@ -89,7 +89,8 @@ function Read-PidState {
 
 function Write-PidState([object]$State) {
     $json = $State | ConvertTo-Json -Depth 5
-    [System.IO.File]::WriteAllText($PidFile, $json, (New-Object System.Text.UTF8Encoding($false)))
+    $utf8NoBom = New-Object System.Text.UTF8Encoding -ArgumentList $false
+    [System.IO.File]::WriteAllText($PidFile, $json, $utf8NoBom)
 }
 
 function Remove-PidState {
@@ -98,14 +99,20 @@ function Remove-PidState {
     }
 }
 
-function Stop-TrackedProcess([object]$PidValue) {
+function Stop-TrackedProcess([object]$PidValue, [string]$ExpectedMarker) {
     if ($null -eq $PidValue) { return }
     $id = 0
     if (-not [int]::TryParse([string]$PidValue, [ref]$id)) { return }
     $process = Get-Process -Id $id -ErrorAction SilentlyContinue
-    if ($null -ne $process) {
-        Stop-Process -Id $id -Force -ErrorAction SilentlyContinue
+    if ($null -eq $process) { return }
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedMarker)) {
+        try {
+            $cim = Get-CimInstance Win32_Process -Filter ('ProcessId = {0}' -f $id) -ErrorAction Stop
+            if ($null -eq $cim -or [string]$cim.CommandLine -notlike ('*' + $ExpectedMarker + '*')) { return }
+        }
+        catch { return }
     }
+    Stop-Process -Id $id -Force -ErrorAction SilentlyContinue
 }
 
 function Get-PythonPath {
@@ -188,8 +195,8 @@ if ($Action -eq 'Status') { Show-Status }
 if ($Action -eq 'Stop') {
     $state = Read-PidState
     if ($null -ne $state) {
-        Stop-TrackedProcess $state.stage1Pid
-        Stop-TrackedProcess $state.chartPid
+        Stop-TrackedProcess $state.stage1Pid 'stage1_main:app'
+        Stop-TrackedProcess $state.chartPid 'serve.mjs'
         Remove-PidState
     }
     Write-Host '[PASS] Tracked Stage 1 stack processes stopped.'
@@ -216,30 +223,37 @@ $startedStage1 = $false
 try {
     $chartReady = Test-HttpMarker $ChartHealth '"app":"cascading-feature-solution"'
     if (-not $chartReady) {
-        if (Test-PortOpen $BindHost $ChartPort) { Fail ($ChartBase + ' is occupied by a non-Cascade service.') }
+        if (Test-PortOpen $BindHost $ChartPort) { throw ($ChartBase + ' is occupied by a non-Cascade service.') }
         $chartArgs = @((Join-Path $ChartRepo 'scripts\serve.mjs'), '--host', $BindHost, '--port', [string]$ChartPort)
         $chartProcess = Start-Process -FilePath $preflight.Node -ArgumentList $chartArgs -WorkingDirectory $ChartRepo -RedirectStandardOutput $chartOut -RedirectStandardError $chartErr -PassThru -WindowStyle Hidden
         $startedChart = $true
         if (-not (Wait-Health $ChartHealth '"app":"cascading-feature-solution"' $chartProcess 30)) {
-            Fail ('Chart SSOT failed to become healthy. Log: ' + $chartErr)
+            throw ('Chart SSOT failed to become healthy. Log: ' + $chartErr)
         }
     }
 
     $stage1Ready = Test-HttpMarker $Stage1Health '"schema":"stage1_factory/v1"'
     if (-not $stage1Ready) {
-        if (Test-PortOpen $BindHost $Stage1Port) { Fail ($Stage1Base + ' is occupied by a non-Stage1 service.') }
+        if (Test-PortOpen $BindHost $Stage1Port) { throw ($Stage1Base + ' is occupied by a non-Stage1 service.') }
         $stage1Args = @('-m', 'uvicorn', 'stage1_main:app', '--host', $BindHost, '--port', [string]$Stage1Port)
         $stage1Process = Start-Process -FilePath $preflight.Python -ArgumentList $stage1Args -WorkingDirectory $DslRoot -RedirectStandardOutput $stage1Out -RedirectStandardError $stage1Err -PassThru -WindowStyle Hidden
         $startedStage1 = $true
         if (-not (Wait-Health $Stage1Health '"schema":"stage1_factory/v1"' $stage1Process 30)) {
-            Fail ('Stage 1 API failed to become healthy. Log: ' + $stage1Err)
+            throw ('Stage 1 API failed to become healthy. Log: ' + $stage1Err)
         }
     }
 
     $oldState = Read-PidState
+    $stage1Pid = $null
+    $chartPid = $null
+    if ($startedStage1) { $stage1Pid = $stage1Process.Id }
+    elseif ($null -ne $oldState) { $stage1Pid = $oldState.stage1Pid }
+    if ($startedChart) { $chartPid = $chartProcess.Id }
+    elseif ($null -ne $oldState) { $chartPid = $oldState.chartPid }
+
     $state = [ordered]@{
-        stage1Pid = if ($startedStage1) { $stage1Process.Id } elseif ($null -ne $oldState) { $oldState.stage1Pid } else { $null }
-        chartPid = if ($startedChart) { $chartProcess.Id } elseif ($null -ne $oldState) { $oldState.chartPid } else { $null }
+        stage1Pid = $stage1Pid
+        chartPid = $chartPid
         stage1Url = $Stage1Url
         stage1Base = $Stage1Base
         chartBase = $ChartBase
@@ -251,10 +265,12 @@ try {
     Write-Host ('[PASS] Stage 1 stack ready: ' + $Stage1Url)
 }
 catch {
-    if ($startedStage1 -and $null -ne $stage1Process) { Stop-TrackedProcess $stage1Process.Id }
-    if ($startedChart -and $null -ne $chartProcess) { Stop-TrackedProcess $chartProcess.Id }
-    if ($_.Exception.Message -notlike '[FAIL]*') {
-        Fail $_.Exception.Message
+    if ($startedStage1 -and $null -ne $stage1Process) {
+        Stop-Process -Id $stage1Process.Id -Force -ErrorAction SilentlyContinue
     }
-    throw
+    if ($startedChart -and $null -ne $chartProcess) {
+        Stop-Process -Id $chartProcess.Id -Force -ErrorAction SilentlyContinue
+    }
+    Remove-PidState
+    Fail $_.Exception.Message
 }
