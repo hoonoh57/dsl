@@ -61,6 +61,19 @@ class Stage1VerifierContractTest(unittest.TestCase):
         self.assertIn("$ErrorActionPreference = $previousErrorActionPreference", self.script)
         self.assertIn("if ($exitCode -ne 0)", self.script)
 
+    def test_default_live_smoke_uses_isolated_ports_but_explicit_ports_remain_authoritative(self):
+        self.assertIn("function Get-FreeTcpPort", self.script)
+        self.assertIn("$PSBoundParameters.ContainsKey('Stage1Port')", self.script)
+        self.assertIn("$PSBoundParameters.ContainsKey('ChartPort')", self.script)
+        self.assertIn("$smokeStage1Port = Get-FreeTcpPort $BindHost $python", self.script)
+        self.assertIn("$smokeChartPort = Get-FreeTcpPort $BindHost $python", self.script)
+        self.assertIn("while ($smokeChartPort -eq $smokeStage1Port)", self.script)
+        self.assertIn("'-Stage1Port', [string]$smokeStage1Port", self.script)
+        self.assertIn("'-ChartPort', [string]$smokeChartPort", self.script)
+        self.assertIn("$smokeStage1Port = $Stage1Port", self.script)
+        self.assertIn("$smokeChartPort = $ChartPort", self.script)
+        self.assertNotIn("Stop-Process", self.script)
+
     def test_success_output_is_single_final_pass_line(self):
         self.assertEqual(self.script.count("[PASS]"), 1)
         self.assertIn("Stage 1 verification completed: mode=", self.script)
