@@ -5,7 +5,7 @@ Run:
 Then open:
     http://127.0.0.1:8000/stage1
 
-The existing application remains available at /.  This module layers the Stage 1
+The existing application remains available at /. This module layers the Stage 1
 single-symbol research workflow on the same FastAPI process without rewriting
 the legacy UI during the continuous build.
 """
@@ -24,8 +24,10 @@ from core.backtest import synthetic_market
 from core.kiwoom_rest import KiwoomRESTClient, KiwoomAPIError
 from core.strategy_factory import DataContract, StrategyFactory, discover_dsl_parameters
 from core.stage1_data_store import load_market_snapshot, save_market_snapshot
+from core.stage1_target_loop import TargetLoopService
 
 factory = StrategyFactory()
+target_loops = TargetLoopService(factory)
 ROOT = Path(__file__).resolve().parent
 
 
@@ -91,6 +93,22 @@ class StopRequest(BaseModel):
     engine_blocked: bool = False
 
 
+class TargetLoopCreateRequest(BaseModel):
+    root_id: int
+    target_return: float
+    iteration_limit: int = 20
+    backtest_budget: int = 50000
+    no_improvement_limit: int = 5
+
+
+class TargetLoopObserveRequest(BaseModel):
+    experiment_id: int
+    backtests_used_delta: int = 1
+    accepted: Optional[bool] = None
+    plateau: bool = False
+    engine_blocked: bool = False
+
+
 def _market_from_spec(spec: MarketSpec):
     source = spec.source.lower().strip()
     if spec.market is not None:
@@ -99,11 +117,8 @@ def _market_from_spec(spec: MarketSpec):
     elif source == "synthetic_fixture":
         market = synthetic_market(spec.bars)
     elif source == "kiwoom":
-        try:
-            client = KiwoomRESTClient()
-            market = client.normalize_chart(client.chart(spec.instrument, spec.timeframe))
-        except KiwoomAPIError:
-            raise
+        client = KiwoomRESTClient()
+        market = client.normalize_chart(client.chart(spec.instrument, spec.timeframe))
     else:
         raise ValueError("Stage 1 data source는 inline/synthetic_fixture/kiwoom을 지원합니다.")
     normalized, provenance = DataContract.normalize(
@@ -235,6 +250,43 @@ def stage1_stop(req: StopRequest):
             engine_blocked=req.engine_blocked,
         )
         return {"state": state}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.post("/api/stage1/target-loops")
+def stage1_target_loop_create(req: TargetLoopCreateRequest):
+    try:
+        return target_loops.create(
+            root_id=req.root_id,
+            target_return=req.target_return,
+            iteration_limit=req.iteration_limit,
+            backtest_budget=req.backtest_budget,
+            no_improvement_limit=req.no_improvement_limit,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/api/stage1/target-loops/{loop_id}")
+def stage1_target_loop_get(loop_id: int):
+    try:
+        return target_loops.get(loop_id)
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@app.post("/api/stage1/target-loops/{loop_id}/observe")
+def stage1_target_loop_observe(loop_id: int, req: TargetLoopObserveRequest):
+    try:
+        return target_loops.observe(
+            loop_id=loop_id,
+            experiment_id=req.experiment_id,
+            backtests_used_delta=req.backtests_used_delta,
+            accepted=req.accepted,
+            plateau=req.plateau,
+            engine_blocked=req.engine_blocked,
+        )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
