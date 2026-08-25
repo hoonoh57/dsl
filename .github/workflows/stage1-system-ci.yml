@@ -24,6 +24,6 @@ jobs:
       - name: Core regression
         run: python -m unittest -v test_core.py
       - name: Stage1 contracts
-        run: python -m unittest -v test_stage1_factory.py test_stage1_extended.py test_stage1_chart_boundary.py test_stage1_execution_golden.py test_stage1_completion_contracts.py test_stage1_stack_launcher.py test_stage1_streaming_parity.py test_stage1_capability_boundary.py
+        run: python -m unittest -v test_stage1_factory.py test_stage1_extended.py test_stage1_chart_boundary.py test_stage1_execution_golden.py test_stage1_completion_contracts.py test_stage1_stack_launcher.py test_stage1_streaming_parity.py test_stage1_capability_boundary.py test_stage1_verifier.py
       - name: Stage1 quick stress
         run: python stage1_stress.py
