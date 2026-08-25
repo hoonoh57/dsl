@@ -73,7 +73,13 @@ class OOSRegistry:
         existing = conn.execute("SELECT * FROM stage1_oos_splits WHERE root_id=?", (root_id,)).fetchone()
         if existing:
             conn.close()
-            return dict(existing)
+            current = dict(existing)
+            expected = (values[0], values[1], values[2], float(holdout_fraction), int(split_index))
+            actual = (current["full_data_hash"], current["train_data_hash"], current["holdout_data_hash"],
+                      float(current["holdout_fraction"]), int(current["split_index"]))
+            if actual != expected:
+                raise ValueError("기존 root의 OOS split은 변경할 수 없습니다.")
+            return current
         conn.execute("""INSERT INTO stage1_oos_splits(root_id,full_data_hash,train_data_hash,holdout_data_hash,
                      holdout_fraction,split_index,created_at) VALUES (?,?,?,?,?,?,?)""",
                      (root_id, values[0], values[1], values[2], float(holdout_fraction), int(split_index), time.time()))
@@ -105,6 +111,16 @@ class OOSRegistry:
         conn.commit()
         conn.close()
         return {"experiment_id": experiment_id, "root_id": experiment["root_id"], "split": split, "result": result}
+
+    def result(self, experiment_id: int) -> Optional[dict]:
+        conn = self.store.connect()
+        row = conn.execute("SELECT * FROM stage1_oos_results WHERE experiment_id=?", (experiment_id,)).fetchone()
+        conn.close()
+        if not row:
+            return None
+        item = dict(row)
+        item["result"] = json.loads(item.pop("result_json"))
+        return item
 
     def root_results(self, root_id: int):
         conn = self.store.connect()
