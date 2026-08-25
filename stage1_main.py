@@ -19,6 +19,14 @@ from core.backtest import synthetic_market
 from core.dsl_parser import DSLParseError
 from core.dsl_runtime import DSLRuntimeError
 from core.kiwoom_rest import KiwoomRESTClient, KiwoomAPIError
+from core.multi_symbol import (
+    InstrumentTask,
+    MissionSpec,
+    MultiSymbolAnalysisEngine,
+    OpportunityWindow,
+    RegimeContext,
+    TacticalUnitSpec,
+)
 from core.strategy_factory import DataContract, StrategyFactory, discover_dsl_parameters
 from core.stage1_data_store import load_market_snapshot, save_market_snapshot
 from core.stage1_target_loop import TargetLoopService
@@ -28,7 +36,7 @@ from core.stage1_evidence import EvidenceBuilder
 from core.stage1_hypothesis_memory import HypothesisMemory
 from core.stage1_diff import summarize_dsl_change
 from core.stage1_methodology import MethodologyValidator
-from core.stage1_oos import OOSRegistry
+from core.stage1_oos import OOSRegistry, _json_safe
 from core.stage1_chart_document import build_chart_document
 
 factory = StrategyFactory()
@@ -140,6 +148,55 @@ class TargetLoopObserveRequest(BaseModel):
     parameter_spike_ratio: Optional[float] = None
 
 
+class OpportunityWindowRequest(BaseModel):
+    start: str
+    end: str
+    label: str = ""
+
+
+class RegimeRequest(BaseModel):
+    regime_id: str
+    state: str = "UNKNOWN"
+    active: bool = True
+    eligible_units: List[str] = Field(default_factory=list)
+    windows: List[OpportunityWindowRequest] = Field(default_factory=list)
+    evidence: Dict[str, Any] = Field(default_factory=dict)
+
+
+class MissionRequest(BaseModel):
+    name: str = "MFE_GTE"
+    mfe_threshold_pct: Optional[float] = None
+    capture_price_field: str = "close"
+    include_capture_bar: bool = False
+
+
+class TacticalUnitRequest(BaseModel):
+    unit_id: str
+    unit_type: str
+    symbols: List[str]
+    capture_times: Dict[str, str] = Field(default_factory=dict)
+    reference_symbol: str = ""
+    rank_by: str = "relative_strength_pct"
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class InstrumentTaskRequest(BaseModel):
+    symbol: str
+    dsl_code: str
+    market: Dict[str, Any]
+    settings: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class MultiSymbolAnalyzeRequest(BaseModel):
+    regime: RegimeRequest
+    unit: TacticalUnitRequest
+    instruments: List[InstrumentTaskRequest]
+    mission: MissionRequest = Field(default_factory=MissionRequest)
+    benchmark_market: Optional[Dict[str, Any]] = None
+    max_workers: int = 4
+
+
 def _market_from_spec(spec: MarketSpec):
     source = spec.source.lower().strip()
     if spec.market is not None:
@@ -204,7 +261,60 @@ def stage1_health():
         "execution_policy": "continuous-build-then-stress-test",
         "execution_authority": "BrokerEmulator",
         "chart_contract": "chart-document/v1",
+        "multi_symbol_contract": "multi_symbol_tactical/v1",
     }
+
+
+@app.post("/api/stage1/multi-symbol/analyze")
+def stage1_multi_symbol_analyze(req: MultiSymbolAnalyzeRequest):
+    try:
+        regime = RegimeContext(
+            regime_id=req.regime.regime_id,
+            state=req.regime.state,
+            active=req.regime.active,
+            eligible_units=tuple(req.regime.eligible_units),
+            windows=tuple(
+                OpportunityWindow(start=item.start, end=item.end, label=item.label)
+                for item in req.regime.windows
+            ),
+            evidence=req.regime.evidence,
+        )
+        unit = TacticalUnitSpec(
+            unit_id=req.unit.unit_id,
+            unit_type=req.unit.unit_type,
+            symbols=tuple(req.unit.symbols),
+            capture_times=req.unit.capture_times,
+            reference_symbol=req.unit.reference_symbol,
+            rank_by=req.unit.rank_by,
+            metadata=req.unit.metadata,
+        )
+        mission = MissionSpec(
+            name=req.mission.name,
+            mfe_threshold_pct=req.mission.mfe_threshold_pct,
+            capture_price_field=req.mission.capture_price_field,
+            include_capture_bar=req.mission.include_capture_bar,
+        )
+        tasks = [
+            InstrumentTask(
+                symbol=item.symbol,
+                dsl_code=item.dsl_code,
+                market=item.market,
+                settings=item.settings,
+                metadata=item.metadata,
+            )
+            for item in req.instruments
+        ]
+        result = MultiSymbolAnalysisEngine.run(
+            regime=regime,
+            unit=unit,
+            tasks=tasks,
+            mission=mission,
+            benchmark_market=req.benchmark_market,
+            max_workers=req.max_workers,
+        )
+        return _json_safe(result)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.post("/api/stage1/parameters/discover")
