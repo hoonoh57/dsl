@@ -246,7 +246,9 @@ def run(stage1_base: str, chart_base: str, timeout: float) -> dict[str, Any]:
     require(structural.get("verdict") in {"ACCEPTED_IMPROVEMENT", "REJECTED_NO_GAIN"}, "Structural verdict mismatch")
     require(bool(structural.get("exchange_id")), "Raw LLM exchange was not recorded")
     require(bool(structural.get("episode_id")), "Pre-Seeker structural episode was not recorded")
-    require((structural.get("structural_diff") or {}).get("changed") is True, "Structural diff did not detect the revised DSL")
+    structural_diff = structural.get("structural_diff") or {}
+    require(int(structural_diff.get("changed_assignment_count") or 0) > 0 or bool(structural_diff.get("events_changed")),
+            "Structural diff did not detect the revised DSL")
 
     rediscovered = api.post("/api/stage1/parameters/discover", {"dsl_code": REVISED_DSL}).body
     revised_names = [item.get("name") for item in rediscovered.get("parameters", [])]
