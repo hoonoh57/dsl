@@ -97,14 +97,21 @@ function Invoke-External(
     [string]$WorkingDirectory
 ) {
     $previous = Get-Location
+    $previousErrorActionPreference = $ErrorActionPreference
     $output = @()
     $exitCode = -1
     try {
         Set-Location -LiteralPath $WorkingDirectory
+        # Native tools such as Python unittest legitimately write progress to stderr.
+        # In Windows PowerShell 5.1, 2>&1 can otherwise promote that stderr record
+        # into a terminating NativeCommandError when the global preference is Stop.
+        # Native process success/failure is governed exclusively by LASTEXITCODE.
+        $ErrorActionPreference = 'Continue'
         $output = & $FilePath @Arguments 2>&1
         $exitCode = $LASTEXITCODE
     }
     finally {
+        $ErrorActionPreference = $previousErrorActionPreference
         Set-Location -LiteralPath $previous.Path
     }
     if ($exitCode -ne 0) {
