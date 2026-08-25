@@ -75,12 +75,25 @@ class ExpressionTypeChecker(ast.NodeVisitor):
             self._require(_number(args[0]) and _scalar_number(args[1]), "ta.ma의 series/period 형식이 올바르지 않습니다.", node)
             if len(args) >= 3: self._require(args[2] == ValueType.STRING, "ta.ma method는 string이어야 합니다.", node)
             if len(args) == 4: self._require(_scalar_number(args[3]), "ta.ma bars는 scalar number여야 합니다.", node)
+        elif name == "ta.sum":
+            self._require(_number(args[0]), "ta.sum 첫 인수는 숫자형 series여야 합니다.", node)
+            if len(args) >= 2: self._require(_scalar_number(args[1]), "ta.sum period는 scalar number여야 합니다.", node)
+            if len(args) == 3: self._require(_scalar_number(args[2]), "ta.sum bars는 scalar number여야 합니다.", node)
+        elif name == "ta.roc":
+            self._require(_number(args[0]) and _scalar_number(args[1]), "ta.roc(series, period) 형식이 올바르지 않습니다.", node)
         elif name == "ta.rsi":
             if len(args) == 1: self._require(_scalar_number(args[0]), "ta.rsi(period)의 period는 scalar number여야 합니다.", node)
             else: self._require(_number(args[0]) and _scalar_number(args[1]), "ta.rsi(series, period) 형식이 올바르지 않습니다.", node)
         elif name == "ta.jma":
             if len(args) == 3: self._require(all(_scalar_number(v) for v in args), "ta.jma(length, phase, power)는 scalar number가 필요합니다.", node)
             else: self._require(_number(args[0]) and all(_scalar_number(v) for v in args[1:]), "ta.jma(series,length,phase,power) 형식이 올바르지 않습니다.", node)
+        elif name in {"ta.supertrend", "ta.supertrend_direction"}:
+            self._require(all(_scalar_number(v) for v in args), f"{name}의 period/multiplier는 scalar number여야 합니다.", node)
+        elif name == "ta.macd":
+            self._require(_number(args[0]), "ta.macd 첫 인수는 숫자형 series여야 합니다.", node)
+            if len(args) >= 2: self._require(_scalar_number(args[1]), "ta.macd short는 scalar number여야 합니다.", node)
+            if len(args) >= 3: self._require(_scalar_number(args[2]), "ta.macd long은 scalar number여야 합니다.", node)
+            if len(args) == 4: self._require(args[3] == ValueType.STRING, "ta.macd method는 string이어야 합니다.", node)
         elif name in {"ta.atr", "ta.adx", "ta.trix", "ta.cci", "ta.nrange", "ta.williams_r", "ta.abs_range", "ta.sum_abs_r", "ta.vhf"}:
             self._require(all(_scalar_number(v) for v in args), f"{name} period는 scalar number여야 합니다.", node)
         elif name == "ta.shift":
@@ -96,10 +109,18 @@ class ExpressionTypeChecker(ast.NodeVisitor):
         elif name == "logic.ifelse":
             self._require(_boolean(args[0]), "logic.ifelse 첫 인수는 boolean이어야 합니다.", node)
             self._require(_number(args[1]) and _number(args[2]), "logic.ifelse 분기값은 숫자형이어야 합니다.", node)
-        elif name.startswith("state."):
-            boolean_count = 1 if name in {"state.edge", "state.falling_edge", "state.ready_after", "state.hold", "state.persist"} else 2
-            self._require(all(_boolean(v) for v in args[:boolean_count]), f"{name}의 조건 인수는 boolean이어야 합니다.", node)
-            if name in {"state.ready_after", "state.hold", "state.persist"}: self._require(_scalar_number(args[1]), f"{name} bars는 scalar number여야 합니다.", node)
+        elif name in {"state.edge", "state.falling_edge"}:
+            self._require(_boolean(args[0]), f"{name} 조건은 boolean이어야 합니다.", node)
+        elif name in {"state.ready_after", "state.hold", "state.persist"}:
+            self._require(_boolean(args[0]) and _scalar_number(args[1]), f"{name}(condition,bars) 형식이 올바르지 않습니다.", node)
+        elif name == "state.latch":
+            self._require(_boolean(args[0]) and _boolean(args[1]), "state.latch set/reset은 boolean이어야 합니다.", node)
+            if len(args) == 3: self._require(args[2] == ValueType.SCALAR_BOOL, "state.latch initial은 scalar bool이어야 합니다.", node)
+        elif name == "state.count":
+            self._require(_boolean(args[0]) and _boolean(args[1]), "state.count condition/reset은 boolean이어야 합니다.", node)
+        elif name == "state.regime":
+            self._require(_boolean(args[0]) and _boolean(args[1]), "state.regime bullish/bearish는 boolean이어야 합니다.", node)
+            if len(args) == 3: self._require(_scalar_number(args[2]), "state.regime initial은 scalar number여야 합니다.", node)
         elif name.startswith("mtf."):
             self._require(args and args[0] == ValueType.STRING, f"{name}의 timeframe은 string이어야 합니다.", node)
             if name == "mtf.sma": self._require(_scalar_number(args[1]), "mtf.sma period는 scalar number여야 합니다.", node)
