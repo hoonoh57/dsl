@@ -28,6 +28,7 @@ from core.stage1_evidence import EvidenceBuilder
 from core.stage1_hypothesis_memory import HypothesisMemory
 from core.stage1_diff import summarize_dsl_change
 from core.stage1_methodology import MethodologyValidator
+from core.stage1_oos import OOSRegistry
 
 factory = StrategyFactory()
 target_loops = TargetLoopService(factory)
@@ -35,6 +36,7 @@ llm_memory = LLMExchangeMemory(factory.store)
 resumable_seeker = ResumableSeekerService(factory)
 hypothesis_memory = HypothesisMemory(factory.store)
 methodology = MethodologyValidator(factory.store)
+oos_registry = OOSRegistry(factory)
 ROOT = Path(__file__).resolve().parent
 
 
@@ -47,6 +49,7 @@ class MarketSpec(BaseModel):
     adjustment_policy: str = "unspecified"
     session: str = "regular"
     knowledge_cutoff: str = ""
+    holdout_fraction: float = 0.0
 
 
 class BaselineRequest(BaseModel):
@@ -197,21 +200,37 @@ def stage1_discover(req: DiscoverRequest):
 @app.post("/api/stage1/baseline")
 def stage1_baseline(req: BaselineRequest):
     try:
-        market, provenance = _market_from_spec(req.market_spec)
+        full_market, provenance = _market_from_spec(req.market_spec)
+        run_market = full_market
+        run_source = provenance.source
+        split_payload = None
+        fraction = float(req.market_spec.holdout_fraction or 0.0)
+        if fraction > 0:
+            train_market, holdout_market, split_index = oos_registry.split_market(full_market, fraction)
+            run_market = train_market
+            run_source = str(train_market.get("_meta", {}).get("source", provenance.source + "#train"))
         experiment = factory.baseline(
             intent=req.intent,
             dsl_code=req.dsl_code,
-            market=market,
+            market=run_market,
             instrument=provenance.instrument,
             timeframe=provenance.timeframe,
-            source=provenance.source,
+            source=run_source,
             settings=req.settings,
             adjustment_policy=provenance.adjustment_policy,
             session=provenance.session,
             knowledge_cutoff=provenance.knowledge_cutoff,
         )
-        return {"status": "success", "experiment": experiment, "chart": factory.chart_audit(experiment),
-                "evidence": EvidenceBuilder.build(experiment)}
+        if fraction > 0:
+            split_payload = oos_registry.bind_split(
+                experiment["root_id"], full_market, train_market, holdout_market, fraction, split_index)
+        return {
+            "status": "success",
+            "experiment": experiment,
+            "chart": factory.chart_audit(experiment),
+            "evidence": EvidenceBuilder.build(experiment),
+            "oos_split": split_payload,
+        }
     except KiwoomAPIError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:
@@ -427,6 +446,32 @@ def stage1_target_loop_observe(loop_id: int, req: TargetLoopObserveRequest):
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@app.post("/api/stage1/oos/{experiment_id}")
+def stage1_oos_evaluate(experiment_id: int):
+    try:
+        evaluation = oos_registry.evaluate(experiment_id)
+        return {
+            "status": "success",
+            "experiment_id": experiment_id,
+            "split": evaluation["split"],
+            "result": evaluation["result"],
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/api/stage1/oos/{experiment_id}")
+def stage1_oos_result(experiment_id: int):
+    try:
+        experiment = factory.store.get_experiment(experiment_id)
+        return {
+            "split": oos_registry.get_split(experiment["root_id"]),
+            "evaluation": oos_registry.result(experiment_id),
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
 @app.get("/api/stage1/experiments")
 def stage1_experiments(root_id: Optional[int] = None, limit: int = 200):
     try:
@@ -444,6 +489,7 @@ def stage1_experiment(experiment_id: int):
             "lineage": factory.store.lineage(experiment_id),
             "chart": factory.chart_audit(experiment),
             "evidence": EvidenceBuilder.build(experiment),
+            "oos": oos_registry.result(experiment_id),
         }
     except Exception as exc:
         raise HTTPException(status_code=404, detail=str(exc))
