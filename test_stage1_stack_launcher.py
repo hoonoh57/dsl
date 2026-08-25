@@ -66,6 +66,10 @@ class Stage1StackLauncherContractTest(unittest.TestCase):
         self.assertNotIn("lightweight-charts", self.smoke)
         self.assertNotIn("ChartDocumentRenderer", self.smoke)
 
+    def test_smoke_success_prefix_is_literal_not_wildcard(self):
+        self.assertIn("$passLine.StartsWith('[PASS]')", self.script)
+        self.assertNotIn("$passLine -notlike '[PASS]*'", self.script)
+
 
 if __name__ == "__main__":
     unittest.main()
