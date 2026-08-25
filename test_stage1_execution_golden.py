@@ -119,7 +119,7 @@ class Stage1ExecutionGoldenTest(unittest.TestCase):
         self.assertEqual([row["status"] for row in rows], ["CREATED", "ACCEPTED", "FILLED"])
         self.assertAlmostEqual(rows[-1]["fill_price"], exit_execution["price"], places=12)
 
-    def test_pending_limit_fill_records_actual_execution_quantity(self):
+    def test_pending_limit_fill_records_actual_execution_quantity_and_original_signal_time(self):
         dsl = '''strategy "Pending" {
             timeframe = "1d"
             signal = close > 0
@@ -143,6 +143,10 @@ class Stage1ExecutionGoldenTest(unittest.TestCase):
         rows = [row for row in result["diagnostics"]["pending_order_history"]
                 if row["order_id"] == entry["order_id"]]
         self.assertEqual([row["status"] for row in rows], ["CREATED", "ACCEPTED", "FILLED"])
+        self.assertEqual(entry["signal_time"], "2026-01-01")
+        self.assertEqual(entry["time"], "2026-01-02")
+        self.assertEqual(rows[0]["signal_time"], "2026-01-01")
+        self.assertEqual(rows[-1]["event"], "2026-01-02")
         self.assertAlmostEqual(rows[-1]["quantity"], entry["quantity"], places=12)
         self.assertAlmostEqual(rows[-1]["fill_price"], entry["price"], places=12)
 
