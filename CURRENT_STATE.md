@@ -1,24 +1,23 @@
 # Quant DSL Current State
 
-Status: **P1_1516_VERTICAL_SLICE_IMPLEMENTED_AWAITING_TRUSTED_VALIDATION / REMEDIATION_REQUIRED**
+Status: **P1_TACTICAL_IMPLEMENTED_AWAITING_TRUSTED_FULL_VALIDATION / REMEDIATION_REQUIRED**  
 Updated: 2026-08-26 KST
 
 ## Authority
 
 Read in this order:
 
-1. `MULTI_LAYER_DSL_ARCHITECTURE.md` — current product architecture and Tactical Unit methodology.
-2. `P1_TACTICAL_DATA_IMPLEMENTATION.md` — current P1 1516 data/provider/UI implementation checkpoint.
-3. `PRODUCT_IMPLEMENTATION_PLAN.md` — original product roadmap and validated Stage 1 kernel plan.
+1. `MULTI_LAYER_DSL_ARCHITECTURE.md` — product architecture and Tactical Unit methodology.
+2. `P1_TACTICAL_DATA_IMPLEMENTATION.md` — current P1 data/provider/UI/verification boundary.
+3. `PRODUCT_IMPLEMENTATION_PLAN.md` — original roadmap and validated Stage 1 kernel plan.
 4. `STAGE1_EXECUTION_POLICY.md` — continuous implementation / verification operating policy.
 5. `QUANT_DSL_PLAYBOOK.md` — official generated-DSL language contract.
 6. `DSL_ENGINE_AUDIT.md` — engine trust-boundary criteria.
 
-## Product definition
+## Product path
 
-The validated single-symbol engine is the instrument-level tactical kernel, not the final research methodology.
-
-The product path remains:
+The validated single-symbol engine is the instrument-level tactical kernel, not
+the final research methodology.
 
 ```text
 Market Regime / Opportunity Window
@@ -32,150 +31,192 @@ Market Regime / Opportunity Window
  -> promote / reject / remember
 ```
 
-`1516 @ 09:05`, High-Beta, Leading-Sector, Theme/Policy and future condition-search cohorts are separate Tactical Units and may own different features and tactics.
+`1516 @ 09:05`, High-Beta, Leading-Sector, Theme/Policy and future
+condition-search cohorts are separate Tactical Units and may own different
+features, timing contracts and tactics.
 
-For `1516 @ 09:05`, cohort membership is frozen first. Post-search `max_ret_in_period` / `label_10` are outcome evidence only and may not participate in cohort construction or pre-execution candidate ranking.
+## Trusted checkpoint before P1
 
-## Trusted validation checkpoint before this P1 tranche
-
-The current branch base was the multi-layer P0 checkpoint that had a trusted local Windows PowerShell 5.1 Full verifier PASS:
+The P1 branch is based on the P0 multi-layer checkpoint whose trusted local
+Windows PowerShell 5.1 verifier returned:
 
 ```text
 [PASS] Stage 1 verification completed: mode=Full.
 ```
 
-That PASS remains evidence for the P0 base commit. It does **not** automatically validate the P1 mutations described below.
+That PASS remains evidence for the P0 base only. It does not validate later P1
+mutations.
 
-## P1 1516 vertical slice now implemented
+## P1 implementation now present
 
-### Production point-in-time cohort provider
+### 1516 exact point-in-time cohort
 
 `core/tactical_providers.py`
 
-- `Performance1516CohortProvider` reads one exact `performance_result` group by search date/time/condition/hold period.
-- point-in-time member features are kept separate from future return labels.
-- no nearest-date, alternate-condition, alternate-hold or dummy fallback is permitted.
-- `label_10` is checked against `max_ret_in_period` and malformed/ambiguous groups fail closed.
-- `PointInTimeMetricCohortProvider` supplies a configurable exact-snapshot contract for later High-Beta / sector sources without inventing a source table.
+- exact `performance_result` group by date/time/condition/hold period;
+- `code`, `name`, `search_volume` retained as point-in-time evidence;
+- future returns, `max_ret_in_period`, labels and actual future rank isolated as
+  post-execution outcomes;
+- malformed/inconsistent groups fail closed;
+- no nearby cohort or dummy fallback.
 
-### Stored minute-bar provider
+### Explicit stored minute market source
 
 `core/tactical_market.py`
 
-- explicitly configured MySQL database/table;
-- schema alias discovery for code/time/OHLCV;
-- separate-date/time or datetime timestamp support;
-- strict timestamp/OHLCV validation;
-- required warm-up coverage;
-- exact timeframe/table contract;
-- no generated or dummy bars.
+- schema-adaptive OHLCV reader;
+- strict timeframe and warm-up coverage;
+- timestamp/OHLCV integrity checks;
+- no production database/table guess;
+- source must be explicit or supplied by `TACTICAL_MINUTE_DATABASE` /
+  `TACTICAL_MINUTE_TABLE`.
 
-Current defaults target the existing 5-minute data-lake naming convention but remain explicit and fail closed when the actual table contract differs.
+Connected-source audit found no authority for the previously assumed
+`minute_candles_5m` production table. A known K150-only minute table in another
+research repository is not substituted for general 1516 membership.
 
-### 1516 tactical orchestration
+### 1516 execution/evaluation
 
 `core/tactical_research.py`
-
-The 1516 run path is:
 
 ```text
 exact frozen cohort
  -> canonical per-symbol bars
  -> capture + 1 second entry authorization
- -> existing MultiSymbolAnalysisEngine / BrokerEmulator
+ -> existing MultiSymbolAnalysisEngine / Broker authority
  -> immutable Tactical Scenario/Run
- -> official 1516 outcome merge only after execution
+ -> official outcome merge after execution only
  -> retention / precision evidence
 ```
 
-For a 09:05:00 cohort the common entry gate is `09:05:01`. Therefore the bar that contains the search observation itself cannot be used as a post-capture entry fill.
+For a 09:05:00 cohort the common entry gate is 09:05:01. Point-in-time feature
+ranking such as `feature:search_volume` never uses future outcome fields.
 
-Point-in-time feature ranking such as `feature:search_volume` is computed from frozen member metadata only. Future returns and `label_10` are not ranking inputs.
+### High-Beta exact-as-of cohort
 
-### Multi-symbol Chart Evidence
+`core/tactical_beta_provider.py`
+
+- daily `as_of` cutoff only;
+- exact benchmark availability required;
+- beta = covariance(benchmark return, symbol return) / benchmark return variance;
+- overlap threshold and top-N ranking;
+- no nearby-date or future-data fallback;
+- production database is explicit or `TACTICAL_DAILY_DATABASE`;
+- `daily_candles` is the supported default table contract, overridable by
+  `TACTICAL_DAILY_TABLE`.
+
+`tactical_main.py` now exposes exact High-Beta **cohort inspection**. It does not
+reuse the same-session 1516 execution timing contract; next-session High-Beta
+execution remains a later explicit contract.
+
+### Sector exact membership boundary
+
+`core/tactical_sector_provider.py`
+
+- exact `as_of + sector_id` snapshot;
+- explicit database/table only;
+- static legacy leader/follower definitions and dummy fallback are not accepted
+  as production point-in-time authority.
+
+A concrete production sector snapshot source is still unresolved, so this
+provider remains fail-closed until one is explicitly identified.
+
+### Multi-symbol Chart evidence
 
 `core/tactical_chart_document.py`
 
-- emits only generic `chart-document/v1` bars/series/markers/geometries;
-- focus/comparison symbols come from point-in-time ranking;
-- post-outcome labels are not used to choose what is displayed as selected/near comparison evidence;
-- capture cutoff and regime windows are represented as generic vertical-region evidence.
+- generic `chart-document/v1` only;
+- comparison symbols selected from point-in-time ranking only;
+- exact capture cutoff retained in metadata;
+- capture visual region uses two strictly increasing real focus-market bar times;
+- missing non-zero cutoff evidence fails closed.
 
-The shared Chart SSOT remains the only chart-native rendering owner.
+This fixes the prior zero-width `vertical-region` defect. The shared Chart SSOT
+remains the only Chart-native rendering owner.
 
-### Cohort-level validation summary
+### Tactical UI/API
 
-`core/tactical_validation_runner.py`
-
-- consumes the existing immutable `TacticalValidationManifest`;
-- aggregates Train / Validation / OOS reports by frozen cohort hash;
-- refuses missing, duplicate or unmanifested cohort reports;
-- does not reconstruct partitions from outcomes.
-
-### Tactical application/UI
-
-`tactical_main.py` serves the existing Stage 1 app plus:
+`tactical_main.py`:
 
 ```text
 /tactical
 GET  /api/stage1/tactical/1516/cohort
 POST /api/stage1/tactical/1516/run
+GET  /api/stage1/tactical/high-beta/cohort
 GET  /api/stage1/tactical/health
 ```
 
-The cohort inspection endpoint intentionally excludes future outcomes. The run endpoint combines outcomes only after execution and returns the shared Chart Document evidence.
+The 1516 inspection route omits future outcomes. The Tactical UI no longer
+pre-fills an undocumented minute DB/table and requires explicit deployment
+configuration.
 
-`core/templates/tactical.html` and `core/static/tactical.js` implement the first multi-symbol research UI.
+### Validation and operational harness
 
-### New regression coverage
+Implemented:
 
-The existing Stage 1 discovery pattern will include:
+- `scripts/start_tactical_stack.ps1`
+  - Start / Status / Stop / Preflight / Smoke;
+  - shared Chart health and Tactical health;
+  - Node >= 24 and Python dependency checks;
+  - bounded Chart repo discovery;
+  - tracked-process-only stop;
+  - PowerShell 5.1-safe explicit PID state assignments.
+- `scripts/tactical_contract_stress.py`
+  - worker-count determinism;
+  - larger cohort execution;
+  - Chart projection;
+  - point-in-time leak rejection;
+  - whole-scenario corrupted-data failure.
+- `scripts/verify_tactical_p1.ps1`
+  - base Stage 1 verification;
+  - Tactical preflight;
+  - quick/full Tactical stress;
+  - isolated-port live Tactical/Chart smoke;
+  - final P1 PASS marker only after all prior steps succeed.
 
-- `test_stage1_tactical_providers.py`
-- `test_stage1_tactical_market.py`
-- `test_stage1_tactical_research.py`
-- `test_stage1_tactical_chart_document.py`
-- `test_stage1_tactical_validation_runner.py`
+New/updated Stage 1-discovered tests cover 1516 providers, market authority,
+research orchestration, visible Chart cutoff geometry, High-Beta authority,
+sector snapshot semantics, validation manifest behavior and launcher/API
+contracts.
 
-No legacy assertion was weakened to add this tranche.
+No legacy assertion was weakened for this tranche.
 
 ## Current validation status
 
-The P1 source has been implemented and source-reviewed, but a trusted Windows Full verifier has **not yet been recorded for these mutations**.
+Source remediation and static authority review are complete enough to enter the
+trusted executable boundary, but a trusted Windows Full verifier has **not yet
+been recorded for P1**.
 
 Therefore do not claim:
 
-- P1 Full PASS;
+- Tactical P1 Full PASS;
 - production profitability/generalization;
-- completed High-Beta provider integration;
-- completed Leading-Sector provider integration;
 - live trading readiness;
+- a concrete production sector snapshot authority;
+- a concrete 1516 minute table unless supplied by deployment configuration;
 - donor repository-wide Chart compliance.
 
 `REMEDIATION_REQUIRED` remains authoritative.
 
-## Remaining P1 work before consolidated human validation
+## Next action
 
-Continue implementation without per-feature user validation:
+After this P1 branch is fast-forwarded to `main`, perform one consolidated
+trusted Windows verification only:
 
-1. operational launcher integration for `tactical_main:app` and tactical health/smoke;
-2. tactical operational/stress harness including larger cohorts, worker-count determinism and missing-data faults;
-3. concrete High-Beta source discovery/integration without guessing an undocumented table;
-4. concrete Leading-Sector / leader-follower source discovery/integration;
-5. multi-unit scenario/date/window validation workbench and evidence comparison;
-6. then run one consolidated trusted Windows Full verification;
-7. only after the automated boundary is green, perform consolidated WYSIWYG/UI validation.
-
-## Failure policy
-
-Any executable failure must first be classified as one of:
-
-```text
-test defect
-product defect
-authority drift
-environment issue
-unknown
+```powershell
+git pull --ff-only origin main
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
-Do not weaken assertions, add compatibility allowlists, use dummy data, substitute nearby cohorts or bypass Broker/Chart authority to manufacture a PASS.
+Do not begin per-feature UI inspection before that automated boundary is green.
+If the verifier fails, classify the first failure as test defect / product defect /
+authority drift / environment issue / unknown before changing code.
+
+If the verifier returns:
+
+```text
+[PASS] Tactical P1 verification completed: mode=Full.
+```
+
+record that exact commit as P1 Full-verified and then perform one consolidated
+WYSIWYG/UI validation.
