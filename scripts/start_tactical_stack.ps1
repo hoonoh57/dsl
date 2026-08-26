@@ -233,9 +233,13 @@ try {
         exit 0
     }
 
+    $tacticalPidValue = $null
+    $chartPidValue = $null
+    if ($startedTactical -and $null -ne $tacticalProcess) { $tacticalPidValue = $tacticalProcess.Id }
+    if ($startedChart -and $null -ne $chartProcess) { $chartPidValue = $chartProcess.Id }
     $state = [ordered]@{
-        tacticalPid = if ($startedTactical) { $tacticalProcess.Id } else { $null }
-        chartPid = if ($startedChart) { $chartProcess.Id } else { $null }
+        tacticalPid = $tacticalPidValue
+        chartPid = $chartPidValue
         tacticalUrl = $TacticalUrl
         tacticalBase = $TacticalBase
         chartBase = $ChartBase
