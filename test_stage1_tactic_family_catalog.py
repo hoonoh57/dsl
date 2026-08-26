@@ -1,7 +1,8 @@
 import unittest
 from dataclasses import replace
+from datetime import datetime, timedelta
 
-from core.backtest import BacktestEngine
+from core.backtest import BacktestEngine, synthetic_market
 from core.tactic_family import TacticFamilySpec
 from core.tactic_family_catalog import (
     JMA_TREND_CROSS_RESUME_V1,
@@ -59,6 +60,22 @@ def usage_after(family, *skill_ids):
     return usage
 
 
+def five_minute_market(bars_count=500):
+    """Deterministic 5-minute fixture for a DSL that explicitly declares 5m."""
+    market = synthetic_market(bars_count)
+    start = datetime(2026, 1, 5, 9, 0, 0)
+    market["time"] = [
+        (start + timedelta(minutes=5 * index)).strftime("%Y%m%d%H%M%S")
+        for index in range(bars_count)
+    ]
+    market["_meta"] = {
+        **dict(market.get("_meta") or {}),
+        "source": "synthetic_5m_test_fixture",
+        "timeframe": "5m",
+    }
+    return market
+
+
 class TacticFamilyCatalogTests(unittest.TestCase):
     def test_default_registry_contains_only_first_validated_jma_family(self):
         registry = build_default_tactic_family_registry()
@@ -70,7 +87,7 @@ class TacticFamilyCatalogTests(unittest.TestCase):
 
     def test_jma_base_dsl_executes_through_trusted_backtest_boundary(self):
         family = jma_trend_cross_resume_family()
-        result = BacktestEngine.run(family.base_dsl, bars_count=500)
+        result = BacktestEngine.run(family.base_dsl, market=five_minute_market(500))
         self.assertIn("metrics", result)
         self.assertTrue(family.base_candidate().candidate_hash)
 
