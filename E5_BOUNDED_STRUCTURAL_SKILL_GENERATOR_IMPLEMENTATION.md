@@ -1,6 +1,6 @@
 # E5 Bounded Structural Skill Generator — Implementation Checkpoint
 
-Status: **IMPLEMENTED / AWAITING TRUSTED FULL VALIDATION / 2026-08-27 KST**
+Status: **TRUSTED FULL PASS / 2026-08-27 KST**
 
 ## 1. Trusted predecessor
 
@@ -28,7 +28,7 @@ Therefore E4 is trusted Full-green at `560526b7f5af19462a57fd1e5b433bcbe5596500`
 
 ## 2. E5 objective
 
-E5 must turn observed capability gaps into bounded one-skill child structures without allowing a model or orchestration layer to rewrite the trusted engine or invent arbitrary DSL capabilities.
+E5 turns observed capability gaps into bounded one-skill child structures without allowing a model or orchestration layer to rewrite the trusted engine or invent arbitrary DSL capabilities.
 
 The executable seam is:
 
@@ -54,7 +54,7 @@ EvolutionArena ACCEPT / REJECT / REVIEW
 
 E5 itself never promotes a family head.
 
-## 3. New executable
+## 3. Executable
 
 `core/tactical_skill_generator.py`
 
@@ -89,8 +89,6 @@ characterization.case_failure_analysis.failure_hash == failure_report.failure_ha
 ```
 
 Any mismatch fails closed.
-
-This prevents a skill proposal from being justified by evidence from another candidate, generation or BattleCase universe.
 
 ## 5. Legal skill authority
 
@@ -260,18 +258,40 @@ No `best`, `score`, `decision`, ACCEPT or family-head mutation is produced by E5
 
 The existing Full verifier runs `test_stage1_*.py`, so this regression joins the normal Tactical P1 Full boundary automatically.
 
-## 11. Nonclaims
+## 11. Trusted validation
 
-This tranche does **not** establish:
+The operator synchronized `main`, confirmed exact local checkout:
+
+```text
+c1351152d58e4219b9998f0b35b7636f340dc986
+```
+
+and ran:
+
+```text
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
+```
+
+Result:
+
+```text
+[PASS] Tactical P1 verification completed: mode=Full.
+```
+
+Therefore **E5 Bounded Structural Skill Generator is trusted Full-green at `c1351152d58e4219b9998f0b35b7636f340dc986`.**
+
+## 12. Nonclaims
+
+This checkpoint does **not** establish:
 
 - that any proposed child is better than its parent;
 - a winning parameter set;
 - automatic skill choice;
-- automatic promotion;
+- automatic family-head promotion;
 - LLM autonomy over DSL source;
-- Train/Validation/OOS/harsh generalization;
+- completed Train/Validation/OOS/harsh generalization;
 - profitability or live readiness.
 
-## 12. Next boundary
+## 13. Next boundary
 
-Do not start E6 until this E5 executable boundary receives trusted Full validation at an exact repository SHA.
+The next executable tranche is **E6 Validation / Harsh Arena**. It must replay one fixed parent/child pair across explicit Train / Validation / OOS / deliberately adverse partitions and must not promote the family head until all declared promotion evidence passes.
