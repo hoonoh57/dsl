@@ -1,8 +1,8 @@
 """Failure analysis for evolving micro tactics.
 
 The analyzer consumes immutable ``tactical_discovery/v1`` profiles and identifies
-repeatable failure patterns.  It is deliberately evidence-only: it does not
-rewrite DSL, alter historical results, or treat NO_TRADE as a failure by default.
+repeatable failure patterns. It is evidence-only: it does not rewrite DSL, alter
+historical results, or treat NO_TRADE as a failure by default.
 """
 from __future__ import annotations
 
@@ -68,6 +68,7 @@ CAPABILITY_HINTS = {
     "ADVERSE_EXCURSION": ("ENTRY_QUALITY", "SURVIVAL_RISK"),
     "WHIPSAW": ("RANGE_DEFENSE", "ENGAGEMENT_DISCIPLINE"),
     "MFE_GIVEBACK": ("PROFIT_PROTECTION", "EXIT_QUALITY"),
+    "UNRESOLVED_POSITION": ("EXIT_DISCIPLINE", "SURVIVAL_RISK"),
 }
 
 
@@ -75,10 +76,25 @@ class TacticalFailureAnalyzer:
     """Classify case-level failures and aggregate capability gaps."""
 
     @staticmethod
-    def _case_tags(row: Mapping[str, Any], policy: FailureAnalysisPolicy) -> list[str]:
+    def _trade_count(row: Mapping[str, Any]) -> int:
+        # ``trade_count`` is the entry count. Fall back to closed trades for
+        # older/fabricated profiles that predate explicit entry-count evidence.
+        if "trade_count" in row:
+            return int(row.get("trade_count") or 0)
+        return int(row.get("closed_trade_count") or 0)
+
+    @staticmethod
+    def _open_position(row: Mapping[str, Any]) -> int:
+        backtest = row.get("backtest") or {}
+        metrics = backtest.get("metrics_numeric") or {}
+        return int(metrics.get("open_position") or 0)
+
+    @classmethod
+    def _case_tags(cls, row: Mapping[str, Any], policy: FailureAnalysisPolicy) -> list[str]:
         tags: list[str] = []
+        entries = cls._trade_count(row)
         closed = int(row.get("closed_trade_count") or 0)
-        if closed <= 0:
+        if entries <= 0:
             return tags
         ret = float(row.get("return_pct") or 0.0)
         mdd = float(row.get("mdd_pct") or 0.0)
@@ -86,6 +102,8 @@ class TacticalFailureAnalyzer:
         mfe = float(row.get("average_mfe_pct") or 0.0)
         giveback = float(row.get("mfe_giveback_pct") or 0.0)
 
+        if cls._open_position(row) != 0:
+            tags.append("UNRESOLVED_POSITION")
         if ret <= policy.loss_return_pct:
             tags.append("LOSS")
         if ret <= policy.severe_loss_return_pct:
@@ -120,8 +138,8 @@ class TacticalFailureAnalyzer:
             case_id = str(row.get("case_id") or "").strip()
             if not case_id:
                 raise ValueError("failure analyzer case_id가 비어 있습니다.")
-            closed = int(row.get("closed_trade_count") or 0)
-            if closed <= 0:
+            entries = cls._trade_count(row)
+            if entries <= 0:
                 no_trade_cases.append(case_id)
                 continue
             active_cases += 1
