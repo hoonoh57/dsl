@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **EVOLVING_MICRO_WARRIOR_E0_TRUSTED_FULL_PASS_E1_E2_FOUNDATION / REMEDIATION_REQUIRED**  
+Status: **E1_KOREAN_REGULAR_SESSION_CONTRACT_IMPLEMENTED_AWAITING_TRUSTED_FULL_VALIDATION / REMEDIATION_REQUIRED**  
 Updated: 2026-08-26 KST
 
 ## Authority
@@ -100,7 +100,7 @@ Later market/index, breadth/volatility, sector, high-beta, theme/policy, leader/
 - no hidden universal score;
 - per-metric leaderboards + conservative Pareto frontier.
 
-## E0 evolving micro-warrior implementation now present
+## E0 evolving micro-warrior implementation
 
 ### Deterministic failure analysis
 
@@ -217,11 +217,11 @@ Recording an accepted child does not silently promote it. Promotion remains an e
 
 This preserves losing/rejected experience rather than remembering only winners.
 
-## E1/E2 foundation now present
-
-### Explicit frozen BattleCase provider foundation
+## E1 Korean regular-session BattleCase contract now implemented
 
 `core/battlecase_provider.py`
+
+The generic explicit provider still:
 
 - requires exact symbol/date `BattleCaseRequest` inputs;
 - composes them through an explicit `SessionMarketProvider`;
@@ -229,9 +229,33 @@ This preserves losing/rejected experience rather than remembering only winners.
 - does not invent a production universe or substitute a dummy/fallback source;
 - defaults micro research context to `NEUTRAL` when no explicit context is supplied.
 
-This is an E1 foundation, not the final authoritative Korean regular-session universe/source contract. Concrete source authority and regular-session/warm-up rules still require the next tranche.
+The new strict E1 boundary adds `KoreanRegularSessionContract` and `KoreanRegularSessionBattleCaseProvider`.
 
-### Bounded tactic-family / legal one-skill registry foundation
+It requires:
+
+- an explicit caller-supplied `source_authority`; no guessed production database/table;
+- canonical source/instrument/timeframe metadata from the loaded market snapshot;
+- configured `end_time` inside the declared Korean regular-session window;
+- every supplied warm-up/active bar to remain inside that regular-session clock window;
+- total warm-up/history coverage of at least `required_bars`;
+- current battle-day regular-session coverage of at least `minimum_session_bars`;
+- no requested-day bars after the configured `end_time`.
+
+The frozen batch and each BattleCase now preserve authoritative source/session-policy identity. Free-form request metadata cannot overwrite those authoritative fields.
+
+This completes the E1 source/session/warm-up contract structurally while still refusing to guess a concrete deployment table. A deployment must explicitly name the actual source authority and provide the corresponding `SessionMarketProvider` configuration.
+
+Regression coverage is in `test_stage1_battlecase_provider.py` for:
+
+- explicit generic requests without universe guessing;
+- duplicate/cutoff fail-closed behavior;
+- strict source/session identity persistence;
+- pre-open bar rejection;
+- insufficient current-session coverage rejection;
+- out-of-session `end_time` rejection;
+- mandatory explicit source authority.
+
+## E2 bounded tactic-family foundation already present
 
 `core/tactic_family.py`
 
@@ -241,19 +265,17 @@ This is an E1 foundation, not the final authoritative Korean regular-session uni
 - unknown capability-usage keys fail closed;
 - free-form metadata cannot overwrite authoritative family identity/generation fields.
 
-This is an E2 foundation. A production family catalog/upgrade tree remains to be built family-by-family after E1 source authority is fixed.
+This remains an E2 foundation. A production family catalog/upgrade tree must be built family-by-family after the new E1 executable boundary is trusted green.
 
-### Regression contracts included in consolidated Stage 1 discovery
+## Consolidated regression boundary
 
-`verify_stage1.ps1` executes `python -m unittest discover -v -p test_stage1_*.py`, therefore the Tactical P1 Full verifier transitively includes newly-added Stage 1 contracts such as:
+`verify_stage1.ps1` executes:
 
-- `test_stage1_tactical_evolution.py`
-- `test_stage1_tactical_evolution_store.py`
-- `test_stage1_tactical_failure.py`
-- `test_stage1_battlecase_provider.py`
-- `test_stage1_tactic_family.py`
+```text
+python -m unittest discover -v -p test_stage1_*.py
+```
 
-The reported trusted Tactical P1 Full PASS therefore covered these tests for the executable checkout that produced the PASS.
+Therefore the Tactical P1 Full verifier transitively includes the E0/E1/E2 Stage 1 contracts, including `test_stage1_battlecase_provider.py`.
 
 ## Tactical P1 infrastructure still present
 
@@ -282,23 +304,39 @@ A later P1 Full attempt found a High-Beta test-fixture defect; the product beta 
 
 The next P1 run then found a tactical stress harness environment/import defect (`ModuleNotFoundError: core`); the direct-script repository-root setup was fixed.
 
-After the E0 plus E1/E2 foundation mutations, the operator ran the consolidated trusted Windows PowerShell 5.1 boundary and reported:
+After the E0 plus initial E1/E2 foundation mutations, the operator ran the consolidated trusted Windows PowerShell 5.1 boundary and reported:
 
 ```text
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-The executable `main` state at that PASS boundary was `ac01525223f897f155de63f02529b0a6429a0882`. Subsequent commits up to this checkpoint are documentation-only and do not alter that executable boundary.
+The executable state at that trusted PASS boundary was:
+
+```text
+ac01525223f897f155de63f02529b0a6429a0882
+```
+
+That PASS remains valid evidence for that executable checkpoint.
+
+The new E1 executable mutations were then added in:
+
+```text
+8d54c6093568d028edd2257613ff1d07301c1f96  # Korean regular-session contract
+31f527f6707405d9dd0387151e4bc7609d0a348b  # E1 regression coverage
+```
+
+These new executable commits have not yet received a trusted local Full PASS.
 
 ## Current validation status
 
 May claim:
 
 - trusted Tactical P1 Full PASS for executable checkpoint `ac01525223f897f155de63f02529b0a6429a0882`;
-- E0 evolution contracts plus the E1/E2 foundation regression tests were inside that consolidated verifier boundary.
+- E0 plus the initial E1/E2 foundation was green at that checkpoint.
 
 Do not claim yet:
 
+- trusted Tactical P1 Full PASS for the new E1 Korean regular-session executable boundary;
 - any tactic is the strongest or profitable;
 - autonomous evolution has produced a superior live tactic;
 - production profitability/generalization;
@@ -306,30 +344,28 @@ Do not claim yet:
 - completed macro deployment rules;
 - a concrete production sector snapshot authority;
 - a concrete general 1516 minute table unless supplied by deployment configuration;
-- the final authoritative Korean regular-session BattleCase universe/source boundary;
 - donor repository-wide Chart compliance;
 - repository-wide compliance PASS.
 
-`REMEDIATION_REQUIRED` remains authoritative for broader repository compliance and is separate from the trusted Tactical P1 Full PASS.
+`REMEDIATION_REQUIRED` remains authoritative for broader repository compliance and is separate from checkpoint-level Tactical P1 verification.
 
-## Next implementation sequence
+## Next implementation sequence after the trusted E1 boundary
 
-Continue micro strengthening in this order:
+After the new E1 executable boundary is green, continue in this order:
 
-1. complete the authoritative Korean regular-session `BattleCaseProvider` source/session/warm-up boundary;
-2. expand `TacticFamilyRegistry` into explicit family-by-family legal `SkillSpec` catalogs and CapabilityBudgets;
-3. multi-BattleCase Parameter Seeker adapter;
-4. causal Tactical Characterizer for time/range/volatility/liquidity/signal-density/local-leader/entry-latency/re-engagement evidence;
-5. bounded structural Skill Generator that proposes one child capability from observed gaps;
-6. Train / Validation / OOS / harsh-case Evolution Arena;
-7. game-style generation/skill-tree Evidence UI;
-8. only then macro/sector/high-beta/theme context attribution and deployment command.
+1. expand `TacticFamilyRegistry` into explicit family-by-family legal `SkillSpec` catalogs and CapabilityBudgets;
+2. multi-BattleCase Parameter Seeker adapter;
+3. causal Tactical Characterizer for time/range/volatility/liquidity/signal-density/local-leader/entry-latency/re-engagement evidence;
+4. bounded structural Skill Generator that proposes one child capability from observed gaps;
+5. Train / Validation / OOS / harsh-case Evolution Arena;
+6. game-style generation/skill-tree Evidence UI;
+7. only then macro/sector/high-beta/theme context attribution and deployment command.
+
+Do not start the next executable tranche before the E1 boundary is trusted green.
 
 ## Next automated boundary
 
-No repeated trusted Full run is required for documentation-only checkpoints.
-
-After the next executable micro-tranche is merged to `main`, run the consolidated trusted Windows verification again:
+Pull current `main` and run:
 
 ```powershell
 git pull --ff-only origin main
