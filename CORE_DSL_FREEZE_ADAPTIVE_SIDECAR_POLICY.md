@@ -33,7 +33,8 @@ The Instrument DSL remains responsible for:
 - one declared base timeframe per candidate;
 - supported higher-timeframe completed-bar MTF reads;
 - explicit order intent;
-- execution semantics that can be reproduced by `BacktestEngine` / `BrokerEmulator`.
+- execution semantics that can be reproduced by `BacktestEngine` / `BrokerEmulator`;
+- future read-only consumption of explicitly registered parent-context features through a narrow binding contract.
 
 The Core DSL is **not** responsible for:
 
@@ -45,9 +46,11 @@ The Core DSL is **not** responsible for:
 - arbitrary lower-timeframe/tick requests;
 - live switching of one DSL candidate's declared timeframe;
 - self-created indicators or rules outside the Capability Manifest;
-- arbitrary peer-symbol reads, cross-symbol ranking, universe selection or portfolio allocation.
+- arbitrary peer-symbol reads, cross-symbol ranking, universe selection or portfolio allocation;
+- calculating market-regime, sector, leader/follower or other parent features inside DSL execution;
+- database/network/provider discovery during tactic evaluation.
 
-These are sidecar/orchestration concerns unless a future capability independently earns promotion into Core.
+These are sidecar/orchestration/provider concerns unless a future capability independently earns promotion into Core.
 
 ## 3. Three implementation classes
 
@@ -59,7 +62,8 @@ Examples:
 
 - a deterministic causal indicator primitive;
 - a state primitive with batch/streaming equivalence;
-- a clearly defined order/execution primitive.
+- a clearly defined order/execution primitive;
+- a narrow read-only reference to a registered, already-frozen parent-context feature.
 
 Core changes require the highest bar because they alter the language or trusted engine surface.
 
@@ -72,7 +76,8 @@ Examples:
 - Parameter Seeker;
 - failure characterization;
 - validation/OOS arena;
-- immutable evidence storage.
+- immutable evidence storage;
+- Parent Feature Provider / Context assembly infrastructure.
 
 These may use the DSL but should not change its language semantics.
 
@@ -88,7 +93,7 @@ Examples:
 - pattern learning;
 - optional multi-symbol comparison/ranking Add-ons.
 
-These are optional research modules. They must connect through stable evidence/gate interfaces rather than becoming parser/runtime dependencies.
+These are optional research modules. They must connect through stable evidence/gate/provider interfaces rather than becoming parser/runtime dependencies.
 
 ## 4. Hard equipment first, learning second
 
@@ -169,6 +174,37 @@ A multi-symbol Add-on is disabled by default, may not mutate DSL/runtime state, 
 
 Its detailed contract is defined in `MULTI_SYMBOL_ADDON_EXTENSION_POLICY.md`.
 
+## 6B. Parent-context inheritance is preserved
+
+Single-instrument authority does **not** mean that an Instrument DSL must be blind to verified parent battlefield intelligence.
+
+The allowed seam is:
+
+```text
+Parent Feature Provider
+ -> immutable ContextLayerSnapshot
+ -> BattlefieldContext
+ -> narrow read-only Context Binder
+ -> registered ctx.* value consumed by Instrument DSL
+```
+
+The DSL may consume a parent feature without knowing how it was calculated. It must not call the provider or perform cross-market/cross-symbol discovery itself.
+
+Therefore a future tactic may conceptually consume registered values such as:
+
+```text
+ctx.market.kospi_slope
+ctx.sector.strength
+ctx.group.leader_strength
+ctx.group.follower_alignment
+```
+
+while the market/sector/group calculation logic remains outside Parser/Runtime/Backtest/Broker.
+
+Parent context must be immutable, source-identified, versioned and valid at or before the battle knowledge cutoff. Missing/stale/future context is never guessed.
+
+The detailed authority is `PARENT_CONTEXT_FEATURE_PROVIDER_POLICY.md`.
+
 ## 7. Promotion into Core is exceptional
 
 An experimental capability may be considered for Core only if all are true:
@@ -201,6 +237,8 @@ E8  Macro Context Attribution / Deployment
 
 `core/tactical_observation.py` is retained as an optional causal sidecar seam. TacticalMemory / LocalBattlefieldLearner / adaptive resolution selection and multi-symbol Add-on execution are deferred until the main evolution loop demonstrates a concrete need and can consume them without changing Core DSL contracts.
 
+The parent-context Provider/Binding seam remains architecturally reserved so cascading market/sector/group features can later be consumed without redesigning the language, but no executable `ctx.*` grammar or Provider framework is added before its own validated tranche.
+
 ## 9. Change-control rule
 
 Before any future adaptive or cross-symbol feature is implemented, ask:
@@ -219,7 +257,15 @@ Can this be done as read-only analysis of immutable per-symbol snapshots?
 
 If yes, it must remain an Add-on.
 
-A new adaptive or multi-symbol idea must not reorder or rewrite trusted core logic merely because it is theoretically useful.
+For parent context, the only Core-facing question is:
+
+```text
+Can the DSL consume an already-frozen registered value instead of executing the parent calculation?
+```
+
+If yes, only the read-only binding may enter Core; the calculation remains in a Provider/Add-on.
+
+A new adaptive, multi-symbol or context idea must not reorder or rewrite trusted core logic merely because it is theoretically useful.
 
 ## 10. Success criterion
 
@@ -233,13 +279,14 @@ CORE
   auditable
   stable
   single-instrument tactical authority
+  able to read registered parent context without calculating it
 
-SIDECAR / ADD-ON
+SIDECAR / ADD-ON / PROVIDER
   extensible
   optional
   replaceable
   evidence-driven
-  safe for future adaptive or multi-symbol analysis
+  safe for future adaptive, multi-symbol and parent-context analysis
 ```
 
 The sidecar may become sophisticated. The DSL core should become increasingly boring and trustworthy.
