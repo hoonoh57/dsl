@@ -9,16 +9,17 @@ Read in this order:
 
 1. `EVOLVING_MICRO_WARRIOR_PLAN.md` — one-skill evolution doctrine, capability-budget and immutable-generation contract.
 2. `CORE_DSL_FREEZE_ADAPTIVE_SIDECAR_POLICY.md` — Core DSL stability, sidecar isolation and promotion rules.
-3. `ADAPTIVE_MICRO_WARRIOR_LEARNING_ARCHITECTURE.md` — optional future local-learning design, subordinate to the Core DSL freeze policy.
-4. `MICRO_FIRST_MACRO_READY_ARCHITECTURE.md` — micro-first research order and macro-ready extension seam.
-5. `MULTI_LAYER_DSL_ARCHITECTURE.md` — final macro-to-micro runtime/deployment architecture.
-6. `MICRO_TACTICAL_DISCOVERY_IMPLEMENTATION.md` — micro discovery/competition implementation checkpoint.
-7. `P1_TACTICAL_DATA_IMPLEMENTATION.md` — P1 data/provider/UI/verification boundary.
-8. `PRODUCT_IMPLEMENTATION_PLAN.md` — original roadmap and Stage 1 kernel plan.
-9. `STAGE1_EXECUTION_POLICY.md` — continuous implementation / verification policy.
-10. `QUANT_DSL_PLAYBOOK.md` — official generated-DSL language contract.
-11. `DSL_ENGINE_AUDIT.md` — engine trust-boundary criteria.
-12. `PROGRESS_CHECKPOINT_2026-08-26.md` — trusted local Full PASS evidence checkpoints.
+3. `MULTI_SYMBOL_ADDON_EXTENSION_POLICY.md` — single-instrument Core boundary and safe optional cross-symbol Add-on contract.
+4. `ADAPTIVE_MICRO_WARRIOR_LEARNING_ARCHITECTURE.md` — optional future local-learning design, subordinate to the Core DSL freeze policy.
+5. `MICRO_FIRST_MACRO_READY_ARCHITECTURE.md` — micro-first research order and macro-ready extension seam.
+6. `MULTI_LAYER_DSL_ARCHITECTURE.md` — final macro-to-micro runtime/deployment architecture.
+7. `MICRO_TACTICAL_DISCOVERY_IMPLEMENTATION.md` — micro discovery/competition implementation checkpoint.
+8. `P1_TACTICAL_DATA_IMPLEMENTATION.md` — P1 data/provider/UI/verification boundary.
+9. `PRODUCT_IMPLEMENTATION_PLAN.md` — original roadmap and Stage 1 kernel plan.
+10. `STAGE1_EXECUTION_POLICY.md` — continuous implementation / verification policy.
+11. `QUANT_DSL_PLAYBOOK.md` — official generated-DSL language contract.
+12. `DSL_ENGINE_AUDIT.md` — engine trust-boundary criteria.
+13. `PROGRESS_CHECKPOINT_2026-08-26.md` — trusted local Full PASS evidence checkpoints.
 
 ## Product direction
 
@@ -29,13 +30,13 @@ Battlefield Context
  -> Market / Regime
  -> Sector / Group / Narrative
  -> eligible Tactical Unit
- -> symbol selection / ranking
+ -> optional multi-symbol selection / ranking Add-on
  -> validated evolving micro tactic
  -> common execution policy
  -> BrokerEmulator
 ```
 
-The main research/development path is again deliberately simple:
+The main research/development path remains deliberately simple:
 
 ```text
 minimal tactic family
@@ -48,16 +49,16 @@ minimal tactic family
  -> ACCEPT / REJECT / REVIEW
  -> immutable generation memory
  -> repeat
- -> later macro attribution/deployment
+ -> later optional Add-on / macro attribution and deployment
 ```
 
-Adaptive learning is no longer a mandatory step in this critical path. It remains an optional sidecar seam that may consume immutable evidence without changing Core DSL semantics.
+Adaptive learning and cross-symbol analysis are not mandatory steps in this critical path. They remain optional sidecar/Add-on seams that may consume immutable evidence without changing Core DSL semantics.
 
 ## Core DSL freeze policy
 
-The project now follows:
+The project follows:
 
-> **Core DSL Freeze + Adaptive Sidecar.**
+> **Core DSL Freeze + Adaptive/Analysis Sidecar.**
 
 Core responsibilities remain intentionally narrow:
 
@@ -67,25 +68,65 @@ Core responsibilities remain intentionally narrow:
 - one declared base timeframe per candidate;
 - supported completed higher-timeframe MTF reads;
 - explicit order intent;
-- reproducible Backtest/Broker execution semantics.
+- reproducible Backtest/Broker execution semantics;
+- one instrument tactical execution context at a time.
 
-The Core DSL must not absorb online model training, memory databases, arbitrary ML/RL calls, runtime self-modification, dynamic lower-timeframe/tick requests or live self-switching of the declared timeframe merely because those capabilities may be useful later.
+The Core DSL must not absorb online model training, memory databases, arbitrary ML/RL calls, runtime self-modification, dynamic lower-timeframe/tick requests, live self-switching of the declared timeframe, arbitrary peer-symbol reads, cross-symbol ranking, universe selection or portfolio allocation merely because those capabilities may be useful later.
 
 New requirements are classified first as:
 
 ```text
 A. Core DSL capability
 B. Tactical infrastructure
-C. Experimental adaptive sidecar
+C. Experimental adaptive / analysis sidecar
 ```
 
 If a capability can be implemented outside Parser / Runtime / Backtest / Broker, it stays outside Core.
+
+## Multi-symbol Add-on policy
+
+The Instrument DSL is a **single-instrument tactical authority**.
+
+```text
+multi-symbol chart display
+!=
+multi-symbol Instrument DSL authority
+```
+
+A future cross-symbol analyzer may be added safely only as an optional Add-on. The intended seam is:
+
+```text
+single-instrument DSL / tactic evaluation
+ -> immutable point-in-time InstrumentSignalSnapshot per symbol
+ -> optional read-only Multi-Symbol Add-on
+ -> explicit ALLOW / BLOCK / PRIORITY evidence
+ -> DeploymentDecision / entry_gate style orchestration
+ -> common execution policy
+ -> BrokerEmulator
+```
+
+Required safety rules:
+
+- Add-on disabled by default in neutral micro discovery;
+- explicit universe and source authority; no universe guessing;
+- all snapshots aligned to the same declared `as_of` / knowledge cutoff;
+- future/end-of-day winner information prohibited;
+- missing/stale/mismatched snapshots handled explicitly and fail closed;
+- deterministic ranking fields and tie-breaks;
+- Add-on is read-only with respect to DSL/runtime state;
+- Add-on cannot place Broker orders directly;
+- Add-on cannot bypass local hard guards or common execution policy;
+- removing/replacing the Add-on must not change Instrument DSL syntax, Parser/Runtime, Backtest accounting or historical single-instrument TacticalProfiles.
+
+The detailed authority is `MULTI_SYMBOL_ADDON_EXTENSION_POLICY.md`.
+
+No multi-symbol Add-on executable has been introduced in the current tranche; only the extension boundary is documented.
 
 ## Trusted foundations
 
 ### DSL / execution kernel
 
-The typed DSL parser/runtime, indicator implementation, `BacktestEngine`, `BrokerEmulator`, common execution policy, Stage 1 app and Chart SSOT boundary remain trusted lower-level authorities. Tactical or adaptive layers may not bypass or self-modify them.
+The typed DSL parser/runtime, indicator implementation, `BacktestEngine`, `BrokerEmulator`, common execution policy, Stage 1 app and Chart SSOT boundary remain trusted lower-level authorities. Tactical, adaptive or multi-symbol layers may not bypass or self-modify them.
 
 ### Micro discovery / competition
 
@@ -192,7 +233,7 @@ This sidecar is useful future evidence, but TacticalMemory, LocalBattlefieldLear
 
 ### Hard equipment before learning
 
-Deterministic equipment such as a future `JMS2_RANGE_GUARD` may produce a hard BLOCK before any learned admissibility is consulted. A learned score may never override hard source/safety/equipment or common execution rules.
+Deterministic equipment such as a future `JMS2_RANGE_GUARD` may produce a hard BLOCK before any learned admissibility is consulted. A learned score or multi-symbol Add-on may never override hard source/safety/equipment or common execution rules.
 
 ### Adaptive timeframe
 
@@ -204,12 +245,14 @@ May claim:
 
 - E1 trusted Full PASS at `6e9b2f357080eff904ddd2d5d369c0a9a2d3b14b`;
 - E2 trusted Full PASS at `620f741730b0ae821fc48affd22b5420f38a6cac`;
-- Core DSL Freeze / Adaptive Sidecar is now the authoritative stability policy;
+- Core DSL Freeze / Adaptive Sidecar is authoritative;
+- single-instrument Core / optional multi-symbol Add-on boundary is authoritative;
 - E3A causal observation sidecar source/tests are implemented.
 
 Do **not** claim yet:
 
 - trusted Full PASS for the E3A executable changes;
+- a functioning multi-symbol Add-on or deployment selector;
 - TacticalMemory or a trained LocalBattlefieldLearner;
 - automatic adaptive 5m/3m/1m/tick deployment;
 - learned profitability/generalization;
@@ -232,7 +275,7 @@ After the current E3A sidecar boundary is trusted green, return to the original 
 5. **E7 Evolution Memory / Evidence UI**;
 6. **E8 Macro Context Attribution / Deployment**.
 
-Optional adaptive TacticalMemory / Learner / resolution-mode research may resume later only when a concrete mainline need is demonstrated and it can remain behind stable sidecar interfaces.
+Optional adaptive TacticalMemory / Learner / resolution-mode research and multi-symbol Add-on analysis may resume later only when a concrete mainline need is demonstrated and each remains behind stable sidecar/Add-on interfaces.
 
 Do not add another executable tranche before the current E3A consolidated boundary is green.
 
