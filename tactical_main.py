@@ -15,6 +15,7 @@ import uvicorn
 
 from stage1_main import app, ROOT
 from core.stage1_oos import _json_safe
+from core.tactical_beta_provider import HighBetaDailyCohortProvider, HighBetaSpec
 from core.tactical_chart_document import build_tactical_chart_document
 from core.tactical_market import MySQLBarProvider
 from core.tactical_providers import Performance1516CohortProvider
@@ -37,10 +38,29 @@ class Tactical1516RunRequest(BaseModel):
     benchmark_symbol: str = ""
     rank_by: str = "feature:search_volume"
     performance_database: str = "performance_db"
-    market_database: str = "master_db"
-    market_table: str = "minute_candles_5m"
+    market_database: str = ""
+    market_table: str = ""
     market_table_timeframe: str = "5m"
     settings: Dict[str, Any] = Field(default_factory=dict)
+
+
+def _public_cohort_snapshot(snapshot) -> dict:
+    return {
+        "unit_id": snapshot.unit_id,
+        "as_of": snapshot.as_of,
+        "source": snapshot.source,
+        "knowledge_cutoff": snapshot.knowledge_cutoff,
+        "snapshot_hash": snapshot.snapshot_hash,
+        "metadata": dict(snapshot.metadata),
+        "members": [
+            {
+                "symbol": member.symbol,
+                "capture_time": member.capture_time,
+                "features": dict(member.features),
+            }
+            for member in snapshot.members
+        ],
+    }
 
 
 @app.get("/tactical", response_class=HTMLResponse)
@@ -70,6 +90,50 @@ def tactical_1516_cohort(
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@app.get("/api/stage1/tactical/high-beta/cohort")
+def tactical_high_beta_cohort(
+    as_of: str,
+    benchmark_symbol: str,
+    lookback_sessions: int = 60,
+    min_overlap_sessions: int = 40,
+    top_n: int = 50,
+    calendar_lookback_days: int = 180,
+    daily_database: str = "",
+    daily_table: str = "daily_candles",
+    universe_symbols: str = "",
+):
+    """Inspect an exact-as-of High-Beta cohort without executing a tactic.
+
+    This endpoint intentionally stops at cohort construction. A daily snapshot
+    captured at end-of-day must not be forced through the same-day 1516 entry
+    gate; next-session execution will be a separate timing contract.
+    """
+    try:
+        provider = HighBetaDailyCohortProvider(
+            database=daily_database or None,
+            table=daily_table or None,
+        )
+        universe = [
+            item.strip()
+            for item in str(universe_symbols or "").split(",")
+            if item.strip()
+        ]
+        snapshot = provider.load(
+            as_of=as_of,
+            spec=HighBetaSpec(
+                benchmark_symbol=benchmark_symbol,
+                lookback_sessions=int(lookback_sessions),
+                min_overlap_sessions=int(min_overlap_sessions),
+                top_n=int(top_n),
+                calendar_lookback_days=int(calendar_lookback_days),
+            ),
+            universe_symbols=universe or None,
+        )
+        return _json_safe(_public_cohort_snapshot(snapshot))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @app.post("/api/stage1/tactical/1516/run")
 def tactical_1516_run(req: Tactical1516RunRequest):
     try:
@@ -83,8 +147,8 @@ def tactical_1516_run(req: Tactical1516RunRequest):
             hold_period=req.hold_period,
         )
         market_provider = MySQLBarProvider(
-            database=req.market_database,
-            table=req.market_table,
+            database=req.market_database or None,
+            table=req.market_table or None,
             table_timeframe=req.market_table_timeframe,
         )
         response = research_service.run_1516(
@@ -125,6 +189,7 @@ def tactical_health():
         "cohort_contract": "point_in_time_cohort/v1",
         "outcome_policy": "post_execution_only",
         "chart_contract": "chart-document/v1",
+        "capabilities": ["1516_run", "high_beta_cohort_inspection"],
     }
 
 
