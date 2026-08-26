@@ -1,4 +1,6 @@
+import os
 import unittest
+from unittest.mock import patch
 
 from core.tactical_market import MySQLBarProvider
 
@@ -60,6 +62,15 @@ class TacticalMarketProviderTests(unittest.TestCase):
                 timeframe="3m",
                 required_bars=6,
             )
+
+    def test_undocumented_default_market_source_is_not_invented(self):
+        with patch.dict(
+            os.environ,
+            {"TACTICAL_MINUTE_DATABASE": "", "TACTICAL_MINUTE_TABLE": ""},
+            clear=False,
+        ):
+            with self.assertRaisesRegex(ValueError, "TACTICAL_MINUTE_DATABASE"):
+                MySQLBarProvider(FakeExecutor())
 
 
 if __name__ == "__main__":
