@@ -76,7 +76,9 @@ class TacticalDiscoveryTests(unittest.TestCase):
             "20260825:A", "20260826:A", "20260826:B"
         ])
         self.assertEqual(result["candidate"]["complexity_units"], 2)
-        self.assertEqual(len(result["context_strata"]), 3)
+        # Neutral context is still timestamped point-in-time evidence, so the
+        # two session dates form two immutable neutral strata.
+        self.assertEqual(len(result["context_strata"]), 2)
         self.assertTrue(all(row["context"]["mode"] == "NEUTRAL" for row in result["results"]))
 
     def test_worker_count_does_not_change_run_or_case_set_hash(self):
