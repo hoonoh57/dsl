@@ -1,26 +1,27 @@
 # Quant DSL Current State
 
-Status: **MICRO_FIRST_MACRO_READY_IMPLEMENTED_AWAITING_TRUSTED_FULL_VALIDATION / REMEDIATION_REQUIRED**  
+Status: **EVOLVING_MICRO_WARRIOR_E0_IMPLEMENTED_AWAITING_TRUSTED_FULL_VALIDATION / REMEDIATION_REQUIRED**  
 Updated: 2026-08-26 KST
 
 ## Authority
 
 Read in this order:
 
-1. `MICRO_FIRST_MACRO_READY_ARCHITECTURE.md` — current implementation order and macro-ready extension seam.
-2. `MULTI_LAYER_DSL_ARCHITECTURE.md` — final multi-layer product/deployment architecture and Tactical Unit methodology.
-3. `MICRO_TACTICAL_DISCOVERY_IMPLEMENTATION.md` — current micro tactical discovery/competition checkpoint.
-4. `P1_TACTICAL_DATA_IMPLEMENTATION.md` — current P1 real-data/provider/UI/verification boundary.
-5. `PRODUCT_IMPLEMENTATION_PLAN.md` — original roadmap and validated Stage 1 kernel plan.
-6. `STAGE1_EXECUTION_POLICY.md` — continuous implementation / verification operating policy.
-7. `QUANT_DSL_PLAYBOOK.md` — official generated-DSL language contract.
-8. `DSL_ENGINE_AUDIT.md` — engine trust-boundary criteria.
+1. `EVOLVING_MICRO_WARRIOR_PLAN.md` — current micro-warrior evolution doctrine, one-skill progression and capability-budget contract.
+2. `MICRO_FIRST_MACRO_READY_ARCHITECTURE.md` — micro-first research order and macro-ready extension seam.
+3. `MULTI_LAYER_DSL_ARCHITECTURE.md` — final macro-to-micro runtime/deployment architecture and Tactical Unit methodology.
+4. `MICRO_TACTICAL_DISCOVERY_IMPLEMENTATION.md` — micro discovery/competition implementation checkpoint.
+5. `P1_TACTICAL_DATA_IMPLEMENTATION.md` — P1 data/provider/UI/verification boundary.
+6. `PRODUCT_IMPLEMENTATION_PLAN.md` — original roadmap and validated Stage 1 kernel plan.
+7. `STAGE1_EXECUTION_POLICY.md` — continuous implementation / verification policy.
+8. `QUANT_DSL_PLAYBOOK.md` — official generated-DSL language contract.
+9. `DSL_ENGINE_AUDIT.md` — engine trust-boundary criteria.
 
 ## Product direction
 
-Two different orders are now explicitly separated.
+Two orders remain intentionally different.
 
-### Final runtime / deployment order
+### Final runtime / deployment
 
 ```text
 Battlefield Context
@@ -28,28 +29,47 @@ Battlefield Context
  -> Sector / Group / Narrative
  -> eligible Tactical Unit
  -> symbol selection / ranking
- -> validated micro tactic
+ -> validated evolving micro tactic
  -> common execution policy
  -> BrokerEmulator
 ```
 
-### Current research / development order
+### Current research / development
 
 ```text
-Micro tactic discovery
- -> multi-symbol / multi-date robustness
- -> tactic characterization
- -> tactic competition
- -> context attribution
- -> market/sector/group deployment rules
- -> portfolio command
+minimal micro tactic
+ -> many independent BattleCases
+ -> failure analysis
+ -> capability gap
+ -> one-skill child mutation
+ -> numeric re-seek
+ -> replay / Validation / OOS / harsh cases
+ -> ACCEPT / REJECT / REVIEW
+ -> immutable generation memory
+ -> repeat
+ -> later context attribution / macro deployment
 ```
 
-This means macro functionality is architecturally reserved now, but current research priority is to develop the minimum/strongest repeatable individual-stock tactic first.
+Macro functionality is architecturally reserved now, but the current priority is to breed compact, independently survivable Korean regular-session micro tactics before macro assistance is used for deployment selection.
 
-The validated single-symbol DSL/Backtest/Broker engine remains the instrument-level tactical kernel. Macro layers must be additive context/command layers and may not force a rewrite of Parser, Runtime, Backtest, BrokerEmulator or historical micro evidence.
+## Autonomous micro-warrior doctrine
 
-## Macro-ready seam now implemented
+A higher-layer `allowed=true` is permission to operate, not a forced entry.
+
+Actual entry authority remains conjunctive:
+
+```text
+higher-layer permission
+AND local survival/admissibility
+AND tactic trigger
+AND common risk/execution policy
+```
+
+`NO_TRADE` is a valid survival result. A tactic that only survives because macro filters remove all difficult battles is not yet considered a strong autonomous micro warrior.
+
+The target is not maximum indicator count. Each tactic family must remain inside a declared personal `CapabilityBudget` so the individual tactic can operate its own weapons reliably.
+
+## Macro-ready seam already implemented
 
 `core/battlefield_context.py`
 
@@ -59,226 +79,165 @@ The validated single-symbol DSL/Backtest/Broker engine remains the instrument-le
 
 Current micro baseline uses `BattlefieldContext(mode="NEUTRAL")`.
 
-Later market/index, breadth/volatility, sector, high-beta, theme/policy, leader/follower and other point-in-time context can be attached as immutable layer snapshots.
+Later market/index, breadth/volatility, sector, high-beta, theme/policy, leader/follower and other point-in-time context can attach as immutable snapshots without rewriting Parser, Runtime, Backtest, BrokerEmulator or historical micro evidence.
 
-A context timestamp later than a battle knowledge cutoff fails closed.
-
-Macro context is not permitted to mutate:
-
-- DSL source;
-- indicator calculations;
-- historical OHLCV;
-- BrokerEmulator accounting;
-- previously recorded micro results.
-
-A future `DeploymentDecision` may allow/block/prioritize a validated tactic, but does not rewrite the tactic.
-
-## Micro tactical discovery now implemented
+## Micro tactical discovery already implemented
 
 `core/tactical_discovery.py`
 
-### BattleCase
-
-The atomic research battle is `case_id`, not symbol alone.
-
-This allows the same symbol to appear on many dates while preserving independent battle identity.
-
-Each BattleCase records:
-
-- symbol;
-- session date;
-- canonical OHLCV snapshot;
-- execution settings;
-- battle knowledge cutoff;
-- optional immutable BattlefieldContext;
-- optional explicit entry gate;
-- metadata and immutable case hash.
-
-### TacticCandidate
-
-A candidate records:
-
-- candidate id;
-- DSL source;
-- explicit complexity units;
-- metadata;
-- immutable candidate hash.
-
-Complexity is explicit provenance. The engine does not infer a hidden complexity score from source length.
-
-### TacticalDiscoveryEngine
-
-One tactic is executed over a frozen BattleCase set with bounded parallel workers.
-
-Default micro-baseline invariants:
-
-- `NEUTRAL` BattlefieldContext only;
-- uniform execution settings across all cases;
+- `BattleCase` identity is symbol + date/case, not symbol alone;
+- one tactic executes over a frozen multi-symbol/multi-date BattleCase set;
+- bounded parallel workers preserve input order and deterministic hashes;
+- default baseline requires NEUTRAL context and uniform execution settings;
 - any malformed case fails the whole discovery run;
-- result order follows BattleCase input order;
-- worker count must not change `case_set_hash`, aggregate evidence or `run_hash`;
-- BacktestEngine/BrokerEmulator remain execution/accounting authority.
-
-Aggregate evidence includes:
-
-- profitable / losing / no-trade cases;
-- average / median / best / worst case return;
-- average / worst MDD;
-- total / average trades;
-- costs;
-- MFE / MAE / MFE giveback;
-- finite PF median / infinite-PF case count;
-- top-1 / top-3 winner concentration;
-- explicit tactic complexity.
-
-Complete per-case Backtest evidence is retained for later chart/failure audit.
-
-## Tactical competition now implemented
+- complete per-case Backtest evidence remains available;
+- aggregate evidence includes return, MDD, PF, cost, MFE/MAE/giveback, trade/no-trade counts and winner concentration.
 
 `core/tactical_competition.py`
 
-Different tactics may compete only on the exact same frozen `case_set_hash` and context policy.
+- tactics compete only on the same frozen `case_set_hash` and context policy;
+- no hidden universal score;
+- per-metric leaderboards + conservative Pareto frontier.
 
-There is no hidden universal ranking score.
+## E0 evolving micro-warrior implementation now present
 
-The engine publishes:
+### Deterministic failure analysis
 
-- per-metric leaderboards;
-- conservative Pareto frontier;
-- explicit dominated-by relations;
-- immutable comparison hash.
+`core/tactical_failure.py`
 
-Primary current Pareto axes:
+Consumes immutable `tactical_discovery/v1` profiles and produces `tactical_failure/v1` evidence.
 
-```text
-maximize: average return, profitable-case rate
-minimize: worst drawdown risk, cost/case, complexity
-```
-
-Median return, PF, trade frequency and other evidence remain visible instead of being silently folded into one opaque score.
-
-## Tactical P1 implementation already present
-
-### 1516 exact point-in-time cohort
-
-`core/tactical_providers.py`
-
-- exact `performance_result` group by date/time/condition/hold period;
-- `code`, `name`, `search_volume` retained as point-in-time evidence;
-- future returns, `max_ret_in_period`, labels and actual future rank isolated as post-execution outcomes;
-- malformed/inconsistent groups fail closed;
-- no nearby cohort or dummy fallback.
-
-### Explicit stored minute market source
-
-`core/tactical_market.py`
-
-- schema-adaptive OHLCV reader;
-- strict timeframe and warm-up coverage;
-- timestamp/OHLCV integrity checks;
-- no production database/table guess;
-- source must be explicit or supplied by `TACTICAL_MINUTE_DATABASE` / `TACTICAL_MINUTE_TABLE`.
-
-No authority was accepted for a guessed general `minute_candles_5m` production table. A known K150-only minute table is not substituted for general 1516 membership.
-
-### 1516 execution/evaluation
-
-`core/tactical_research.py`
+Initial failure tags:
 
 ```text
-exact frozen cohort
- -> canonical per-symbol bars
- -> capture + 1 second entry authorization
- -> existing MultiSymbolAnalysisEngine / Broker authority
- -> immutable Tactical Scenario/Run
- -> official outcome merge after execution only
- -> retention / precision evidence
+LOSS
+SEVERE_LOSS
+DRAWDOWN
+ADVERSE_EXCURSION
+WHIPSAW
+MFE_GIVEBACK
 ```
 
-For a 09:05:00 cohort the common entry gate is 09:05:01. Point-in-time feature ranking never uses future outcome fields.
+For each cluster it records affected BattleCases, frequency, negative return impact and suggested capability gaps.
 
-### High-Beta exact-as-of cohort
+`NO_TRADE` is explicitly `ABSTENTION_IS_NOT_FAILURE_BY_DEFAULT`.
 
-`core/tactical_beta_provider.py`
+This taxonomy is intentionally evidence-limited. Late-entry, local-leader, re-engagement, liquidity and time-of-day failure classes are deferred until causal local-state evidence is implemented.
 
-- daily exact-as-of cutoff only;
-- exact benchmark availability required;
-- beta = covariance(benchmark return, symbol return) / benchmark return variance;
-- overlap threshold and top-N ranking;
-- no nearby-date/future-data fallback;
-- production database explicit or `TACTICAL_DAILY_DATABASE`;
-- `daily_candles` supported default table contract, overridable by `TACTICAL_DAILY_TABLE`.
+### Personal arsenal / Skill contract
 
-`tactical_main.py` exposes exact High-Beta cohort inspection. It does not reuse the same-session 1516 execution timing contract.
+`core/tactical_evolution.py`
 
-### Sector exact membership boundary
-
-`core/tactical_sector_provider.py`
-
-- exact `as_of + sector_id` snapshot;
-- explicit database/table only;
-- static legacy leader/follower definitions and dummy fallback are not accepted as production PIT authority.
-
-A concrete production sector snapshot source remains unresolved and therefore fail-closed.
-
-### Multi-symbol Chart evidence
-
-`core/tactical_chart_document.py`
-
-- generic `chart-document/v1` only;
-- comparison symbols selected from point-in-time ranking only;
-- capture visual region uses two strictly increasing real focus-market bar times;
-- missing non-zero cutoff evidence fails closed;
-- shared Chart SSOT remains the sole Chart-native rendering owner.
-
-### Tactical UI/API
-
-`tactical_main.py`:
+`SkillSpec` declares:
 
 ```text
-/tactical
-GET  /api/stage1/tactical/1516/cohort
-POST /api/stage1/tactical/1516/run
-GET  /api/stage1/tactical/high-beta/cohort
-GET  /api/stage1/tactical/health
+skill_id
+capability
+implementation
+addresses_failure_tags
+cost
+metadata
 ```
 
-The 1516 inspection route omits future outcomes. Tactical UI requires explicit deployment configuration for minute data.
+`CapabilityBudget` currently bounds:
 
-## Validation and stress boundary
+```text
+skills
+complexity units
+indicators
+parameters
+state variables
+decision branches
+setup variants
+```
 
-Implemented:
+Costs are declared provenance. The engine does not infer hidden complexity from DSL source length.
 
-- `scripts/start_tactical_stack.ps1`
-  - Start / Status / Stop / Preflight / Smoke;
-  - shared Chart and Tactical health;
-  - Node >= 24 and Python dependency checks;
-  - bounded Chart-repo discovery;
-  - tracked-process-only stop;
-  - PowerShell 5.1-safe PID-state handling.
-- `scripts/tactical_contract_stress.py`
-  - multi-symbol worker-count determinism;
-  - larger cohort execution;
-  - Chart projection;
-  - point-in-time leakage rejection;
-  - whole-scenario corrupted-data failure;
-  - micro TacticalDiscovery worker-count determinism on a larger frozen BattleCase set.
-- `scripts/verify_tactical_p1.ps1`
-  - base Stage 1 verification;
-  - Tactical preflight;
-  - quick/full Tactical stress;
-  - isolated-port live Tactical/Chart smoke;
-  - final PASS marker only after all prior steps succeed.
+### Immutable generations
 
-New Stage1-discovered micro tests:
+`EvolutionGeneration` records:
 
-- `test_stage1_battlefield_context.py`
-- `test_stage1_tactical_discovery.py`
-- `test_stage1_tactical_competition.py`
+```text
+family_id
+generation_index
+candidate_hash
+profile_run_hash
+case_set_hash
+context_policy_hash
+acquired_skills
+capability_usage
+parent_generation_hash
+acquired_from_failure_hash
+generation_hash
+```
 
-Existing P1 Tactical provider/market/research/chart/sector/launcher tests remain active.
+A generation is therefore traceable back to the exact battle profile and exact failure evidence that justified its acquired skill.
 
-No legacy assertion has been weakened to add this tranche.
+### One-skill Evolution Arena
+
+`EvolutionArena.evaluate_upgrade()` accepts exactly one new `SkillSpec` for one parent-child comparison.
+
+Default automatic-promotion invariants:
+
+1. same frozen `case_set_hash`;
+2. same context policy;
+3. failure report must come from the parent profile;
+4. new skill must address an observed parent failure;
+5. capability usage must remain inside the declared budget;
+6. child must improve at least one material mission/survival axis;
+7. no survival axis may regress beyond the declared `PromotionContract` tolerance.
+
+Primary survival axes include profitable-case rate, worst MDD, worst-case return, cost/case and winner concentration. MFE giveback reduction is also recognized as an improvement.
+
+Decisions are:
+
+```text
+ACCEPT -> verified child generation may be created
+REJECT -> clear regression without compensating improvement
+REVIEW -> mixed trade-off; parent remains head
+```
+
+There is no opaque weighted score.
+
+### Evolution experience ledger
+
+`core/tactical_evolution_store.py`
+
+Append-only SQLite evidence tables now persist:
+
+- every tactical discovery profile used by an evolution family;
+- every failure report;
+- every immutable generation;
+- every ACCEPT / REJECT / REVIEW decision;
+- an explicit mutable family head separate from immutable history.
+
+Recording an accepted child does not silently promote it. Promotion remains an explicit operation.
+
+This preserves losing/rejected experience rather than remembering only winners.
+
+### New regression contracts
+
+Stage1 discovery will include:
+
+- `test_stage1_tactical_evolution.py`
+- `test_stage1_tactical_evolution_store.py`
+
+Contracts cover NO_TRADE semantics, observed-failure relevance, one-skill lineage, same-battlefield comparison, survival regression, capability-budget rejection, immutable experience persistence and explicit promotion.
+
+## Tactical P1 infrastructure still present
+
+The earlier P1 slice remains active:
+
+- exact 1516 point-in-time cohort provider with future outcomes isolated;
+- explicit stored-minute source contract; no guessed general minute table;
+- 1516 capture+1-second execution path through MultiSymbolAnalysisEngine/Broker;
+- exact-as-of High-Beta cohort inspection;
+- fail-closed exact sector membership boundary;
+- multi-symbol Chart Document evidence;
+- Tactical UI/API and launcher;
+- tactical quick/full stress and consolidated verifier.
+
+The Tactical stress script direct-execution import-root defect was remediated by explicitly adding the repository root before importing `core.*`.
 
 ## Trusted validation history
 
@@ -288,16 +247,19 @@ A trusted local Windows PowerShell 5.1 Full verifier PASS exists for the earlier
 [PASS] Stage 1 verification completed: mode=Full.
 ```
 
-The first Tactical P1 Full attempt later found one High-Beta regression fixture defect. The product beta calculation was left unchanged; the fixture was corrected to represent the intended covariance ordering.
+A later P1 Full attempt found a High-Beta test-fixture defect; the product beta implementation was not changed and the fixture was corrected.
 
-The macro-ready micro-discovery mutations described above were added after that failure and have not yet received a trusted local Full PASS.
+The next P1 run then found a tactical stress harness environment/import defect (`ModuleNotFoundError: core`); the direct-script repository-root setup was fixed.
+
+The E0 evolution mutations were added after that failure and have not yet received a trusted local Full PASS.
 
 ## Current validation status
 
 Do not claim yet:
 
-- Tactical P1 Full PASS;
-- any micro tactic is the strongest/profitable;
+- Tactical P1 / E0 Full PASS;
+- any tactic is the strongest or profitable;
+- autonomous evolution has produced a superior live tactic;
 - production profitability/generalization;
 - live trading readiness;
 - completed macro deployment rules;
@@ -307,40 +269,28 @@ Do not claim yet:
 
 `REMEDIATION_REQUIRED` remains authoritative.
 
+## Next implementation sequence after trusted boundary
+
+Continue micro strengthening in this order:
+
+1. authoritative Korean regular-session `BattleCaseProvider`;
+2. `TacticFamilyRegistry` + legal `SkillSpec` upgrade tree + CapabilityBudget per family;
+3. multi-BattleCase Parameter Seeker adapter;
+4. causal Tactical Characterizer for time/range/volatility/liquidity/signal-density/local-leader/entry-latency/re-engagement evidence;
+5. bounded structural Skill Generator that proposes one child capability from observed gaps;
+6. Train / Validation / OOS / harsh-case Evolution Arena;
+7. game-style generation/skill-tree Evidence UI;
+8. only then macro/sector/high-beta/theme context attribution and deployment command.
+
 ## Next automated boundary
 
-Run one consolidated trusted Windows verification after pulling current `main`:
+After pulling current `main`, run one consolidated trusted Windows verification:
 
 ```powershell
 git pull --ff-only origin main
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
-Do not begin per-feature UI inspection before that automated boundary is green.
+Do not begin per-feature UI inspection before this automated boundary is green.
 
-If the verifier fails, classify the first failure as:
-
-```text
-test defect
-product defect
-authority drift
-environment issue
-unknown
-```
-
-before changing code.
-
-If it returns:
-
-```text
-[PASS] Tactical P1 verification completed: mode=Full.
-```
-
-record that exact commit as the trusted macro-ready micro-discovery checkpoint, then continue micro strengthening with:
-
-1. authoritative Korean regular-session BattleCase provider;
-2. Tactic Family Registry;
-3. multi-case Parameter Seeker adapter;
-4. Tactical Characterizer;
-5. winner/loser/near-miss Evidence UI;
-6. only then incremental macro/sector/context attribution.
+If it fails, classify the first failure as test defect / product defect / authority drift / environment issue / unknown before changing code.
