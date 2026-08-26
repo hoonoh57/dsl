@@ -31,14 +31,15 @@ table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:5px 6px;b
 <div class="field"><label>Condition</label><input id="condition" class="control" value="1516"></div>
 <div class="field"><label>Hold</label><input id="hold" class="control" value="7시간"></div>
 <div class="field"><label>Performance DB</label><input id="perf-db" class="control" value="performance_db"></div>
-<div class="field"><label>Market DB</label><input id="market-db" class="control" value="master_db"></div>
-<div class="field"><label>Market table</label><input id="market-table" class="control" value="minute_candles_5m"></div>
+<div class="field"><label>Market DB</label><input id="market-db" class="control" value="" placeholder="explicit DB or TACTICAL_MINUTE_DATABASE"></div>
+<div class="field"><label>Market table</label><input id="market-table" class="control" value="" placeholder="explicit table or TACTICAL_MINUTE_TABLE"></div>
 <div class="field"><label>Timeframe</label><select id="timeframe" class="control"><option selected>5m</option></select></div>
 <div class="field"><label>Warm-up bars</label><input id="bars" class="control" type="number" value="180"></div>
 <div class="field"><label>Entry cutoff</label><input id="cutoff" class="control" type="number" value="151000"></div>
 <div class="field"><label>Workers</label><input id="workers" class="control" type="number" value="4"></div>
 <div class="field"><label>Benchmark</label><input id="benchmark" class="control" placeholder="optional"></div>
 <div class="row"><button id="load">Cohort 확인</button><button id="run" class="good">1516 도상훈련 실행</button></div>
+<p class="muted">실제 분봉 DB/table은 문서화되지 않은 이름을 추측하지 않습니다. 입력란을 비우려면 TACTICAL_MINUTE_DATABASE / TACTICAL_MINUTE_TABLE 환경변수를 먼저 설정해야 합니다.</p>
 <p class="muted">Cohort 확인 단계에서는 사후 max return / label_10을 API에 노출하지 않습니다. 실행이 끝난 뒤에만 공식 outcome과 전략 결과를 결합합니다.</p>
 <textarea id="dsl" rows="15">strategy "Tactical_1516" {
     timeframe = "5m"
