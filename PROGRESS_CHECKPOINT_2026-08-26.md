@@ -1,6 +1,6 @@
 # Quant DSL Progress Checkpoint — 2026-08-26 KST
 
-Status: **E2_JMA_TRUSTED_FULL_PASS / E3A_CAUSAL_OBSERVATION_AWAITING_TRUSTED_FULL**
+Status: **E2_JMA_TRUSTED_FULL_PASS / E3A_SIDECAR_AWAITING_TRUSTED_FULL / CORE_DSL_FREEZE_ACTIVE**
 
 ## Trusted Full checkpoints
 
@@ -26,86 +26,78 @@ Trusted executable checkpoint:
 6e9b2f357080eff904ddd2d5d369c0a9a2d3b14b
 ```
 
-The operator pulled `main`, received `Already up to date.`, and then reported:
+Result:
 
 ```text
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-Therefore E1 is trusted Full-validated at that checkpoint.
+### E2 JMA family / legal skill tree
 
-### E2 JMA family / legal skill-tree contract
-
-The first E2 Full attempt failed in the new JMA catalog regression because the test executed a `5m` DSL against the BacktestEngine's default deterministic `1d` synthetic fixture.
+The first E2 Full attempt failed because a 5m DSL regression test used the default deterministic 1d synthetic fixture.
 
 Classification: **test defect**.
 
-The product timeframe mismatch check was correct and was not weakened. Remediation commit:
+The product timeframe mismatch rule was correct and was not weakened. The test was remediated with an explicit deterministic 5m fixture.
 
-```text
-fb55435e17618cead68f1d8474cc65e40a198ca3
-```
-
-The test was changed to use an explicit deterministic `5m` fixture.
-
-After pulling current `main`, the operator reported the remediated consolidated boundary:
-
-```text
-[PASS] Tactical P1 verification completed: mode=Full.
-```
-
-The remote `main` executable HEAD immediately before the new learning work was:
+Trusted executable checkpoint after remediation:
 
 ```text
 620f741730b0ae821fc48affd22b5420f38a6cac
 ```
 
-Therefore **E2 JMA family catalog + generic legal skill-tree enforcement are trusted Full-validated at `620f741730b0ae821fc48affd22b5420f38a6cac`.**
-
-## New authoritative learning direction
-
-`ADAPTIVE_MICRO_WARRIOR_LEARNING_ARCHITECTURE.md` is now the micro-learning sequencing addendum.
-
-The required local-warrior loop is:
+Result:
 
 ```text
-TACTIC OPPORTUNITY
- -> CAUSAL LOCAL OBSERVATION
- -> TACTICAL MEMORY
- -> SURVIVAL / OPPORTUNITY / UNCERTAINTY ESTIMATE
- -> RESOLUTION / EXECUTION MODE SELECTION
- -> ENTER / WAIT / ABSTAIN
- -> ACTUAL + SHADOW EVIDENCE
- -> NEXT TRAINING MEMORY VERSION
+[PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-Macro regime remains optional later reconnaissance. Local learning must work without macro life support.
+Therefore E2 JMA family catalog + generic legal skill-tree enforcement are trusted Full-validated at `620f741730b0ae821fc48affd22b5420f38a6cac`.
 
-Adaptive timeframe is explicitly a **family-level validated resolution-mode selection problem**, not runtime self-modification of one DSL candidate. The current Stage 1 DSL cannot silently request arbitrary lower-timeframe or tick evidence.
+## E3A sidecar executable already added
 
-## E3A executable boundary now added
+After the E2 PASS, `core/tactical_observation.py` and `test_stage1_tactical_observation.py` were added.
 
-`core/tactical_observation.py` introduces the first causal JMA/local battlefield observation contract.
+They provide a causal point-in-time observation seam for JMA/trend/time/volatility/primitive price geometry and verify that future-bar changes cannot alter earlier observation features.
 
-Initial features include:
+This executable boundary has **not yet** received a trusted Full PASS.
 
-- JMA fast/slow values, spread, slope, spread velocity, acceleration and crossover age/state;
-- SMA60 slope and price distance;
-- ATR/range, volume ratio/change and gap proxy;
-- recent 3/6/12-bar returns and return from session open;
-- session-high/session-low location;
-- time from open, time to close and session progress;
-- primitive price geometry including higher-high/higher-low ratios, swing-high/swing-low slopes, body direction, wick asymmetry and breakout distance.
+## Architecture correction: Core DSL Freeze + Adaptive Sidecar
 
-The first implementation intentionally does **not** yet train a model or select a different timeframe. It only gives the warrior a deterministic causal sensory snapshot.
+A subsequent design review identified a larger risk: allowing every adaptive-learning idea to become a DSL/runtime requirement would make the language and execution kernel unstable and unpredictable.
 
-`test_stage1_tactical_observation.py` checks:
+The new authoritative policy is:
 
-- time/JMA/trend/volatility/price-structure features are exposed;
-- rising highs and lows remain observable even when candle-body direction is weak/mixed;
-- changing only future bars cannot change an earlier observation's feature values;
-- timeframe mismatch fails closed;
-- insufficient observation warm-up fails closed.
+```text
+CORE_DSL_FREEZE_ADAPTIVE_SIDECAR_POLICY.md
+```
+
+Governing rule:
+
+> **Core DSL Freeze + Adaptive Sidecar.**
+
+The Core DSL remains deterministic and narrow. Learning, memory, dynamic resolution selection and pattern research stay outside Parser / Runtime / Backtest / Broker unless a future capability independently earns promotion under strict criteria.
+
+`ADAPTIVE_MICRO_WARRIOR_LEARNING_ARCHITECTURE.md` is now an optional sidecar research document rather than the main implementation sequence.
+
+Deterministic equipment/hard guards have precedence over learned admissibility. Example: a future JMS2 range guard may block entry before any learner is consulted.
+
+Adaptive timeframe remains external selection among separately validated tactic-family modes, not mutation of one running DSL candidate.
+
+## Mainline restored
+
+After the current E3A sidecar boundary is trusted green, development returns to the original tactic-evolution mainline:
+
+```text
+E3  Multi-Battle Parameter Seeker
+E4  Causal Failure / Opportunity Characterizer
+E5  Bounded Structural Skill Generator
+E6  Train / Validation / OOS / Harsh Evolution Arena
+E7  Evolution Evidence UI
+E8  Macro Context Attribution / Deployment
+```
+
+TacticalMemory / LocalBattlefieldLearner / adaptive resolution research is deferred and non-blocking. It may resume later only when mainline evidence demonstrates a concrete need and it can remain behind stable sidecar interfaces.
 
 ## Current validation status
 
@@ -113,23 +105,26 @@ May claim:
 
 - E1 trusted Full PASS at `6e9b2f357080eff904ddd2d5d369c0a9a2d3b14b`;
 - E2 trusted Full PASS at `620f741730b0ae821fc48affd22b5420f38a6cac`;
-- the adaptive learning architecture is documented;
-- E3A causal observation source/tests are implemented.
+- Core DSL Freeze / Adaptive Sidecar is now authoritative;
+- E3A observation source/tests are implemented as a sidecar seam.
 
 Do not claim yet:
 
 - trusted Full PASS for E3A;
-- a trained LocalBattlefieldLearner;
+- Multi-Battle Parameter Seeker implementation;
+- TacticalMemory or trained learner;
 - adaptive 5m/3m/1m/tick deployment;
 - learned profitability/generalization;
 - live readiness;
 - repository-wide compliance PASS.
 
-`REMEDIATION_REQUIRED` remains separate broader repository status.
+`REMEDIATION_REQUIRED` remains the separate broader repository status.
 
-## Next boundary
+## Immediate boundary
 
-Pull current `main` and run:
+Do not stack another executable tranche on the unverified E3A boundary.
+
+Run:
 
 ```powershell
 git pull --ff-only origin main
@@ -138,4 +133,4 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactica
 
 If it fails, classify the first executable failure as `test defect / product defect / authority drift / environment issue / unknown` before editing.
 
-If E3A is green, the next micro-tranche is **E3B TacticalExperience / TacticalMemory**, not an immediate opaque learner or live adaptive timeframe switch.
+If it passes, checkpoint E3A as trusted green and begin **E3 Multi-Battle Parameter Seeker** without changing Core DSL grammar/runtime semantics.
