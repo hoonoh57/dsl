@@ -1,6 +1,6 @@
 # E6 Validation / Harsh Arena — Implementation Checkpoint
 
-Status: **IMPLEMENTED / AWAITING TRUSTED FULL VALIDATION / 2026-08-27 KST**
+Status: **TRUSTED FULL PASS / 2026-08-27 KST**
 
 ## 1. Trusted predecessor
 
@@ -15,7 +15,7 @@ Therefore E5 is trusted Full-green at that SHA.
 
 ## 2. E6 objective
 
-E6 must stop a child from becoming the new family head merely because it looks good on the frozen training battles that produced it.
+E6 stops a child from becoming the new family head merely because it looks good on the frozen training battles that produced it.
 
 The executable seam is:
 
@@ -38,7 +38,7 @@ explicit promotion may happen elsewhere
 
 E6 does not tune parameters, generate new structure or mutate the family head.
 
-## 3. New executable
+## 3. Executable
 
 `core/tactical_validation_arena.py`
 
@@ -75,8 +75,6 @@ HARSH partitions must declare:
 metadata.adverse_reason
 ```
 
-Examples may later include persistent trend-against-tactic sessions, range/whipsaw clusters, high-cost/slippage contracts, poor-liquidity sessions or other deliberately hostile but explicitly sourced cases.
-
 E6 v1 requires `case_id` to be globally disjoint across all partitions. A future overlap policy, if needed, must be explicit and separately validated rather than silently reusing the same battle as both training and holdout evidence.
 
 ## 5. Fixed-child provenance lock
@@ -97,7 +95,7 @@ The child may not be replaced or structurally changed after holdout evidence is 
 
 ## 6. Train identity lock
 
-The TRAIN partition is not merely another similar sample. Replaying the parent on TRAIN must reproduce the exact immutable parent-generation authority:
+Replaying the parent on TRAIN must reproduce the exact immutable parent-generation authority:
 
 ```text
 TRAIN parent run_hash == parent_generation.profile_run_hash
@@ -105,9 +103,7 @@ TRAIN parent case_set_hash == parent_generation.case_set_hash
 TRAIN parent context policy hash == parent_generation.context_policy_hash
 ```
 
-Any mismatch fails closed.
-
-The parent failure report must also match that exact generation/run/case-set identity.
+Any mismatch fails closed. The parent failure report must also match that exact generation/run/case-set identity.
 
 ## 7. Train adjudication
 
@@ -240,7 +236,7 @@ Top-level evidence records deterministic `arena_hash`.
 - child E5 provenance mismatch fails closed;
 - worker count and caller partition order do not change arena identity.
 
-The existing Tactical P1 verifier discovers this file through `test_stage1_*.py`.
+The Tactical P1 Full verifier discovers this file through `test_stage1_*.py`.
 
 ## 13. Mutation boundary
 
@@ -263,7 +259,7 @@ It is orchestration/evidence infrastructure only.
 
 ## 14. Nonclaims
 
-This tranche does **not** establish:
+This checkpoint does **not** establish:
 
 - that any real JMA child has passed Train/Validation/OOS/HARSH;
 - that an accepted fixture child is profitable or production-ready;
@@ -274,6 +270,21 @@ This tranche does **not** establish:
 - live-trading readiness;
 - repository-wide compliance PASS.
 
-## 15. Next boundary
+## 15. Trusted Full verification
 
-Do not begin E7 Evolution Memory / Evidence UI until this E6 executable boundary receives trusted Full validation at an exact repository SHA.
+The operator verified exact DSL checkout:
+
+```text
+ad87a68a1f8d0595f51a3c02bde022a63ea22cc6
+```
+
+and ran:
+
+```text
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
+[PASS] Tactical P1 verification completed: mode=Full.
+```
+
+Therefore **E6 Validation / Harsh Arena is trusted Full-green at `ad87a68a1f8d0595f51a3c02bde022a63ea22cc6`.**
+
+E7 Evolution Memory / Evidence UI may proceed from that exact trusted predecessor. E7 must preserve explicit head promotion and append-only evidence authority.
