@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **E6_VALIDATION_HARSH_ARENA_IMPLEMENTED_AWAITING_TRUSTED_FULL_VALIDATION / REMEDIATION_REQUIRED**  
+Status: **E7_EVOLUTION_MEMORY_EVIDENCE_UI_IMPLEMENTED_AWAITING_TRUSTED_FULL_VALIDATION / REMEDIATION_REQUIRED**  
 Updated: 2026-08-27 KST
 
 ## Authority
@@ -17,14 +17,15 @@ Read in this order:
 8. `E3_MULTI_BATTLE_PARAMETER_SEEKER_IMPLEMENTATION.md` — trusted E3 executable contract.
 9. `E4_CAUSAL_FAILURE_OPPORTUNITY_CHARACTERIZER_IMPLEMENTATION.md` — trusted E4 executable contract.
 10. `E5_BOUNDED_STRUCTURAL_SKILL_GENERATOR_IMPLEMENTATION.md` — trusted E5 executable contract.
-11. `E6_VALIDATION_HARSH_ARENA_IMPLEMENTATION.md` — current E6 executable contract/checkpoint.
-12. `MICRO_TACTICAL_DISCOVERY_IMPLEMENTATION.md` — discovery/competition checkpoint.
-13. `P1_TACTICAL_DATA_IMPLEMENTATION.md` — P1 data/provider/UI/verification boundary.
-14. `PRODUCT_IMPLEMENTATION_PLAN.md` — original roadmap and Stage 1 kernel plan.
-15. `STAGE1_EXECUTION_POLICY.md` — implementation/verification policy.
-16. `QUANT_DSL_PLAYBOOK.md` — generated-DSL language contract.
-17. `DSL_ENGINE_AUDIT.md` — engine trust-boundary criteria.
-18. `PROGRESS_CHECKPOINT_2026-08-26.md` — exact trusted Full checkpoints.
+11. `E6_VALIDATION_HARSH_ARENA_IMPLEMENTATION.md` — trusted E6 executable contract.
+12. `E7_EVOLUTION_MEMORY_EVIDENCE_UI_IMPLEMENTATION.md` — current E7 executable/UI contract.
+13. `MICRO_TACTICAL_DISCOVERY_IMPLEMENTATION.md` — discovery/competition checkpoint.
+14. `P1_TACTICAL_DATA_IMPLEMENTATION.md` — P1 data/provider/UI/verification boundary.
+15. `PRODUCT_IMPLEMENTATION_PLAN.md` — original roadmap and Stage 1 kernel plan.
+16. `STAGE1_EXECUTION_POLICY.md` — implementation/verification policy.
+17. `QUANT_DSL_PLAYBOOK.md` — generated-DSL language contract.
+18. `DSL_ENGINE_AUDIT.md` — engine trust-boundary criteria.
+19. `PROGRESS_CHECKPOINT_2026-08-26.md` — exact trusted Full checkpoints.
 
 ## Product direction
 
@@ -52,15 +53,15 @@ minimal tactic family
  -> one legal structural skill child
  -> Multi-Battle numeric Parameter Seeker where parameters exist
  -> Train / Validation / OOS / harsh replay
- -> ACCEPT / REJECT / REVIEW
- -> immutable generation memory
- -> repeat
- -> later parent-context / Add-on / macro attribution
+ -> ACCEPT / REJECT / REVIEW evidence
+ -> append-only evolution memory / explicit head
+ -> read-only lineage/evidence UI
+ -> later macro attribution/deployment
 ```
 
 Adaptive learning, parent-context deployment and cross-symbol analysis remain optional seams rather than mandatory Core DSL responsibilities.
 
-## Core DSL freeze
+## Core DSL freeze and cascading context seam
 
 The governing rule remains:
 
@@ -70,11 +71,7 @@ Core owns deterministic scalar/series calculations, registered indicators/state 
 
 Core does **not** own online learning, arbitrary peer-symbol reads, cross-symbol ranking, market-regime calculation, sector discovery, leader/follower scans, dynamic lower-timeframe/tick requests, external DB/network calls or portfolio selection logic.
 
-A future narrow read-only parent-context binding may be Core-facing, but the calculation that produces the parent value remains outside DSL Runtime.
-
-## Cascading parent-context seam
-
-Cascading feature inheritance remains reserved and authoritative:
+Cascading parent inheritance remains reserved through:
 
 ```text
 Market / Sector / Group / Leader-Follower Provider
@@ -85,17 +82,13 @@ Market / Sector / Group / Leader-Follower Provider
  -> Instrument DSL local tactic
 ```
 
-Existing `core/battlefield_context.py` provides the immutable point-in-time envelope. Still not implemented: general Parent Feature Provider framework, Feature Manifest registry, DSL `ctx.*` grammar/type binding, Runtime Context Binder and production market/sector/group Providers.
+Still not implemented: general Parent Feature Provider framework, Feature Manifest registry, DSL `ctx.*` grammar/type binding, Runtime Context Binder and production market/sector/group Providers.
 
-## Multi-symbol Add-on seam
+Future multi-symbol comparative analysis remains an optional read-only Add-on. No executable multi-symbol deployment selector or DSL parent-context binding exists yet.
 
-The Instrument DSL remains the direct single-instrument tactical authority. Future comparative analysis stays behind an optional read-only Add-on and may publish only registered point-in-time parent features or explicit deployment evidence. It cannot mutate DSL/runtime state, guess its universe, use future winner information or place Broker orders directly.
+## Trusted checkpoints
 
-No executable multi-symbol deployment Add-on or DSL parent-context binding exists yet.
-
-## Trusted foundations and checkpoints
-
-### E1 authoritative Korean regular-session BattleCase Provider
+### E1 Korean regular-session BattleCase Provider
 
 ```text
 6e9b2f357080eff904ddd2d5d369c0a9a2d3b14b
@@ -128,7 +121,7 @@ Trusted Full checkpoint:
 
 ### E3A causal TacticalObservation sidecar
 
-Future-only market mutations cannot alter an earlier observation's causal `market_prefix_hash`, feature values or `observation_hash`.
+Future-only market mutation cannot change an earlier observation's causal prefix identity/features.
 
 ```text
 06b52962a1b9b1212a11202ccef1f27b8d7f40c0
@@ -137,31 +130,16 @@ Future-only market mutations cannot alter an earlier observation's causal `marke
 
 ### E3 Multi-Battle Parameter Seeker
 
-`core/tactical_parameter_seeker.py` searches declared numeric DSL inputs over one frozen BattleCase set. Execution-setting tuning is rejected; candidate structure is fixed; comparison is metric/Pareto evidence with no hidden universal score or automatic promotion.
+Declared numeric DSL inputs only; frozen BattleCases/context; metric/Pareto evidence; no hidden universal score or automatic promotion.
 
 ```text
 cc3096c28ea8b9af718a1784df1b17af62bcde9a
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-Therefore **E3 is trusted Full-green** at that SHA.
-
 ### E4 Causal Failure / Opportunity Characterizer
 
-`core/tactical_characterization.py` joins actual trade `signal_time` to causal `TacticalObservation`, then attaches later realized return/MFE/MAE/giveback/exit evidence as physically separate future labels.
-
-Key identity split:
-
-```text
-causal_dataset_hash
-labeled_dataset_hash
-```
-
-Changing only future outcome labels must not change `causal_dataset_hash`. E4 is descriptive only: no learner, live gate, hidden score or automatic skill generation.
-
-The first E4 Full attempt failed in the external Chart SSOT stable-pane test. Classification: **environment issue**. The local `cascading-feature-solution` checkout was behind remote `main`; DSL/E4 source and assertions were not modified. After fast-forwarding Chart SSOT, the exact same DSL E4 SHA passed Full.
-
-Trusted dependency/checkpoint pair:
+Causal observation features and later outcome labels remain separately hashed. The first E4 Full failure was classified **environment issue** because the local external Chart SSOT checkout was stale. After Chart fast-forward, the same E4 DSL SHA passed Full without weakening product/tests.
 
 ```text
 DSL:
@@ -173,117 +151,127 @@ Chart SSOT:
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-Therefore **E4 is trusted Full-green at `560526b7f5af19462a57fd1e5b433bcbe5596500`** with the verified Chart dependency above.
-
 ### E5 Bounded Structural Skill Generator
 
-`core/tactical_skill_generator.py` creates proposal-only one-skill structural children from the registered legal skill tree. Failure relevance, prerequisites/exclusions and CapabilityBudget remain authoritative. The renderer cannot invent DSL capabilities, and E5 cannot rank/promote a child.
-
-Trusted Full checkpoint:
+Only legal registered one-skill child structures are proposed. No free-form engine mutation, hidden ranking or automatic promotion.
 
 ```text
 c1351152d58e4219b9998f0b35b7636f340dc986
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-Therefore **E5 is trusted Full-green at `c1351152d58e4219b9998f0b35b7636f340dc986`.**
+### E6 Validation / Harsh Arena
 
-## E6 current executable tranche: Validation / Harsh Arena
+One fixed parent/child pair is replayed through explicit TRAIN / VALIDATION / OOS / HARSH partitions. TRAIN uses the existing `EvolutionArena`; holdouts use explicit axis tolerances. Default `engagement_collapse` prevents apparent robustness by total holdout abstention when the parent was active. Final ACCEPT remains promotion-eligible evidence only.
 
-`core/tactical_validation_arena.py` replays one fixed parent/child pair across explicit frozen partitions.
-
-Required partition structure:
+Trusted Full checkpoint:
 
 ```text
-TRAIN        exactly 1
-VALIDATION   exactly 1
-OOS          exactly 1
-HARSH        at least 1
+ad87a68a1f8d0595f51a3c02bde022a63ea22cc6
+[PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-HARSH partitions must carry explicit `metadata.adverse_reason`. E6 v1 does not guess/synthesize hostile battles and requires partition `case_id` values to be globally disjoint.
+Therefore **E6 is trusted Full-green at `ad87a68a1f8d0595f51a3c02bde022a63ea22cc6`.**
 
-### Fixed-child provenance
+## E7 current executable/UI tranche: Evolution Memory / Evidence UI
 
-The child must carry E5 one-skill identity:
+Existing `core/tactical_evolution_store.py` remains the append-only authority for:
+
+```text
+profiles
+failures
+generations
+Train evolution decisions
+explicit family head
+```
+
+New `core/tactical_evolution_lineage.py` adds E6 validation evidence preservation plus a deterministic read-only lineage projection.
+
+Projection schema:
+
+```text
+tactical_evolution_lineage/v1
+```
+
+### E6 validation evidence memory
+
+E7 adds append-only validation evidence keyed by immutable `arena_hash`:
 
 ```text
 family_id
 parent_generation_hash
-proposed_skill_id
-mutation_policy = ONE_REGISTERED_SKILL_ONLY
-failure_hash
+child_candidate_hash
+skill_id
+ACCEPT / REJECT / REVIEW
+full tactical_validation_arena/v1 payload
 ```
 
-This remains compatible with E3 numeric tuning because E3 preserves those metadata fields while changing only declared numeric DSL inputs.
+The same arena hash with different payload fails closed. Recording validation evidence never promotes a family head.
 
-### Exact Train identity
+### Accepted lineage contract
 
-TRAIN parent replay must reproduce the immutable parent generation:
+The projection validates:
 
 ```text
-run_hash == parent_generation.profile_run_hash
-case_set_hash == parent_generation.case_set_hash
-context_policy_hash == parent_generation.context_policy_hash
+G0 has no parent and no skills
+each later generation points to the immediately previous generation
+parent acquired_skills remain an exact prefix
+exactly one new skill is added per accepted generation
+stored generation candidate matches stored profile candidate
+explicit head points to a stored generation
 ```
 
-Mismatch fails closed. Parent failure evidence must also match that exact generation.
+Malformed stored lineage fails closed rather than being rendered as a plausible tree.
 
-### Train adjudication
-
-TRAIN uses the existing `EvolutionArena.evaluate_upgrade(...)` unchanged, preserving one-skill relevance, CapabilityBudget and ACCEPT/REJECT/REVIEW authority.
-
-### Validation / OOS / HARSH adjudication
-
-Non-Train partitions use explicit axis-by-axis `HoldoutContract` tolerances for:
+### Evidence shown per generation
 
 ```text
-average_return_pct
-median_return_pct
-profitable_case_rate
-worst_mdd_pct
-worst_case_return_pct
-cost_per_case
-average_mfe_giveback_pct
-top1_positive_return_concentration
+new skill
+failure_hash / failure tags
+Train decision hash
+improvements / survival violations
+E6 validation arena hash
+Validation / OOS / HARSH statuses
+compact generation profile metrics
+explicit is_head state
 ```
 
-No weighted or opaque score exists.
+Rejected/reviewed attempts remain separate from accepted generation nodes.
 
-Default contract also prevents a child from manufacturing apparent robustness by never engaging at all:
+Projection policy:
 
 ```text
-parent active_cases > 0
-AND child active_cases == 0
- -> engagement_collapse
+READ_ONLY_APPEND_ONLY_EVIDENCE_NO_AUTOMATIC_PROMOTION
 ```
 
-This does not redefine `NO_TRADE` as failure. Partial or justified abstention remains valid. Full-partition abstention can be allowed only through an explicit visible contract change.
+### Read-only Tactical API/UI
 
-### Final decision
+`tactical_main.py` now exposes only:
 
 ```text
-any holdout FAIL -> REJECT
-Train REJECT -> REJECT
-Train REVIEW + all holdouts PASS -> REVIEW
-Train ACCEPT + all holdouts PASS -> ACCEPT
+GET /api/stage1/tactical/evolution/{family_id}
 ```
 
-Even final ACCEPT only sets `promotion_eligible=true`; this module does not mutate the family head.
+No evolution promotion write route was added. The reader is lazy-loaded so importing the Tactical app does not eagerly initialize evolution memory.
+
+The Tactical page now contains a read-only Evolution Skill Tree / Evidence panel showing accepted generations, current explicit head, failure reasons, Train/Validation/OOS/HARSH status and rejected/reviewed attempts.
+
+Browser UI contains no `/promote` operation. Chart SSOT source and chart-document semantics were not changed by E7.
+
+Regression files:
 
 ```text
-PARENT_REMAINS_HEAD_UNTIL_EXPLICIT_PROMOTION
+test_stage1_tactical_evolution_lineage.py
+test_stage1_tactical_evolution_ui.py
 ```
-
-`test_stage1_tactical_validation_arena.py` verifies the partition contract, exact Train identity, E5 child provenance, engagement-collapse protection, explicit abstention-policy override, no hidden score, no automatic head mutation, and deterministic worker/order behavior.
 
 Detailed authority:
 
 ```text
-E6_VALIDATION_HARSH_ARENA_IMPLEMENTATION.md
+E7_EVOLUTION_MEMORY_EVIDENCE_UI_IMPLEMENTATION.md
 ```
 
-This E6 executable boundary has **not yet received trusted Full validation**.
+This E7 boundary has **not yet received trusted Full validation**.
 
 ## Validation status
 
@@ -295,35 +283,34 @@ May claim:
 - E3 trusted Full PASS at `cc3096c28ea8b9af718a1784df1b17af62bcde9a`;
 - E4 trusted Full PASS at `560526b7f5af19462a57fd1e5b433bcbe5596500` with Chart SSOT `7a43f0f52928045904d192deb7d8d532cb4c533e`;
 - E5 trusted Full PASS at `c1351152d58e4219b9998f0b35b7636f340dc986`;
-- E6 source/tests are implemented awaiting Full;
-- Core Freeze / parent-context / multi-symbol Add-on design boundaries remain authoritative.
+- E6 trusted Full PASS at `ad87a68a1f8d0595f51a3c02bde022a63ea22cc6`;
+- E7 source/tests/read-only Tactical UI are implemented awaiting Full;
+- Core Freeze / parent-context / multi-symbol Add-on boundaries remain authoritative.
 
 Do **not** claim yet:
 
-- trusted Full PASS for E6;
-- that any real JMA child is stronger, profitable or generalized;
-- automatic family-head promotion;
-- production-quality harsh-case universe construction;
-- E7 Evolution Memory / Evidence UI implementation;
+- trusted Full PASS for E7;
+- that any real JMA generation has passed E6 or been promoted;
+- autonomous family-head promotion;
+- profitability/generalization/live readiness;
+- production-quality harsh universe construction;
 - TacticalMemory or trained LocalBattlefieldLearner;
 - adaptive 5m/3m/1m/tick deployment;
 - functioning parent-context DSL binding or multi-symbol deployment selector;
-- live-trading readiness;
-- completed macro deployment policy;
+- completed macro attribution/deployment;
 - repository-wide Chart or overall compliance PASS.
 
 `REMEDIATION_REQUIRED` remains authoritative for broader repository compliance.
 
 ## Next sequence
 
-After E6 is trusted green:
+After E7 is trusted green:
 
-1. **E7 Evolution Memory / Evidence UI**;
-2. **E8 Macro Context Attribution / Deployment**.
+1. **E8 Macro Context Attribution / Deployment**.
 
-Optional adaptive learning, Parent Feature Provider/`ctx.*` binding and Multi-Symbol Add-on execution remain deferred until a concrete mainline need exists.
+Optional adaptive learning and broader Parent Feature Provider/`ctx.*` binding or Multi-Symbol Add-on execution remain separately gated by concrete need and their own validation.
 
-Do not begin E7 executable work before the E6 Full boundary is trusted green.
+Do not begin E8 executable work before the E7 Full boundary is trusted green.
 
 ## Next automated boundary
 
