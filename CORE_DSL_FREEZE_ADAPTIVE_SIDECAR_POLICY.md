@@ -44,7 +44,8 @@ The Core DSL is **not** responsible for:
 - dynamic grammar generation;
 - arbitrary lower-timeframe/tick requests;
 - live switching of one DSL candidate's declared timeframe;
-- self-created indicators or rules outside the Capability Manifest.
+- self-created indicators or rules outside the Capability Manifest;
+- arbitrary peer-symbol reads, cross-symbol ranking, universe selection or portfolio allocation.
 
 These are sidecar/orchestration concerns unless a future capability independently earns promotion into Core.
 
@@ -75,7 +76,7 @@ Examples:
 
 These may use the DSL but should not change its language semantics.
 
-### C. Experimental adaptive sidecar
+### C. Experimental adaptive / analysis sidecar
 
 Examples:
 
@@ -84,7 +85,8 @@ Examples:
 - local battlefield learner;
 - learned engagement policy;
 - validated resolution-mode selection;
-- pattern learning.
+- pattern learning;
+- optional multi-symbol comparison/ranking Add-ons.
 
 These are optional research modules. They must connect through stable evidence/gate interfaces rather than becoming parser/runtime dependencies.
 
@@ -109,7 +111,7 @@ The authority order is:
 source / data validity
 AND hard safety / equipment guards
 AND tactic trigger
-AND optional learned admissibility
+AND optional learned/adaptive admissibility
 AND common execution policy
  -> BrokerEmulator
 ```
@@ -142,7 +144,30 @@ Adaptive or future macro modules should integrate through existing stable contra
 - explicit admissibility / `entry_gate` style decisions;
 - separately validated candidate or resolution-mode selection.
 
-Parser, Runtime, Indicator authority, Backtest accounting and Broker execution must not need to know whether an external gate came from a deterministic guard, a future learner, or a macro deployment policy.
+Parser, Runtime, Indicator authority, Backtest accounting and Broker execution must not need to know whether an external gate came from a deterministic guard, a future learner, a multi-symbol Add-on or a macro deployment policy.
+
+## 6A. Single-instrument Core / multi-symbol Add-on boundary
+
+The Instrument DSL is a **single-instrument tactical authority**.
+
+Multi-symbol chart display does not create cross-symbol strategy authority.
+
+Cross-symbol analysis, ranking, capital competition and deployment selection remain outside Instrument DSL and may be added only through an optional Add-on seam.
+
+The safe pattern is:
+
+```text
+single-instrument DSLs
+ -> immutable point-in-time per-symbol snapshots
+ -> optional read-only multi-symbol Add-on
+ -> explicit ALLOW / BLOCK / PRIORITY evidence
+ -> common execution policy
+ -> BrokerEmulator
+```
+
+A multi-symbol Add-on is disabled by default, may not mutate DSL/runtime state, may not issue Broker orders directly, may not guess its universe or use future information, and must use deterministic time alignment and tie-breaking.
+
+Its detailed contract is defined in `MULTI_SYMBOL_ADDON_EXTENSION_POLICY.md`.
 
 ## 7. Promotion into Core is exceptional
 
@@ -157,11 +182,11 @@ An experimental capability may be considered for Core only if all are true:
 7. repo-level regression coverage can enforce the boundary;
 8. the benefit justifies the permanent language complexity.
 
-Until then it remains Tactical Infrastructure or Adaptive Sidecar.
+Until then it remains Tactical Infrastructure or Adaptive/Analysis Sidecar.
 
 ## 8. Mainline development order
 
-Adaptive research must not block the main tactic-evolution loop.
+Adaptive and cross-symbol research must not block the main tactic-evolution loop.
 
 Current mainline after E2 is:
 
@@ -174,11 +199,11 @@ E7  Evolution Evidence UI / lineage operations
 E8  Macro Context Attribution / Deployment
 ```
 
-`core/tactical_observation.py` is retained as an optional causal sidecar seam. TacticalMemory / LocalBattlefieldLearner / adaptive resolution selection are deferred until the main evolution loop demonstrates a concrete need and can consume them without changing Core DSL contracts.
+`core/tactical_observation.py` is retained as an optional causal sidecar seam. TacticalMemory / LocalBattlefieldLearner / adaptive resolution selection and multi-symbol Add-on execution are deferred until the main evolution loop demonstrates a concrete need and can consume them without changing Core DSL contracts.
 
 ## 9. Change-control rule
 
-Before any future adaptive feature is implemented, ask:
+Before any future adaptive or cross-symbol feature is implemented, ask:
 
 ```text
 Can this be done outside Parser / Runtime / Backtest / Broker?
@@ -186,7 +211,15 @@ Can this be done outside Parser / Runtime / Backtest / Broker?
 
 If yes, it must stay outside Core.
 
-A new adaptive idea must not reorder or rewrite trusted core logic merely because it is theoretically useful.
+For cross-symbol requirements, ask additionally:
+
+```text
+Can this be done as read-only analysis of immutable per-symbol snapshots?
+```
+
+If yes, it must remain an Add-on.
+
+A new adaptive or multi-symbol idea must not reorder or rewrite trusted core logic merely because it is theoretically useful.
 
 ## 10. Success criterion
 
@@ -199,12 +232,14 @@ CORE
   reproducible
   auditable
   stable
+  single-instrument tactical authority
 
-SIDECAR
+SIDECAR / ADD-ON
   extensible
-  experimental
+  optional
   replaceable
   evidence-driven
+  safe for future adaptive or multi-symbol analysis
 ```
 
 The sidecar may become sophisticated. The DSL core should become increasingly boring and trustworthy.
