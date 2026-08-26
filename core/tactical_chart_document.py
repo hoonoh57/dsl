@@ -80,6 +80,43 @@ def _selected_symbols(result: Mapping[str, Any], *, limit: int) -> list[str]:
     return seen
 
 
+def _capture_region_times(market: Mapping[str, Any], capture_as_of: str) -> tuple[Any, Any]:
+    """Return a non-zero actual-bar interval that begins at/after the cutoff.
+
+    LightweightChartSurface renders vertical regions with fillRect(width), so a
+    same-time from/to pair is invisible. We preserve the exact cutoff in meta,
+    while geometry uses two strictly increasing real bar timestamps from the
+    focus market. If that evidence cannot be proven, fail closed.
+    """
+    capture_digits = _digits(capture_as_of)
+    if len(capture_digits) < 14:
+        raise ValueError(f"capture cutoff은 YYYYMMDDHHMMSS여야 합니다: {capture_as_of!r}")
+    capture_key = capture_digits[:14]
+    timeline: list[tuple[str, Any]] = []
+    for source_time in market.get("time", []):
+        digits = _digits(source_time)
+        if len(digits) < 14:
+            raise ValueError(f"capture chart bar timestamp가 14자리가 아닙니다: {source_time!r}")
+        timeline.append((digits[:14], source_time))
+    if len(timeline) < 2:
+        raise ValueError("capture cutoff evidence에는 실제 bar가 2개 이상 필요합니다.")
+    if any(timeline[i][0] >= timeline[i + 1][0] for i in range(len(timeline) - 1)):
+        raise ValueError("capture cutoff evidence bar 시간이 엄격 오름차순이 아닙니다.")
+    start_index = next(
+        (index for index, (stamp, _) in enumerate(timeline) if stamp >= capture_key),
+        None,
+    )
+    if start_index is None or start_index + 1 >= len(timeline):
+        raise ValueError(
+            "capture cutoff 이후의 비영(非零) 실제 bar 구간을 만들 수 없습니다."
+        )
+    start_stamp, start_source = timeline[start_index]
+    end_stamp, end_source = timeline[start_index + 1]
+    if end_stamp <= start_stamp:
+        raise ValueError("capture cutoff geometry가 0폭 또는 역방향입니다.")
+    return _chart_time(start_source), _chart_time(end_source)
+
+
 def build_tactical_chart_document(
     result: Mapping[str, Any],
     markets: Mapping[str, Mapping[str, Any]],
@@ -96,7 +133,8 @@ def build_tactical_chart_document(
         comparison = [focus] + [item for item in comparison if item != focus]
         comparison = comparison[: max(1, int(comparison_limit))]
 
-    bars = _bars(markets[focus])
+    focus_market = markets[focus]
+    bars = _bars(focus_market)
     panes = {"relative": {"height": 150}}
     series = []
     for symbol in comparison:
@@ -132,14 +170,16 @@ def build_tactical_chart_document(
 
     capture_as_of = str((result.get("unit") or {}).get("metadata", {}).get("capture_as_of") or "")
     geometries = []
+    capture_region = None
     if capture_as_of:
-        capture_time = _chart_time(capture_as_of)
+        from_time, to_time = _capture_region_times(focus_market, capture_as_of)
+        capture_region = {"fromTime": from_time, "toTime": to_time}
         geometries.append(
             {
                 "kind": "vertical-region",
-                "fromTime": capture_time,
-                "toTime": capture_time,
-                "label": "capture cutoff",
+                "fromTime": from_time,
+                "toTime": to_time,
+                "label": "capture cutoff interval",
             }
         )
     for window in (result.get("regime") or {}).get("windows", []):
@@ -167,6 +207,8 @@ def build_tactical_chart_document(
             "comparisonSymbols": comparison,
             "selectionBasis": "point_in_time_rank_only",
             "outcomeSelectionUsed": False,
+            "captureCutoff": capture_as_of or None,
+            "captureRegion": capture_region,
             "cohortSnapshotHash": (
                 (result.get("unit") or {}).get("metadata", {}).get("cohort_snapshot_hash")
             ),
