@@ -1,304 +1,255 @@
 # Parent Context Feature Provider / Read-Only DSL Binding Policy
 
-Status: **AUTHORITATIVE CONTEXT-INHERITANCE POLICY / 2026-08-26 KST**
+Status: **AUTHORITATIVE CONTEXT-INHERITANCE POLICY / PCTX1 ACTIVE / 2026-08-27 KST**
 
-## 1. Purpose
+## 1. Governing rule
 
-The Instrument DSL must remain a deterministic single-instrument tactical language while still being able to inherit verified parent-layer battlefield intelligence such as market regime, KOSPI/KOSDAQ state, sector leadership, group structure and leader/follower evidence.
+The Instrument DSL remains a deterministic single-instrument tactical language while being able, later, to inherit verified parent-layer battlefield intelligence.
 
-The governing rule is:
+> **Parent features are computed outside Instrument DSL, frozen as point-in-time context evidence, and consumed inside DSL only through a narrow read-only binding contract.**
 
-> **Parent features are computed outside the Instrument DSL, frozen as point-in-time context snapshots, and consumed inside the DSL only through a narrow read-only binding contract.**
-
-The DSL may consume a parent feature without knowing or executing the algorithm that produced it.
+The DSL may know a stable `feature_id`; it must not know or execute the algorithm that produced the value.
 
 ## 2. Responsibility split
 
-### Parent Feature Provider
-
-A provider owns the calculation logic for one context domain.
-
-Examples:
-
 ```text
-MarketFeatureProvider
-SectorFeatureProvider
-GroupFeatureProvider
-LeaderFollowerFeatureProvider
+source adapter / provider-specific calculator
+ -> Parent Feature Provider
+ -> ParentFeatureProviderResult
+ -> ContextLayerSnapshot
+ -> BattlefieldContext
+ -> future Context Binder
+ -> future registered ctx.* read
+ -> Instrument DSL local tactic
 ```
 
-A provider may read the authoritative data required for its domain and may depend on already-frozen parent-layer snapshots when the cascade is explicit and causal.
-
-A provider outputs immutable `ContextLayerSnapshot` evidence. It does not emit broker orders and does not mutate Instrument DSL runtime state.
-
-### Context snapshot / assembler
-
-Provider outputs are combined into a `BattlefieldContext` envelope.
-
-Current repository contracts in `core/battlefield_context.py` already define:
-
-```text
-ContextLayerSnapshot
-  layer
-  context_id
-  as_of
-  source
-  features
-  snapshot_hash
-
-BattlefieldContext
-  as_of
-  mode
-  layers[]
-  context_hash
-```
-
-Every layer must be valid at or before the battle `knowledge_cutoff`. Future context is invalid and must fail closed.
-
-### Instrument DSL
-
-The Instrument DSL owns only local tactical computation plus consumption of explicitly registered parent-context values.
-
-The intended future semantic form is conceptually:
-
-```text
-ctx.market.kospi_slope
-ctx.market.regime_strength
-ctx.sector.strength
-ctx.sector.leader_strength
-ctx.group.follower_alignment
-```
-
-The exact syntax is a future validated Core capability. This policy does not add executable grammar yet.
+Providers may use authoritative market/index/sector/group data and already-frozen parent results. They do not emit Broker orders or mutate DSL runtime state.
 
 ## 3. No provider calls from DSL execution
 
-The DSL must not execute provider logic through function calls such as:
+Prohibited inside Parser/Runtime evaluation:
 
 ```text
 market.get_kospi_slope()
 sector.find_current_leader()
 request_symbol(...)
 rank_symbols(...)
+network/database discovery
+peer-symbol scans
 ```
 
-The DSL runtime must not perform network calls, database discovery, universe selection, peer-symbol scans or provider-side calculations while evaluating a tactic.
+Runtime must receive precomputed immutable context. No on-demand external behavior is permitted during tactic evaluation.
 
-Instead the runtime receives an already-frozen `BattlefieldContext` and resolves registered context references to supplied values.
+## 4. PCTX1 executable contract
 
-Conceptually:
+`core/parent_feature_provider.py` implements the first generic production seam.
+
+Schemas:
 
 ```text
-Provider calculation
- -> ContextLayerSnapshot
- -> BattlefieldContext
- -> Context Binder
- -> DSL ctx.* read
+parent_feature_provider/v1
+parent_feature_registry/v1
+parent_context_assembly/v1
 ```
 
-This preserves deterministic replay and allows the provider implementation to evolve independently of the DSL language.
+Contracts:
 
-## 4. Parent Feature Manifest
+```text
+ParentFeatureSpec
+ParentFeatureManifest
+ParentFeatureRegistry
+ParentFeatureProviderResult
+ParentFeatureProvider (Protocol)
+ParentContextAssembly
+ParentContextAssembler
+```
 
-A parent feature exposed to DSL consumption requires an explicit manifest contract.
+PCTX1 is infrastructure, not a production market/sector calculator and not DSL binding.
 
-Recommended fields:
+## 5. Parent Feature Manifest
+
+Every public parent feature requires explicit identity and semantics.
+
+Manifest identity:
+
+```text
+provider_id
+provider_version
+layer
+context_id
+max_staleness_seconds
+manifest_hash
+```
+
+Feature identity:
 
 ```text
 feature_id
-layer
-value_type
-provider_id / provider_version
-causality_policy
-missing_policy
+feature_key
+value_type = NUMBER | STRING | BOOLEAN
 semantic_version
+causality_policy = CONFIRMED_ONLY
+required
+missing_policy = FAIL_CLOSED | OPTIONAL_ABSENT
 ```
 
-Example:
+Examples:
 
 ```text
-feature_id: market.kospi_slope
-layer: MARKET
-value_type: series<number> or point-in-time number according to binding contract
-provider_id: market_feature_provider/v1
-causality_policy: CONFIRMED_ONLY
-missing_policy: FAIL_CLOSED
+market.kospi_slope
+market.regime_state
+sector.relative_strength
+group.follower_alignment
 ```
 
-A provider may change its internal implementation only when feature semantics remain compatible with the declared version. A semantic change requires a new feature/provider version and must not silently reinterpret historical evidence.
+Semantic changes require a manifest/version identity change. Historical evidence must never be silently reinterpreted.
 
-## 5. Cascading parent inheritance
+## 6. Discoverability without implementation knowledge
 
-Parent-layer computation may itself be cascading, but every dependency must be explicit and point-in-time.
+`ParentFeatureRegistry` is the discoverability seam for later generators and binders.
 
-Recommended hierarchy:
+It maps a stable `feature_id` to manifest/spec metadata and rejects duplicate public identities. A future strategy generator can therefore learn that `market.kospi_slope` exists without seeing provider code or external API details.
+
+Adding a new registered feature must not require a feature-specific Parser/Runtime function.
+
+## 7. Cascading parent inheritance
+
+Cascading calculation is explicit and causal:
 
 ```text
 raw market/index data
- -> MARKET snapshot
- -> sector data + MARKET snapshot
- -> SECTOR snapshot
- -> group/leader-follower data + parent snapshots
- -> GROUP snapshot
- -> Instrument DSL local tactic + inherited context
-```
-
-A lower provider may consume a frozen higher-layer snapshot, but it must never read a future revision of that snapshot.
-
-The resulting lineage must remain auditable through snapshot hashes and provider/version identity.
-
-## 6. Evidence mode before gate mode
-
-A new parent feature should first be attached as observation/evidence rather than immediately becoming entry authority.
-
-Recommended progression:
-
-```text
-NEUTRAL baseline
- -> OBSERVED parent context
- -> context attribution
- -> Validation / OOS evidence
- -> explicit DEPLOYMENT gate only if justified
-```
-
-This preserves the distinction between:
-
-```text
-context explains performance
-```
-
-and
-
-```text
-context is allowed to block/permit entry
-```
-
-A weak micro tactic must not be made to appear robust solely because a parent filter removed difficult battles.
-
-## 7. Interaction with multi-symbol Add-on
-
-A future Multi-Symbol Add-on may act as one Parent Feature Provider.
-
-For example it may compute, from explicit point-in-time snapshots:
-
-```text
-sector breadth
-leader strength
-follower alignment
-cross-sectional relative strength
-leader/follower dispersion
-```
-
-and emit those as a GROUP or SECTOR `ContextLayerSnapshot`.
-
-This does not grant the Instrument DSL arbitrary peer-symbol access. The DSL receives only the registered output features.
-
-Thus:
-
-```text
-Multi-Symbol Add-on
- -> registered parent features
- -> ContextLayerSnapshot
+ -> MARKET provider result
+ -> SECTOR provider result + MARKET result hash
+ -> GROUP provider result + parent result hashes
+ -> ParentContextAssembler
  -> BattlefieldContext
- -> read-only DSL context binding
 ```
 
-is allowed, while direct peer-symbol query syntax remains prohibited.
+Every dependency uses immutable provider `result_hash` evidence. The assembler rejects missing dependencies and any dependency whose `as_of` is later than the child provider result.
 
-## 8. Missing / stale / mismatched context
+## 8. Missing / stale / future behavior
 
 No context value may be guessed.
 
-For a DSL candidate that declares a required parent feature:
+- future `as_of` -> fail closed;
+- manifest staleness limit exceeded -> fail closed;
+- missing required feature -> fail closed;
+- undeclared feature -> fail closed;
+- incompatible type -> fail closed;
+- missing source -> fail closed;
+- optional feature -> explicitly absent, never silently zero/false;
+- missing dependency -> fail closed.
 
-- missing feature -> fail closed or candidate ineligible according to explicit policy;
-- stale `as_of` -> fail closed;
-- snapshot later than `knowledge_cutoff` -> fail closed;
-- incompatible feature/provider version -> fail closed;
-- missing source authority -> fail closed.
+## 9. Context assembly
 
-Optional context features must be explicitly declared optional. Missing optional context must not silently become zero, false or another plausible value.
+`ParentContextAssembler` consumes only already-computed `ParentFeatureProviderResult` objects.
 
-## 9. Backtest / live parity
+Supported modes:
 
-Backtest and live execution must consume the same logical parent-feature contract.
+```text
+OBSERVED
+DEPLOYMENT
+```
+
+`NEUTRAL` with parent layers is prohibited.
+
+The resulting `BattlefieldContext.metadata` carries provider result hashes, manifest hashes, knowledge cutoff and the policy:
+
+```text
+PRECOMPUTED_IMMUTABLE_CAUSAL_PROVIDER_RESULTS_ONLY
+```
+
+Thus provider/version provenance participates in context identity even if raw feature values happen to match.
+
+## 10. Evidence before gate
+
+The progression remains:
+
+```text
+NEUTRAL micro baseline
+ -> OBSERVED parent context
+ -> E8 context attribution
+ -> separate Validation/OOS evidence
+ -> explicit DEPLOYMENT policy evidence
+ -> separately validated operational integration
+```
+
+Context correlation is not entry authority. Macro intelligence must remain an amplifier rather than life support for a weak micro tactic.
+
+## 11. Interaction with Multi-Symbol Add-on
+
+A future Multi-Symbol Add-on may implement a Parent Feature Provider for registered outputs such as sector breadth, leader strength, follower alignment or cross-sectional relative strength.
+
+This does not grant Instrument DSL arbitrary peer-symbol reads. The DSL can eventually consume only registered immutable outputs.
+
+Selection/ranking remains logically distinct from parent-context inheritance.
+
+## 12. Backtest / live parity
 
 Backtest:
 
 ```text
-historical data available by time t
- -> provider snapshot at t
- -> frozen BattlefieldContext at t
- -> DSL evaluation at t
+source data known by t
+ -> provider calculation
+ -> immutable provider result/context at t
+ -> later tactic evaluation at t
 ```
 
 Live:
 
 ```text
 new confirmed source data
- -> provider snapshot
- -> current BattlefieldContext
- -> next DSL evaluation
+ -> provider calculation
+ -> immutable current context
+ -> next tactic evaluation
 ```
 
-The provider may be implemented differently operationally, but feature semantics, cutoff rules and missing behavior must match.
+Provider operational deployment may differ, but feature semantics, version, cutoff, staleness and missing behavior must match.
 
-## 10. Core DSL promotion boundary
+## 13. Core DSL promotion boundary
 
-Only the read-only context-reference mechanism is a candidate for a future Core DSL capability.
+Only a **generic read-only context reference mechanism** may later qualify for Core promotion.
 
-The following remain outside Core:
+Still outside Core:
 
-- market-regime calculation logic;
+- market/sector/group calculation logic;
+- provider I/O;
 - sector membership discovery;
 - leader/follower detection;
-- peer-symbol comparison;
-- ranking;
+- peer-symbol comparison/ranking;
 - universe construction;
-- database/network access;
-- model inference used to produce context.
+- portfolio allocation;
+- adaptive/model inference producing context.
 
-Therefore the Core remains:
+Before Core promotion, repeated need across tactic families, deterministic batch/stream parity, causal semantics, exact backtest/live semantics, regression coverage and permanent complexity justification are required.
 
-```text
-local series / state / signals / orders
-+ read-only registered parent-context values
-```
+## 14. Current implementation status
 
-not a general market-analysis runtime.
+Implemented, awaiting trusted PCTX1 Full validation:
 
-## 11. Current implementation status
+- versioned Feature Manifest;
+- deterministic Feature Registry;
+- typed immutable Provider Result;
+- source/cutoff/staleness/missing validation;
+- explicit cascading dependency hashes;
+- deterministic `ParentContextAssembler`;
+- provider/manifest provenance inside `BattlefieldContext` identity.
 
-Already present:
+Already trusted from earlier phases:
 
-- immutable `ContextLayerSnapshot`;
-- immutable `BattlefieldContext`;
-- causal `as_of <= knowledge_cutoff` validation;
-- context hashes;
+- immutable `ContextLayerSnapshot` / `BattlefieldContext`;
+- cutoff validation and context hashes;
 - `NEUTRAL / OBSERVED / DEPLOYMENT` modes;
-- `DeploymentDecision` command-layer contract.
+- E8 context attribution / deployment evidence.
 
-Not implemented yet:
+Still not implemented:
 
-- general Parent Feature Provider framework;
-- Parent Feature Manifest registry;
+- production Market/Sector/Group provider algorithms;
+- causal intraday context timeline/frame abstraction;
+- Runtime Context Binder;
 - Instrument DSL `ctx.*` grammar/type binding;
-- runtime Context Binder;
-- production market/sector/group provider implementations.
+- operational deployment entry-gate integration.
 
-These are future extension seams and must not be implemented before the current executable verification boundary is trusted green.
+## 15. Immediate gate
 
-## 12. Success criterion
-
-The architecture is correct when all of these can be true simultaneously:
-
-```text
-Provider knows how to calculate the parent feature.
-DSL does not know how it was calculated.
-DSL can consume the registered value deterministically.
-Historical replay receives the exact point-in-time value.
-Provider/Add-on can be replaced without rewriting tactic DSL logic.
-Missing/future/stale parent evidence fails closed.
-```
-
-This preserves cascading battlefield inheritance without turning Instrument DSL into a multi-market data engine.
+Do not implement Core-facing `ctx.*` syntax/runtime behavior or wire deployment decisions into Broker authorization before PCTX1 receives trusted Full validation at an exact repository SHA.
