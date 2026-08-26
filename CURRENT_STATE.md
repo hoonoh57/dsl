@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **E3A_CAUSAL_TACTICAL_OBSERVATION_IMPLEMENTED_AWAITING_TRUSTED_FULL_VALIDATION / REMEDIATION_REQUIRED**  
+Status: **E3A_SIDECAR_OBSERVATION_IMPLEMENTED_AWAITING_TRUSTED_FULL_VALIDATION / REMEDIATION_REQUIRED**  
 Updated: 2026-08-26 KST
 
 ## Authority
@@ -8,16 +8,17 @@ Updated: 2026-08-26 KST
 Read in this order:
 
 1. `EVOLVING_MICRO_WARRIOR_PLAN.md` — one-skill evolution doctrine, capability-budget and immutable-generation contract.
-2. `ADAPTIVE_MICRO_WARRIOR_LEARNING_ARCHITECTURE.md` — local battlefield observation/memory/learner/resolution-mode sequencing.
-3. `MICRO_FIRST_MACRO_READY_ARCHITECTURE.md` — micro-first research order and macro-ready extension seam.
-4. `MULTI_LAYER_DSL_ARCHITECTURE.md` — final macro-to-micro runtime/deployment architecture.
-5. `MICRO_TACTICAL_DISCOVERY_IMPLEMENTATION.md` — micro discovery/competition implementation checkpoint.
-6. `P1_TACTICAL_DATA_IMPLEMENTATION.md` — P1 data/provider/UI/verification boundary.
-7. `PRODUCT_IMPLEMENTATION_PLAN.md` — original roadmap and Stage 1 kernel plan.
-8. `STAGE1_EXECUTION_POLICY.md` — continuous implementation / verification policy.
-9. `QUANT_DSL_PLAYBOOK.md` — official generated-DSL language contract.
-10. `DSL_ENGINE_AUDIT.md` — engine trust-boundary criteria.
-11. `PROGRESS_CHECKPOINT_2026-08-26.md` — trusted local Full PASS evidence checkpoints.
+2. `CORE_DSL_FREEZE_ADAPTIVE_SIDECAR_POLICY.md` — Core DSL stability, sidecar isolation and promotion rules.
+3. `ADAPTIVE_MICRO_WARRIOR_LEARNING_ARCHITECTURE.md` — optional future local-learning design, subordinate to the Core DSL freeze policy.
+4. `MICRO_FIRST_MACRO_READY_ARCHITECTURE.md` — micro-first research order and macro-ready extension seam.
+5. `MULTI_LAYER_DSL_ARCHITECTURE.md` — final macro-to-micro runtime/deployment architecture.
+6. `MICRO_TACTICAL_DISCOVERY_IMPLEMENTATION.md` — micro discovery/competition implementation checkpoint.
+7. `P1_TACTICAL_DATA_IMPLEMENTATION.md` — P1 data/provider/UI/verification boundary.
+8. `PRODUCT_IMPLEMENTATION_PLAN.md` — original roadmap and Stage 1 kernel plan.
+9. `STAGE1_EXECUTION_POLICY.md` — continuous implementation / verification policy.
+10. `QUANT_DSL_PLAYBOOK.md` — official generated-DSL language contract.
+11. `DSL_ENGINE_AUDIT.md` — engine trust-boundary criteria.
+12. `PROGRESS_CHECKPOINT_2026-08-26.md` — trusted local Full PASS evidence checkpoints.
 
 ## Product direction
 
@@ -34,28 +35,57 @@ Battlefield Context
  -> BrokerEmulator
 ```
 
-Current micro research is intentionally bottom-up:
+The main research/development path is again deliberately simple:
 
 ```text
 minimal tactic family
  -> frozen BattleCases
- -> causal local observations
- -> tactical experience / memory
- -> local survival/opportunity learning
- -> one-skill evolution + numeric re-seek
- -> Validation / OOS / harsh replay
+ -> deterministic failure evidence
+ -> capability gap
+ -> one-skill child structure
+ -> Multi-Battle numeric Parameter Seeker
+ -> replay / Validation / OOS / harsh cases
  -> ACCEPT / REJECT / REVIEW
- -> immutable lineage
+ -> immutable generation memory
+ -> repeat
  -> later macro attribution/deployment
 ```
 
-Macro intelligence is an amplifier, not life support. A micro warrior must learn local battlefield suitability and retain `NO_TRADE` / `ABSTAIN` authority before macro assistance exists.
+Adaptive learning is no longer a mandatory step in this critical path. It remains an optional sidecar seam that may consume immutable evidence without changing Core DSL semantics.
+
+## Core DSL freeze policy
+
+The project now follows:
+
+> **Core DSL Freeze + Adaptive Sidecar.**
+
+Core responsibilities remain intentionally narrow:
+
+- deterministic scalar/series computation;
+- registered indicators and state primitives;
+- causal signals;
+- one declared base timeframe per candidate;
+- supported completed higher-timeframe MTF reads;
+- explicit order intent;
+- reproducible Backtest/Broker execution semantics.
+
+The Core DSL must not absorb online model training, memory databases, arbitrary ML/RL calls, runtime self-modification, dynamic lower-timeframe/tick requests or live self-switching of the declared timeframe merely because those capabilities may be useful later.
+
+New requirements are classified first as:
+
+```text
+A. Core DSL capability
+B. Tactical infrastructure
+C. Experimental adaptive sidecar
+```
+
+If a capability can be implemented outside Parser / Runtime / Backtest / Broker, it stays outside Core.
 
 ## Trusted foundations
 
 ### DSL / execution kernel
 
-The typed DSL parser/runtime, indicator implementation, `BacktestEngine`, `BrokerEmulator`, common execution policy, Stage 1 app and Chart SSOT boundary remain trusted lower-level authorities. Learning layers may not bypass or self-modify them.
+The typed DSL parser/runtime, indicator implementation, `BacktestEngine`, `BrokerEmulator`, common execution policy, Stage 1 app and Chart SSOT boundary remain trusted lower-level authorities. Tactical or adaptive layers may not bypass or self-modify them.
 
 ### Micro discovery / competition
 
@@ -66,7 +96,7 @@ The typed DSL parser/runtime, indicator implementation, `BacktestEngine`, `Broke
 - bounded workers preserve deterministic order/hashes;
 - neutral-context baseline and uniform execution settings are enforced;
 - malformed cases fail the run;
-- complete per-case backtest evidence remains immutable.
+- complete per-case Backtest evidence remains immutable.
 
 `core/tactical_competition.py`
 
@@ -101,16 +131,7 @@ UNRESOLVED_POSITION
 
 ### E1 Korean regular-session BattleCase authority
 
-`core/battlecase_provider.py` provides:
-
-- exact caller-supplied symbol/date requests;
-- explicit `SessionMarketProvider` and `source_authority`;
-- no production universe guessing or dummy source;
-- canonical source/instrument/timeframe metadata validation;
-- Korean regular-session clock validation;
-- warm-up/history and current-session coverage validation;
-- rejection of requested-day bars after configured `end_time`;
-- authoritative source/session-policy identity in frozen evidence.
+`core/battlecase_provider.py` provides explicit source authority, exact symbol/date requests, Korean regular-session validation, warm-up/current-session coverage and immutable source/session-policy identity.
 
 Trusted Full checkpoint:
 
@@ -121,14 +142,7 @@ Trusted Full checkpoint:
 
 ### E2 JMA family / legal skill tree
 
-`core/tactic_family.py` enforces:
-
-- observed-failure relevance;
-- remaining `CapabilityBudget`;
-- `requires_skills` prerequisites;
-- `excludes_skills` exclusions;
-- unknown/self/conflicting dependencies fail closed;
-- dependency cycles fail closed.
+`core/tactic_family.py` enforces failure relevance, `CapabilityBudget`, prerequisites/exclusions and cycle-safe legal skill trees.
 
 `core/tactic_family_catalog.py` currently contains only:
 
@@ -145,146 +159,44 @@ JMA_CONFIRM_AFTER_RANGE
 JMA_FAST_PROFIT_PROTECTION
 ```
 
-The first E2 Full attempt exposed a **test defect**: a 5m JMA DSL regression test used the default 1d synthetic fixture. The product timeframe mismatch check was correct and was not weakened. The test was remediated with an explicit deterministic 5m fixture.
-
-After pulling the remediated `main`, the operator reported:
+The first E2 Full failure was classified as a **test defect** because a 5m DSL regression test used the default 1d synthetic fixture. Product timeframe validation was not weakened. After remediation, the operator reported:
 
 ```text
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-Therefore **E2 is trusted Full-validated at executable checkpoint:**
+Therefore E2 is trusted Full-validated at:
 
 ```text
 620f741730b0ae821fc48affd22b5420f38a6cac
 ```
 
-## Adaptive micro-warrior learning doctrine
+## E3A optional sidecar seam: causal TacticalObservation
 
-`ADAPTIVE_MICRO_WARRIOR_LEARNING_ARCHITECTURE.md` makes local learning first-class.
+`core/tactical_observation.py` is retained as Tactical Infrastructure / Adaptive Sidecar, not as a new DSL-language responsibility.
 
-The target decision loop is:
+It can freeze causal point-in-time features such as:
 
-```text
-TACTIC OPPORTUNITY
- -> CAUSAL LOCAL OBSERVATION
- -> TACTICAL MEMORY
- -> SURVIVAL / OPPORTUNITY / UNCERTAINTY ESTIMATE
- -> RESOLUTION / EXECUTION MODE SELECTION
- -> ENTER / WAIT / ABSTAIN
- -> ACTUAL + SHADOW EVIDENCE
- -> NEXT TRAINING MEMORY VERSION
-```
-
-The warrior should learn local facts such as:
-
-- time-of-day and session phase;
-- JMA crossover geometry, slope, spread and acceleration;
+- JMA geometry / slope / spread / crossover state;
 - SMA60 slope and price distance;
-- recent appreciation / overextension;
-- high/low structural progression even when candle bodies are weak;
-- volatility, volume and execution-risk proxies;
-- later VI/event state when authoritative event data exists;
-- later realized self-state from prior closed battles only.
+- ATR/range/volume/gap proxies;
+- recent return / session position;
+- higher-high / higher-low and swing geometry;
+- session time position.
 
-Historical relative features and normalizers must be fitted on Train and frozen for Validation/OOS.
+The builder uses only the market prefix ending at the requested timestamp. Future bars are not inputs.
 
-### Adaptive timeframe principle
+`test_stage1_tactical_observation.py` verifies feature exposure, rising high/low geometry, future-bar isolation, timeframe fail-closed behavior and warm-up coverage.
 
-A tactic may eventually choose among separately validated family modes such as:
+This sidecar is useful future evidence, but TacticalMemory, LocalBattlefieldLearner and adaptive resolution selection are **deferred**. They do not block the main evolution path and must not drive Core DSL changes.
 
-```text
-JMA_TCR_5M
-JMA_TCR_3M
-JMA_TCR_1M
-JMA_TCR_TICK_N
-```
+### Hard equipment before learning
 
-This is **family-level resolution-mode selection**, not runtime mutation of one DSL's `timeframe`.
+Deterministic equipment such as a future `JMS2_RANGE_GUARD` may produce a hard BLOCK before any learned admissibility is consulted. A learned score may never override hard source/safety/equipment or common execution rules.
 
-Current Stage 1 DSL supports one declared base timeframe and only completed higher-timeframe MTF reads. Arbitrary lower-timeframe/tick switching is not a current DSL capability and must not be invented.
+### Adaptive timeframe
 
-Tick mode remains future-only until authoritative tick storage, deterministic aggregation, knowledge-cutoff alignment, warm-up rules and Broker execution semantics are explicitly implemented and verified.
-
-## E3A current executable tranche: causal TacticalObservation
-
-`core/tactical_observation.py` now introduces an immutable JMA/local battlefield sensory snapshot.
-
-Initial observation features include:
-
-### Signal / JMA geometry
-
-```text
-jma_fast / jma_slow
-jma_spread_pct
-jma_fast_slope_pct
-jma_slow_slope_pct
-jma_spread_velocity_pct
-jma_fast_acceleration_pct
-jma_cross_up_now / jma_cross_down_now
-bars_since_jma_cross_up
-jma_spread_atr
-```
-
-### Slow trend / location
-
-```text
-sma60
-sma60_slope_pct
-price_to_sma60_pct
-price_to_sma60_atr
-return_from_session_open_pct
-recent_return_3bar_pct
-recent_return_6bar_pct
-recent_return_12bar_pct
-session high/low distance
-```
-
-### Volatility / volume / execution proxies
-
-```text
-atr_pct
-current_range_pct
-range_vs_recent
-volume_ratio
-volume_change_vs_recent_pct
-bar_gap_pct
-```
-
-### Primitive price geometry
-
-```text
-higher_high_ratio
-higher_low_ratio
-lower_high_ratio
-lower_low_ratio
-swing_high_slope_pct
-swing_low_slope_pct
-body_up_ratio
-close_location_in_range
-wick_asymmetry
-breakout_distance_pct
-```
-
-This deliberately supplies primitive causal geometry so later learning can discover rising consolidation, trend stair-steps, compression/breakout and similar structures without hard-coding every named chart pattern as a trade rule.
-
-### Time state
-
-```text
-minutes_from_open
-minutes_to_close
-session_progress_ratio
-```
-
-The E3A builder uses only the market prefix ending at the requested observation timestamp. Future bars are not inputs.
-
-`test_stage1_tactical_observation.py` adds regression contracts for:
-
-- JMA/trend/time/volatility/price-structure exposure;
-- rising high/low structure with weak/mixed candle bodies;
-- future-bar mutation cannot change an earlier observation's feature values;
-- timeframe mismatch fails closed;
-- insufficient warm-up fails closed.
+If later required, 5m/3m/1m are separately validated tactic-family modes selected by orchestration. A running DSL does not mutate its own `timeframe`. Tick mode remains unavailable until authoritative tick data and exact execution semantics exist.
 
 ## Current validation status
 
@@ -292,12 +204,12 @@ May claim:
 
 - E1 trusted Full PASS at `6e9b2f357080eff904ddd2d5d369c0a9a2d3b14b`;
 - E2 trusted Full PASS at `620f741730b0ae821fc48affd22b5420f38a6cac`;
-- adaptive local-battlefield learning architecture is authoritative;
-- E3A causal TacticalObservation source/tests are implemented.
+- Core DSL Freeze / Adaptive Sidecar is now the authoritative stability policy;
+- E3A causal observation sidecar source/tests are implemented.
 
 Do **not** claim yet:
 
-- trusted Full PASS for E3A executable changes;
+- trusted Full PASS for the E3A executable changes;
 - TacticalMemory or a trained LocalBattlefieldLearner;
 - automatic adaptive 5m/3m/1m/tick deployment;
 - learned profitability/generalization;
@@ -309,20 +221,20 @@ Do **not** claim yet:
 
 `REMEDIATION_REQUIRED` remains authoritative for broader repository compliance.
 
-## Revised next sequence
+## Mainline next sequence
 
-After E3A is trusted green:
+After the current E3A sidecar boundary is trusted green, return to the original evolution mainline:
 
-1. **E3B TacticalExperience / TacticalMemory** — record every candidate opportunity, actual outcome, optional shadow outcome, support/confidence and immutable memory versions;
-2. **E3C LocalBattlefieldLearner / LocalEngagementPolicy** — estimate profitable/severe-loss probability, MFE/MAE/cost/slippage/uncertainty and decide ENTER/WAIT/ABSTAIN;
-3. **E3D Multi-Battle Parameter Seeker** — tune numeric parameters on frozen BattleCases while structure remains fixed;
-4. **E4 Failure / Opportunity Characterizer** — richer time, range transition, liquidity, latency, VI/event, overextension and re-engagement evidence;
-5. **E5 Structural Skill Generator** — propose one bounded legal child from observed gaps;
-6. **E6 Train / Validation / OOS / Harsh Arena**;
-7. **E7 Evolution Memory / Evidence UI**;
-8. **E8 Macro Context Attribution / Deployment**.
+1. **E3 Multi-Battle Parameter Seeker** — tune numeric parameters on one frozen BattleCase set while DSL structure remains fixed;
+2. **E4 Causal Failure / Opportunity Characterizer** — time/range/volatility/liquidity/signal-density/latency/overextension evidence without requiring an ML learner;
+3. **E5 Bounded Structural Skill Generator** — propose exactly one legal child capability from observed gaps;
+4. **E6 Train / Validation / OOS / Harsh Evolution Arena**;
+5. **E7 Evolution Memory / Evidence UI**;
+6. **E8 Macro Context Attribution / Deployment**.
 
-Do not begin E3B executable work before the E3A consolidated boundary is green.
+Optional adaptive TacticalMemory / Learner / resolution-mode research may resume later only when a concrete mainline need is demonstrated and it can remain behind stable sidecar interfaces.
+
+Do not add another executable tranche before the current E3A consolidated boundary is green.
 
 ## Next automated boundary
 
