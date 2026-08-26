@@ -83,9 +83,10 @@ class TacticalObservationTests(unittest.TestCase):
         self.assertIn("atr_pct", features)
         self.assertIn("volume_ratio", features)
         self.assertIn("recent_return_12bar_pct", features)
+        self.assertTrue(observation.market_prefix_hash)
         self.assertTrue(observation.observation_hash)
 
-    def test_future_market_mutation_cannot_change_past_observation_features(self):
+    def test_future_market_mutation_cannot_change_past_observation_identity(self):
         original_market = rising_5m_market()
         case = battle_case(original_market)
         timestamp = original_market["time"][65]
@@ -110,7 +111,14 @@ class TacticalObservationTests(unittest.TestCase):
             family_id="JMA_TREND_CROSS_RESUME_V1",
             generation_hash="generation-0",
         )
+
+        # Full BattleCase provenance changes because later bars changed, but the
+        # point-in-time observation must remain identical because its market
+        # prefix and causal features are unchanged.
+        self.assertNotEqual(before.case_hash, after.case_hash)
+        self.assertEqual(before.market_prefix_hash, after.market_prefix_hash)
         self.assertEqual(dict(before.features), dict(after.features))
+        self.assertEqual(before.observation_hash, after.observation_hash)
 
     def test_timeframe_mismatch_fails_closed(self):
         market = rising_5m_market()
