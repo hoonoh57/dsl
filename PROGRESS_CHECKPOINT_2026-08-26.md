@@ -1,85 +1,66 @@
 # Quant DSL Progress Checkpoint — through 2026-08-27 KST
 
-Status: **E6_TRUSTED_FULL_PASS / E7_EVOLUTION_MEMORY_EVIDENCE_UI_IMPLEMENTED_AWAITING_TRUSTED_FULL / CORE_DSL_FREEZE_ACTIVE**
+Status: **E7_TRUSTED_FULL_PASS / E8_MACRO_CONTEXT_ATTRIBUTION_DEPLOYMENT_IMPLEMENTED_AWAITING_TRUSTED_FULL / CORE_DSL_FREEZE_ACTIVE**
 
 ## Trusted Full checkpoints
 
-### Earlier E0 / initial foundation
+```text
+E0  ac01525223f897f155de63f02529b0a6429a0882
+E1  6e9b2f357080eff904ddd2d5d369c0a9a2d3b14b
+E2  620f741730b0ae821fc48affd22b5420f38a6cac
+E3A 06b52962a1b9b1212a11202ccef1f27b8d7f40c0
+E3  cc3096c28ea8b9af718a1784df1b17af62bcde9a
+E4  560526b7f5af19462a57fd1e5b433bcbe5596500
+E5  c1351152d58e4219b9998f0b35b7636f340dc986
+E6  ad87a68a1f8d0595f51a3c02bde022a63ea22cc6
+E7  dc420d7f7961a4f0517b00c059d159b8face706c
+```
+
+Each exact checkpoint above received:
 
 ```text
-ac01525223f897f155de63f02529b0a6429a0882
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-### E1 Korean regular-session BattleCase contract
+E4's first Full failure was classified `environment issue`: the local external Chart SSOT checkout was behind remote. After fast-forwarding Chart SSOT to `7a43f0f52928045904d192deb7d8d532cb4c533e`, the same E4 DSL SHA passed without changing E4 source/tests.
+
+## Stability architecture remains authoritative
 
 ```text
-6e9b2f357080eff904ddd2d5d369c0a9a2d3b14b
-[PASS] Tactical P1 verification completed: mode=Full.
+CORE_DSL_FREEZE_ADAPTIVE_SIDECAR_POLICY.md
+PARENT_CONTEXT_FEATURE_PROVIDER_POLICY.md
+MULTI_SYMBOL_ADDON_EXTENSION_POLICY.md
+MICRO_FIRST_MACRO_READY_ARCHITECTURE.md
 ```
 
-### E2 JMA family / legal skill tree
+Core remains deterministic and narrow. Parent/cascading intelligence is computed outside Instrument DSL, frozen as point-in-time context, and may later be consumed through a read-only context seam. Arbitrary peer-symbol query/ranking remains outside Core. Macro intelligence cannot bypass hard local guards or common execution authority.
 
-The initial E2 failure was classified as **test defect** because a 5m regression used a 1d synthetic fixture. Product timeframe fail-close behavior was preserved.
+## E7 trusted checkpoint
+
+E7 adds append-only E6 validation memory plus deterministic read-only evolution lineage and Tactical UI evidence.
+
+Key distinctions remain explicit:
 
 ```text
-620f741730b0ae821fc48affd22b5420f38a6cac
-[PASS] Tactical P1 verification completed: mode=Full.
+Train ACCEPT
+!= E6 final ACCEPT
+!= promotion_eligible
+!= recorded accepted generation
+!= explicit family head
 ```
 
-### E3A causal TacticalObservation sidecar
-
-Future-only market mutation may change full BattleCase provenance but cannot change an earlier observation's causal prefix identity or features.
+The lineage API is GET-only:
 
 ```text
-06b52962a1b9b1212a11202ccef1f27b8d7f40c0
-[PASS] Tactical P1 verification completed: mode=Full.
+GET /api/stage1/tactical/evolution/{family_id}
 ```
 
-### E3 Multi-Battle Parameter Seeker
+No promotion write route or browser `/promote` action exists. Head mutation remains explicit `TacticalEvolutionStore.promote(...)` authority.
 
-E3 tunes declared numeric DSL inputs over exactly one frozen BattleCase set. Structure stays fixed; execution settings are not tuned; comparison uses metric leaderboards and Pareto evidence rather than a hidden universal score.
-
-```text
-cc3096c28ea8b9af718a1784df1b17af62bcde9a
-[PASS] Tactical P1 verification completed: mode=Full.
-```
-
-### E4 Causal Failure / Opportunity Characterizer
-
-E4 separates signal-time causal observations from later realized labels through distinct `causal_dataset_hash` and `labeled_dataset_hash` identities.
-
-The first E4 Full attempt failed at the external Chart SSOT stable-pane contract. Classification: **environment issue**. The local Chart repo was behind remote `main`; no E4 product source or assertion was weakened.
-
-Verified dependency/checkpoint pair:
+The operator synchronized `main`, confirmed:
 
 ```text
-DSL:
-560526b7f5af19462a57fd1e5b433bcbe5596500
-
-Chart SSOT:
-7a43f0f52928045904d192deb7d8d532cb4c533e
-
-[PASS] Tactical P1 verification completed: mode=Full.
-```
-
-### E5 Bounded Structural Skill Generator
-
-E5 materializes only legal registered one-skill child structures through explicit family renderers and never ranks or promotes children itself.
-
-```text
-c1351152d58e4219b9998f0b35b7636f340dc986
-[PASS] Tactical P1 verification completed: mode=Full.
-```
-
-### E6 Validation / Harsh Arena
-
-E6 replays one fixed parent/child pair across explicit TRAIN / VALIDATION / OOS / HARSH partitions. TRAIN uses the existing EvolutionArena; holdouts use explicit axis-by-axis tolerances. Default `engagement_collapse` blocks a child from appearing robust solely by abandoning every holdout battle when the parent was active.
-
-The operator synchronized `main`, confirmed exact checkout:
-
-```text
-ad87a68a1f8d0595f51a3c02bde022a63ea22cc6
+dc420d7f7961a4f0517b00c059d159b8face706c
 ```
 
 and ran:
@@ -88,138 +69,7 @@ and ran:
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-Therefore **E6 is trusted Full-green at `ad87a68a1f8d0595f51a3c02bde022a63ea22cc6`.**
-
-Detailed checkpoint:
-
-```text
-E6_VALIDATION_HARSH_ARENA_IMPLEMENTATION.md
-```
-
-## Stability architecture remains authoritative
-
-```text
-CORE_DSL_FREEZE_ADAPTIVE_SIDECAR_POLICY.md
-PARENT_CONTEXT_FEATURE_PROVIDER_POLICY.md
-MULTI_SYMBOL_ADDON_EXTENSION_POLICY.md
-```
-
-Core remains deterministic and narrow. Parent/cascading intelligence remains preserved through Provider -> immutable Context -> future read-only binding. Arbitrary cross-symbol analysis stays in optional Add-ons. Learned/adaptive components remain sidecars and cannot bypass hard guards/common execution authority.
-
-## E7 executable/UI boundary now added
-
-E7 turns the append-only evolution ledger into an inspectable lineage without adding a second promotion authority.
-
-New core layer:
-
-```text
-core/tactical_evolution_lineage.py
-```
-
-Projection schema:
-
-```text
-tactical_evolution_lineage/v1
-```
-
-### Memory sources
-
-Existing `TacticalEvolutionStore` remains authoritative for:
-
-```text
-profiles
-failures
-generations
-Train evolution decisions
-explicit family head
-```
-
-E7 additionally stores E6 `tactical_validation_arena/v1` evidence append-only by `arena_hash`.
-
-Validation evidence requires:
-
-```text
-matching family
-existing parent generation
-ACCEPT / REJECT / REVIEW
-promotion_eligible exactly matches ACCEPT
-accepted_generation only for ACCEPT
-accepted generation parent/child identity matches E6 evidence
-```
-
-Recording E6 evidence never calls `promote()`.
-
-### Accepted lineage projection
-
-Each accepted generation exposes:
-
-```text
-generation/candidate/profile identity
-parent generation
-acquired skills
-exactly one new skill
-capability usage
-explicit head flag
-compact profile metrics
-failure reason tags
-Train decision evidence
-E6 Validation/OOS/HARSH evidence
-```
-
-Projection validates one-skill lineage again at read time. G0 must have no parent/skill, later acquired-skill lists must preserve the parent prefix and add exactly one skill, and stored generation/profile candidate identities must match.
-
-Malformed append-only evidence fails closed rather than being rendered as a valid skill tree.
-
-### Attempts remain separate
-
-Rejected/reviewed attempts are shown independently from accepted generation nodes. This preserves the distinctions among:
-
-```text
-Train ACCEPT/REJECT/REVIEW
-E6 final validation result
-promotion_eligible
-accepted generation record
-explicit family head
-```
-
-There is no universal lineage score.
-
-### Read-only API/UI
-
-`tactical_main.py` adds:
-
-```text
-GET /api/stage1/tactical/evolution/{family_id}
-```
-
-No evolution promotion write endpoint was added.
-
-`core/templates/tactical.html` and `core/static/tactical.js` add an Evolution Skill Tree / Evidence panel showing:
-
-```text
-explicit head
-lineage hash
-accepted generations
-new skill
-failure tags
-Train / Validation / OOS / HARSH status
-compact return/MDD evidence
-attempts and holdout failures
-whether an attempt became an accepted generation
-```
-
-The browser has no `/promote` action. E7 does not change Chart SSOT source or chart-document semantics.
-
-### Regression coverage
-
-New tests:
-
-```text
-test_stage1_tactical_evolution_lineage.py
-test_stage1_tactical_evolution_ui.py
-```
-
-They cover append-only validation evidence, one-skill lineage integrity, explicit-head semantics, deterministic lineage hashes, GET-only UI/API behavior, and absence of automatic promotion controls.
+Therefore **E7 is trusted Full-green at `dc420d7f7961a4f0517b00c059d159b8face706c`.**
 
 Detailed checkpoint:
 
@@ -227,40 +77,154 @@ Detailed checkpoint:
 E7_EVOLUTION_MEMORY_EVIDENCE_UI_IMPLEMENTATION.md
 ```
 
-This E7 boundary has **not yet received trusted Full validation**.
+## E8 executable boundary now added
+
+New module:
+
+```text
+core/tactical_context_attribution.py
+```
+
+New regression:
+
+```text
+test_stage1_tactical_context_attribution.py
+```
+
+Detailed authority:
+
+```text
+E8_MACRO_CONTEXT_ATTRIBUTION_DEPLOYMENT_IMPLEMENTATION.md
+```
+
+### E8 evidence flow
+
+```text
+trusted NEUTRAL TacticalProfile
+ + exact case_id -> OBSERVED BattlefieldContext mapping
+ + declared ContextSliceRule(s)
+        ↓
+read-only attribution
+        ↓
+axis-by-axis slice evidence vs full micro baseline
+        ↓
+explicit ContextDeploymentPolicy
+        ↓
+DEPLOYMENT BattlefieldContext
+        ↓
+DeploymentDecision evidence only
+```
+
+### Neutral micro identity is preserved
+
+Attribution accepts only `tactical_discovery/v1` profiles that were created under `require_neutral_context=true`.
+
+It does not rewrite or re-run the profile merely to attach parent context. Existing `run_hash`, `case_set_hash`, candidate identity and per-case results remain historical micro evidence.
+
+External context coverage must exactly match the profile case IDs. Every `OBSERVED BattlefieldContext` must be causal at the case `knowledge_cutoff`. Future/missing/extra/mismatched context fails closed.
+
+### Context slices are explicit
+
+A `ContextSliceRule` declares:
+
+```text
+slice_id
+layer
+context_id
+feature_key
+operator = EQ | GT | GTE | LT | LTE
+value
+```
+
+This supports market regime/KOSPI state, sector strength, leader/follower alignment or other registered point-in-time parent features without allowing direct peer-symbol queries from Instrument DSL.
+
+### No hidden macro score
+
+Baseline and each slice expose explicit metrics:
+
+```text
+cases / active / no-trade
+profitable_case_rate
+average / median return
+worst case return / worst MDD
+cost per case
+average MFE giveback
+slice-minus-baseline delta
+retained case / active rate
+```
+
+Policies:
+
+```text
+INDEPENDENT_DECLARED_CONTEXT_SLICES_NO_HIDDEN_SCORE
+HISTORICAL_MICRO_PROFILE_READ_ONLY
+ATTRIBUTION_ONLY_NO_ENTRY_AUTHORITY
+```
+
+No universal score, automatic best regime, profile rewrite or automatic macro gate exists.
+
+### Deployment evidence is separate
+
+`ContextDeploymentPolicy` requires explicit policy/version/tactic/rule/attribution identity.
+
+Evidence status:
+
+```text
+RESEARCH_ONLY
+VALIDATED
+```
+
+`VALIDATED` requires a separate `validation_evidence_hash`; training attribution cannot self-promote into deployment validation.
+
+The decision context must be `DEPLOYMENT` mode. E8 emits the existing `DeploymentDecision` and deterministic policy/decision hashes.
+
+E8 is still non-operational:
+
+```text
+policy_evidence_validated = true|false
+operational_authority = false
+execution_integration = NOT_WIRED_TO_DSL_ENTRY_GATE_OR_BROKER
+```
+
+A future separately validated integration is required before any deployment decision can restrict real entry authorization.
+
+### Regression coverage
+
+`test_stage1_tactical_context_attribution.py` covers:
+
+- neutral profile immutability;
+- OBSERVED causal context attribution;
+- exact context-case coverage;
+- future-context fail-close;
+- neutral-baseline requirement;
+- deterministic mapping/rule ordering;
+- explicit slice delta evidence and absence of hidden score/best;
+- DEPLOYMENT-only policy decisions;
+- research-only non-authority;
+- separate validation-evidence requirement.
+
+The existing Tactical P1 Full verifier discovers this regression through `test_stage1_*.py`.
 
 ## Current validation status
 
-May claim:
-
-- E1 trusted Full PASS at `6e9b2f357080eff904ddd2d5d369c0a9a2d3b14b`;
-- E2 trusted Full PASS at `620f741730b0ae821fc48affd22b5420f38a6cac`;
-- E3A trusted Full PASS at `06b52962a1b9b1212a11202ccef1f27b8d7f40c0`;
-- E3 trusted Full PASS at `cc3096c28ea8b9af718a1784df1b17af62bcde9a`;
-- E4 trusted Full PASS at `560526b7f5af19462a57fd1e5b433bcbe5596500` with Chart SSOT `7a43f0f52928045904d192deb7d8d532cb4c533e`;
-- E5 trusted Full PASS at `c1351152d58e4219b9998f0b35b7636f340dc986`;
-- E6 trusted Full PASS at `ad87a68a1f8d0595f51a3c02bde022a63ea22cc6`;
-- E7 source/tests/read-only Tactical UI are implemented awaiting Full;
-- Core DSL Freeze / sidecar/provider/Add-on boundaries remain authoritative.
+May claim E1 through E7 trusted Full PASS at the exact SHAs above and E8 source/tests implemented awaiting Full.
 
 Do not claim yet:
 
-- trusted Full PASS for E7;
-- that any real JMA generation has passed E6 or been promoted;
-- autonomous family-head promotion;
-- a strongest/profitable generation;
-- trained TacticalMemory/learner;
-- adaptive lower-timeframe/tick deployment;
-- parent-context DSL binding or functioning multi-symbol deployment Add-on;
-- macro context attribution/deployment;
-- production generalization/live readiness;
+- trusted Full PASS for E8;
+- profitable/generalizing macro slice for a real JMA generation;
+- production parent-feature Providers;
+- DSL `ctx.*` runtime binding;
+- functioning multi-symbol deployment selector;
+- operational context entry gate or Broker authority;
+- autonomous portfolio allocation;
+- trained adaptive learner;
+- production/live readiness;
 - repository-wide compliance PASS.
 
-`REMEDIATION_REQUIRED` remains the broader repository status.
+`REMEDIATION_REQUIRED` remains broader repository status.
 
 ## Immediate boundary
-
-Do not begin E8 Macro Context Attribution / Deployment executable work before E7 is trusted green.
 
 Run:
 
@@ -280,4 +244,4 @@ environment issue
 unknown
 ```
 
-before editing.
+before editing. Do not wire E8 into production execution before trusted Full validation.
