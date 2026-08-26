@@ -1,21 +1,17 @@
-# Quant DSL Progress Checkpoint — 2026-08-26 KST
+# Quant DSL Progress Checkpoint — through 2026-08-27 KST
 
-Status: **E3_TRUSTED_FULL_PASS / E4_CAUSAL_CHARACTERIZER_IMPLEMENTED_AWAITING_TRUSTED_FULL / CORE_DSL_FREEZE_ACTIVE**
+Status: **E4_TRUSTED_FULL_PASS / E5_BOUNDED_STRUCTURAL_SKILL_GENERATOR_IMPLEMENTED_AWAITING_TRUSTED_FULL / CORE_DSL_FREEZE_ACTIVE**
 
 ## Trusted Full checkpoints
 
-### Earlier E0 / initial E1-E2 foundation
-
-Trusted executable checkpoint:
+### Earlier E0 / initial foundation
 
 ```text
 ac01525223f897f155de63f02529b0a6429a0882
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-### E1 Korean regular-session contract
-
-Trusted executable checkpoint:
+### E1 Korean regular-session BattleCase contract
 
 ```text
 6e9b2f357080eff904ddd2d5d369c0a9a2d3b14b
@@ -24,9 +20,7 @@ Trusted executable checkpoint:
 
 ### E2 JMA family / legal skill tree
 
-The first E2 Full failure was classified as a **test defect** because a 5m JMA regression used the default deterministic 1d synthetic fixture. Product timeframe fail-close behavior was correct and was not weakened.
-
-Trusted executable checkpoint after remediation:
+The initial E2 failure was classified as **test defect** because a 5m regression used a 1d synthetic fixture. Product timeframe fail-close behavior was preserved.
 
 ```text
 620f741730b0ae821fc48affd22b5420f38a6cac
@@ -35,71 +29,59 @@ Trusted executable checkpoint after remediation:
 
 ### E3A causal TacticalObservation sidecar
 
-E3A introduced `core/tactical_observation.py` and its regression contract. Feature calculation is prefix-only and observation identity was hardened so future-only market mutations may change full `BattleCase.case_hash` provenance but cannot change the earlier observation's `market_prefix_hash`, feature values or `observation_hash`.
-
-Trusted exact checkout:
+Future-only market mutation may change full BattleCase provenance but cannot change an earlier observation's causal prefix identity or features.
 
 ```text
 06b52962a1b9b1212a11202ccef1f27b8d7f40c0
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-Therefore **E3A is trusted Full-validated at `06b52962a1b9b1212a11202ccef1f27b8d7f40c0`.**
-
 ### E3 Multi-Battle Parameter Seeker
 
-E3 added `core/tactical_parameter_seeker.py` and `test_stage1_tactical_parameter_seeker.py`.
-
-Trusted contract:
-
-```text
-base TacticCandidate
- + numeric DSL input parameter space
- + one frozen BattleCase set
-        ↓
-deterministic grid/random plan
-        ↓
-DSL input substitution only
-        ↓
-TacticalDiscoveryEngine on the same BattleCases
-        ↓
-profile per parameter candidate
-        ↓
-TacticalCompetitionEngine
-        ↓
-metric leaderboards + Pareto frontier
-```
-
-Important boundaries:
-
-- E3 v1 accepts `ParameterSpec(target="dsl")` only;
-- execution-setting tuning is rejected so frozen `BattleCase` identity/settings do not drift between candidates;
-- candidate DSL structure is unchanged except declared numeric `input` values;
-- every profile keeps the same `case_set_hash` and context policy;
-- no hidden universal score is introduced;
-- no automatic promotion occurs;
-- worker count may not change seek identity or comparison evidence.
-
-The operator reported Full PASS and confirmed the exact local checkout:
+E3 tunes declared numeric DSL inputs over exactly one frozen BattleCase set. Structure stays fixed; execution settings are not tuned; all candidates remain on the same case/context contract; comparison uses metric leaderboards and Pareto evidence rather than a hidden universal score.
 
 ```text
 cc3096c28ea8b9af718a1784df1b17af62bcde9a
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-Remote `main` also pointed at the same SHA at verification review time.
+Therefore E3 is trusted Full-green at the SHA above.
 
-Therefore **E3 Multi-Battle Parameter Seeker is trusted Full-validated at `cc3096c28ea8b9af718a1784df1b17af62bcde9a`.**
+### E4 Causal Failure / Opportunity Characterizer
 
-Detailed implementation checkpoint:
+E4 joins actual entry signal-time causal observations to later realized labels while keeping those domains separately hashed:
 
 ```text
-E3_MULTI_BATTLE_PARAMETER_SEEKER_IMPLEMENTATION.md
+causal_dataset_hash
+labeled_dataset_hash
 ```
 
-## Stability architecture remains authoritative
+Changing future labels alone cannot change `causal_dataset_hash`.
 
-The project continues under:
+The first E4 Full attempt failed at the external Chart SSOT stable-pane contract. Classification: **environment issue**. The local Chart repo was behind its remote `main`; no DSL/E4 source or test was changed to manufacture a pass.
+
+The Chart repo was then fast-forwarded to:
+
+```text
+7a43f0f52928045904d192deb7d8d532cb4c533e
+Preserve stable pane contract with price markers
+```
+
+The exact E4 DSL checkout remained:
+
+```text
+560526b7f5af19462a57fd1e5b433bcbe5596500
+```
+
+and the operator reran:
+
+```text
+[PASS] Tactical P1 verification completed: mode=Full.
+```
+
+Therefore **E4 is trusted Full-green at `560526b7f5af19462a57fd1e5b433bcbe5596500` with verified Chart SSOT dependency `7a43f0f52928045904d192deb7d8d532cb4c533e`.**
+
+## Stability architecture remains authoritative
 
 ```text
 CORE_DSL_FREEZE_ADAPTIVE_SIDECAR_POLICY.md
@@ -107,83 +89,128 @@ PARENT_CONTEXT_FEATURE_PROVIDER_POLICY.md
 MULTI_SYMBOL_ADDON_EXTENSION_POLICY.md
 ```
 
-Key rules:
+Core remains deterministic and narrow. Parent/cascading intelligence remains preserved through Provider -> immutable Context -> future read-only binding. Arbitrary cross-symbol analysis stays in optional Add-ons. Learned/adaptive components remain sidecars and cannot override hard guards/common execution authority without a future explicit contract.
 
-- Core Instrument DSL stays deterministic and narrow;
-- adaptive learning/memory remains optional sidecar research;
-- arbitrary cross-symbol reads/ranking remain outside Instrument DSL;
-- parent/cascading features remain available through Provider -> immutable Context snapshot -> future read-only `ctx.*` binding;
-- parent calculations do not execute inside DSL Runtime;
-- hard guards/common execution authority cannot be bypassed by learned/add-on/context evidence without explicit future authority.
+## E5 executable boundary now added
 
-## E4 executable boundary now added
+`core/tactical_skill_generator.py` implements the first **Bounded Structural Skill Generator**.
 
-`core/tactical_characterization.py` adds the first **Causal Failure / Opportunity Characterizer**.
-
-Its evidence flow is:
+The E5 evidence flow is:
 
 ```text
-trusted tactical_discovery profile
- + exact frozen BattleCases
- + actual closed-trade signal_time
+trusted parent EvolutionGeneration
+ + exact parent TacticCandidate
+ + tactical_failure/v1
+ + matching tactical_characterization/v1
+ + TacticFamily legal skill tree / CapabilityBudget
         ↓
-causal TacticalObservation at signal_time
+TacticFamilySpec.legal_skills(...)
         ↓
-compact causal feature subset
-        │
-        ├──────── future boundary ────────┐
-        ↓                                 ↓
-causal_features                    future outcome labels
-                                   return / MFE / MAE
-                                   giveback / exit / hold
-        └─────────────────┬───────────────┘
-                          ↓
-             deterministic descriptive strata
+explicit family renderer
+        ↓
+one registered skill per child proposal
+        ↓
+optional E3 numeric search
+        ↓
+replay
+        ↓
+EvolutionArena ACCEPT / REJECT / REVIEW
 ```
 
-The two identities are separated:
+E5 itself produces proposals only and never promotes a family head.
+
+### First supported family
 
 ```text
-causal_dataset_hash
-labeled_dataset_hash
+JMA_TREND_CROSS_RESUME_V1
 ```
 
-Changing only future labels must not change `causal_dataset_hash`.
-
-Initial compact causal axes are:
+Explicit renderers correspond exactly to the E2 catalog:
 
 ```text
-minutes_from_open
-jma_spread_atr
-sma60_slope_pct
-price_to_sma60_atr
-atr_pct
-volume_ratio
-higher_high_ratio
-higher_low_ratio
+JMA_RANGE_COOLDOWN
+JMA_ADX_ENTRY_QUALITY
+JMA_CONFIRM_AFTER_RANGE
+JMA_FAST_PROFIT_PROTECTION
 ```
 
-E4 reports value-only quantile strata with support, profitable rate, return/MFE/MAE/giveback and outcome-tag counts. It also carries existing case-level `TacticalFailureAnalyzer` evidence.
+Another family requires a separately implemented and validated renderer.
 
-Explicit boundaries:
+### Evidence lock
 
-- causal features and future outcomes are separate payloads;
-- exact profile/BattleCase identity is required;
-- no hidden universal score;
-- no learner;
-- no live gate;
-- no automatic SkillSpec generation;
-- no Parser/Runtime/Backtest/Broker modification.
+All of the following must match the same parent generation:
 
-Regression coverage in `test_stage1_tactical_characterization.py` verifies causal/label separation, future-label mutation isolation, exact BattleCase identity and deterministic result hashes/strata.
+```text
+family_id
+parent candidate_hash
+profile_run_hash
+case_set_hash
+generation_hash
+failure_hash attached to characterization
+```
+
+Mismatch fails closed.
+
+### Legal-skill boundary
+
+The existing family registry remains authoritative for:
+
+- observed failure relevance;
+- already acquired skills;
+- prerequisites;
+- exclusions;
+- CapabilityBudget.
+
+No LLM or E5 code may bypass that authority.
+
+### Structural boundary
+
+The renderer may modify candidate DSL only through explicit registered transforms. Expected assignments and generated names are strict/fail-closed. Parent skill structure is preserved when a dependent skill is added.
+
+Generated parameter inputs are limited to the catalog manifest:
+
+```text
+cooldown_bars
+adx_length
+adx_threshold
+confirm_bars
+```
+
+`JMA_FAST_PROFIT_PROTECTION` remains parameter-free.
+
+Generated DSL is parsed by the existing parser and regression tests execute generated candidates through the existing Backtest engine.
+
+### No hidden selection or promotion
+
+Output policies:
+
+```text
+LEGAL_REGISTERED_SKILLS_ONLY_NO_AUTOMATIC_RANKING
+PROPOSAL_ONLY_REQUIRES_REPLAY_AND_EVOLUTION_ARENA
+```
+
+E5 does not output a universal `score`, `best`, promotion `decision`, ACCEPT or head mutation.
+
+### Regression coverage
+
+`test_stage1_tactical_skill_generator.py` covers:
+
+- legal registered skills only;
+- no automatic ranking/promotion;
+- range/ADX structural rendering;
+- dependency enforcement for `JMA_CONFIRM_AFTER_RANGE`;
+- preservation of already acquired range structure;
+- exact E4 characterization/failure identity matching;
+- deterministic proposal/candidate/generator hashes;
+- execution of generated DSL through `BacktestEngine`.
 
 Detailed implementation checkpoint:
 
 ```text
-E4_CAUSAL_FAILURE_OPPORTUNITY_CHARACTERIZER_IMPLEMENTATION.md
+E5_BOUNDED_STRUCTURAL_SKILL_GENERATOR_IMPLEMENTATION.md
 ```
 
-This E4 executable boundary has **not yet received trusted Full validation**.
+This E5 boundary has **not yet received trusted Full validation**.
 
 ## Current validation status
 
@@ -193,25 +220,27 @@ May claim:
 - E2 trusted Full PASS at `620f741730b0ae821fc48affd22b5420f38a6cac`;
 - E3A trusted Full PASS at `06b52962a1b9b1212a11202ccef1f27b8d7f40c0`;
 - E3 trusted Full PASS at `cc3096c28ea8b9af718a1784df1b17af62bcde9a`;
-- Core DSL Freeze / sidecar/provider/Add-on boundaries are authoritative;
-- E4 source/tests are implemented awaiting Full validation.
+- E4 trusted Full PASS at `560526b7f5af19462a57fd1e5b433bcbe5596500` with Chart SSOT `7a43f0f52928045904d192deb7d8d532cb4c533e`;
+- E5 source/tests are implemented awaiting Full;
+- Core DSL Freeze / sidecar/provider/Add-on boundaries remain authoritative.
 
 Do not claim yet:
 
-- trusted Full PASS for E4;
-- a strongest/profitable tactic or parameter set;
-- automatic parameter/skill promotion;
+- trusted Full PASS for E5;
+- a strongest/profitable generated child;
+- automatic structural skill selection or promotion;
+- completed Train/Validation/OOS/harsh arena;
 - trained TacticalMemory/learner;
 - adaptive lower-timeframe/tick deployment;
 - parent-context DSL binding or functioning multi-symbol deployment Add-on;
 - production generalization/live readiness;
 - repository-wide compliance PASS.
 
-`REMEDIATION_REQUIRED` remains the separate broader repository status.
+`REMEDIATION_REQUIRED` remains the broader repository status.
 
 ## Immediate boundary
 
-Do not begin E5 executable work before E4 is trusted green.
+Do not begin E6 executable work before E5 is trusted green.
 
 Run:
 
