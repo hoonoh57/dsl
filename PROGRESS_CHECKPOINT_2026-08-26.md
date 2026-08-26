@@ -1,6 +1,6 @@
 # Quant DSL Progress Checkpoint — 2026-08-26 KST
 
-Status: **E3_MULTI_BATTLE_PARAMETER_SEEKER_TRUSTED_FULL_PASS / CORE_DSL_FREEZE_ACTIVE**
+Status: **E3_TRUSTED_FULL_PASS / E4_CAUSAL_CHARACTERIZER_IMPLEMENTED_AWAITING_TRUSTED_FULL / CORE_DSL_FREEZE_ACTIVE**
 
 ## Trusted Full checkpoints
 
@@ -50,7 +50,7 @@ Therefore **E3A is trusted Full-validated at `06b52962a1b9b1212a11202ccef1f27b8d
 
 E3 added `core/tactical_parameter_seeker.py` and `test_stage1_tactical_parameter_seeker.py`.
 
-The trusted contract is:
+Trusted contract:
 
 ```text
 base TacticCandidate
@@ -70,17 +70,17 @@ TacticalCompetitionEngine
 metric leaderboards + Pareto frontier
 ```
 
-Important boundaries remain:
+Important boundaries:
 
 - E3 v1 accepts `ParameterSpec(target="dsl")` only;
 - execution-setting tuning is rejected so frozen `BattleCase` identity/settings do not drift between candidates;
 - candidate DSL structure is unchanged except declared numeric `input` values;
 - every profile keeps the same `case_set_hash` and context policy;
-- no `MAX_RETURN`/`ROBUST_SCORE`-style hidden universal score is introduced;
+- no hidden universal score is introduced;
 - no automatic promotion occurs;
 - worker count may not change seek identity or comparison evidence.
 
-The operator reported Full PASS and then confirmed the exact local checkout:
+The operator reported Full PASS and confirmed the exact local checkout:
 
 ```text
 cc3096c28ea8b9af718a1784df1b17af62bcde9a
@@ -116,28 +116,74 @@ Key rules:
 - parent calculations do not execute inside DSL Runtime;
 - hard guards/common execution authority cannot be bypassed by learned/add-on/context evidence without explicit future authority.
 
-## Next mainline tranche: E4 causal characterization
+## E4 executable boundary now added
 
-E4 may now begin because E3 is trusted green.
+`core/tactical_characterization.py` adds the first **Causal Failure / Opportunity Characterizer**.
 
-E4 must remain evidence-only and deterministic. The first executable tranche should characterize actual tactic engagements by joining:
+Its evidence flow is:
 
 ```text
-entry signal_time
- -> causal TacticalObservation at that timestamp
- -> later realized trade outcome label
- -> deterministic descriptive strata / repeated failure-opportunity evidence
+trusted tactical_discovery profile
+ + exact frozen BattleCases
+ + actual closed-trade signal_time
+        ↓
+causal TacticalObservation at signal_time
+        ↓
+compact causal feature subset
+        │
+        ├──────── future boundary ────────┐
+        ↓                                 ↓
+causal_features                    future outcome labels
+                                   return / MFE / MAE
+                                   giveback / exit / hold
+        └─────────────────┬───────────────┘
+                          ↓
+             deterministic descriptive strata
 ```
 
-The causal observation and future outcome must remain separate fields. Future return/MFE/MAE/giveback/exit outcome may label an earlier observation for research, but may never become an input feature for that observation.
+The two identities are separated:
 
-E4 must not:
+```text
+causal_dataset_hash
+labeled_dataset_hash
+```
 
-- modify Parser / Runtime / Backtest / Broker semantics;
-- introduce a learner or opaque universal score;
-- auto-create a new DSL skill;
-- use future outcome values as decision-time features;
-- turn parent-context or multi-symbol research into a Core dependency.
+Changing only future labels must not change `causal_dataset_hash`.
+
+Initial compact causal axes are:
+
+```text
+minutes_from_open
+jma_spread_atr
+sma60_slope_pct
+price_to_sma60_atr
+atr_pct
+volume_ratio
+higher_high_ratio
+higher_low_ratio
+```
+
+E4 reports value-only quantile strata with support, profitable rate, return/MFE/MAE/giveback and outcome-tag counts. It also carries existing case-level `TacticalFailureAnalyzer` evidence.
+
+Explicit boundaries:
+
+- causal features and future outcomes are separate payloads;
+- exact profile/BattleCase identity is required;
+- no hidden universal score;
+- no learner;
+- no live gate;
+- no automatic SkillSpec generation;
+- no Parser/Runtime/Backtest/Broker modification.
+
+Regression coverage in `test_stage1_tactical_characterization.py` verifies causal/label separation, future-label mutation isolation, exact BattleCase identity and deterministic result hashes/strata.
+
+Detailed implementation checkpoint:
+
+```text
+E4_CAUSAL_FAILURE_OPPORTUNITY_CHARACTERIZER_IMPLEMENTATION.md
+```
+
+This E4 executable boundary has **not yet received trusted Full validation**.
 
 ## Current validation status
 
@@ -147,11 +193,12 @@ May claim:
 - E2 trusted Full PASS at `620f741730b0ae821fc48affd22b5420f38a6cac`;
 - E3A trusted Full PASS at `06b52962a1b9b1212a11202ccef1f27b8d7f40c0`;
 - E3 trusted Full PASS at `cc3096c28ea8b9af718a1784df1b17af62bcde9a`;
-- Core DSL Freeze / sidecar/provider/Add-on boundaries are authoritative.
+- Core DSL Freeze / sidecar/provider/Add-on boundaries are authoritative;
+- E4 source/tests are implemented awaiting Full validation.
 
 Do not claim yet:
 
-- E4 trusted implementation;
+- trusted Full PASS for E4;
 - a strongest/profitable tactic or parameter set;
 - automatic parameter/skill promotion;
 - trained TacticalMemory/learner;
@@ -161,3 +208,27 @@ Do not claim yet:
 - repository-wide compliance PASS.
 
 `REMEDIATION_REQUIRED` remains the separate broader repository status.
+
+## Immediate boundary
+
+Do not begin E5 executable work before E4 is trusted green.
+
+Run:
+
+```powershell
+git pull --ff-only origin main
+git rev-parse HEAD
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
+```
+
+If it fails, classify the first executable failure as exactly one of:
+
+```text
+test defect
+product defect
+authority drift
+environment issue
+unknown
+```
+
+before editing.
