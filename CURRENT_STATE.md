@@ -1,30 +1,31 @@
 # Quant DSL Current State
 
-Status: **E3A_SIDECAR_OBSERVATION_IMPLEMENTED_AWAITING_TRUSTED_FULL_VALIDATION / REMEDIATION_REQUIRED**  
+Status: **E3_MULTI_BATTLE_PARAMETER_SEEKER_IMPLEMENTED_AWAITING_TRUSTED_FULL_VALIDATION / REMEDIATION_REQUIRED**  
 Updated: 2026-08-26 KST
 
 ## Authority
 
 Read in this order:
 
-1. `EVOLVING_MICRO_WARRIOR_PLAN.md` — one-skill evolution doctrine, capability-budget and immutable-generation contract.
+1. `EVOLVING_MICRO_WARRIOR_PLAN.md` — one-skill evolution doctrine, capability budget and immutable-generation contract.
 2. `CORE_DSL_FREEZE_ADAPTIVE_SIDECAR_POLICY.md` — Core DSL stability, sidecar isolation and promotion rules.
-3. `PARENT_CONTEXT_FEATURE_PROVIDER_POLICY.md` — parent feature calculation outside DSL and future read-only context inheritance contract.
+3. `PARENT_CONTEXT_FEATURE_PROVIDER_POLICY.md` — parent-feature calculation outside DSL and future read-only context inheritance.
 4. `MULTI_SYMBOL_ADDON_EXTENSION_POLICY.md` — single-instrument Core boundary and safe optional cross-symbol Add-on contract.
-5. `ADAPTIVE_MICRO_WARRIOR_LEARNING_ARCHITECTURE.md` — optional future local-learning design, subordinate to the Core DSL freeze policy.
-6. `MICRO_FIRST_MACRO_READY_ARCHITECTURE.md` — micro-first research order and macro-ready extension seam.
+5. `ADAPTIVE_MICRO_WARRIOR_LEARNING_ARCHITECTURE.md` — optional future local-learning design, subordinate to Core Freeze.
+6. `MICRO_FIRST_MACRO_READY_ARCHITECTURE.md` — micro-first research order and macro-ready seam.
 7. `MULTI_LAYER_DSL_ARCHITECTURE.md` — final macro-to-micro runtime/deployment architecture.
-8. `MICRO_TACTICAL_DISCOVERY_IMPLEMENTATION.md` — micro discovery/competition implementation checkpoint.
-9. `P1_TACTICAL_DATA_IMPLEMENTATION.md` — P1 data/provider/UI/verification boundary.
-10. `PRODUCT_IMPLEMENTATION_PLAN.md` — original roadmap and Stage 1 kernel plan.
-11. `STAGE1_EXECUTION_POLICY.md` — continuous implementation / verification policy.
-12. `QUANT_DSL_PLAYBOOK.md` — official generated-DSL language contract.
-13. `DSL_ENGINE_AUDIT.md` — engine trust-boundary criteria.
-14. `PROGRESS_CHECKPOINT_2026-08-26.md` — trusted local Full PASS evidence checkpoints.
+8. `E3_MULTI_BATTLE_PARAMETER_SEEKER_IMPLEMENTATION.md` — current E3 executable contract/checkpoint.
+9. `MICRO_TACTICAL_DISCOVERY_IMPLEMENTATION.md` — discovery/competition checkpoint.
+10. `P1_TACTICAL_DATA_IMPLEMENTATION.md` — P1 data/provider/UI/verification boundary.
+11. `PRODUCT_IMPLEMENTATION_PLAN.md` — original roadmap and Stage 1 kernel plan.
+12. `STAGE1_EXECUTION_POLICY.md` — implementation/verification policy.
+13. `QUANT_DSL_PLAYBOOK.md` — generated-DSL language contract.
+14. `DSL_ENGINE_AUDIT.md` — engine trust-boundary criteria.
+15. `PROGRESS_CHECKPOINT_2026-08-26.md` — trusted Full PASS checkpoints.
 
 ## Product direction
 
-Final runtime/deployment remains top-down:
+Final deployment remains layered:
 
 ```text
 Parent battlefield feature providers
@@ -38,7 +39,7 @@ Parent battlefield feature providers
  -> BrokerEmulator
 ```
 
-The main research/development path remains deliberately simple:
+Current mainline research remains micro-first and deliberately simple:
 
 ```text
 minimal tactic family
@@ -51,59 +52,37 @@ minimal tactic family
  -> ACCEPT / REJECT / REVIEW
  -> immutable generation memory
  -> repeat
- -> later optional parent-context / Add-on / macro attribution and deployment
+ -> later parent-context / Add-on / macro attribution
 ```
 
-Adaptive learning, parent-context deployment and cross-symbol analysis are not mandatory steps in this critical path. They remain reserved sidecar/provider/Add-on seams that may consume immutable evidence without changing Core DSL calculation authority.
+Adaptive learning, parent-context deployment and cross-symbol analysis remain optional seams rather than mandatory Core DSL responsibilities.
 
-## Core DSL freeze policy
+## Core DSL freeze
 
-The project follows:
+The governing rule remains:
 
 > **Core DSL Freeze + Adaptive/Analysis Sidecar.**
 
-Core responsibilities remain intentionally narrow:
+Core owns deterministic scalar/series calculations, registered indicators/state primitives, causal signals, one declared base timeframe, supported completed higher-timeframe MTF, explicit order intent and reproducible Backtest/Broker semantics.
 
-- deterministic scalar/series computation;
-- registered indicators and state primitives;
-- causal signals;
-- one declared base timeframe per candidate;
-- supported completed higher-timeframe MTF reads;
-- explicit order intent;
-- reproducible Backtest/Broker execution semantics;
-- one instrument tactical execution context at a time;
-- future read-only consumption of explicitly registered parent-context values through a narrow binding contract.
+Core does **not** own online learning, arbitrary peer-symbol reads, cross-symbol ranking, market-regime calculation, sector discovery, leader/follower scans, dynamic lower-timeframe/tick requests, external DB/network calls or portfolio selection logic.
 
-The Core DSL must not absorb online model training, memory databases, arbitrary ML/RL calls, runtime self-modification, dynamic lower-timeframe/tick requests, live self-switching of the declared timeframe, arbitrary peer-symbol reads, cross-symbol ranking, universe selection, portfolio allocation, market-regime calculation, sector discovery or leader/follower analysis merely because those capabilities may be useful later.
+A future narrow read-only parent-context binding may be Core-facing, but the calculation that produces the parent value remains outside DSL Runtime.
 
-New requirements are classified first as:
+## Cascading parent-context seam
 
-```text
-A. Core DSL capability
-B. Tactical infrastructure / Provider
-C. Experimental adaptive / analysis sidecar
-```
-
-If a calculation can be implemented outside Parser / Runtime / Backtest / Broker, it stays outside Core. Only a narrowly typed, deterministic read-only reference to an already-frozen parent value may later qualify as a Core-facing capability.
-
-## Parent-context inheritance policy
-
-Cascading parent intelligence is explicitly preserved.
-
-The Instrument DSL is a single-instrument **calculation authority**, but it may later consume verified parent battlefield features without knowing or executing their calculation logic.
-
-The reserved seam is:
+Cascading feature inheritance is preserved:
 
 ```text
 Market / Sector / Group / Leader-Follower Provider
  -> immutable ContextLayerSnapshot
  -> BattlefieldContext
- -> read-only Context Binder
+ -> future read-only Context Binder
  -> registered ctx.* value
  -> Instrument DSL local tactic
 ```
 
-Conceptual future references may include:
+The DSL may eventually consume registered values such as:
 
 ```text
 ctx.market.kospi_slope
@@ -113,127 +92,61 @@ ctx.sector.leader_strength
 ctx.group.follower_alignment
 ```
 
-Important boundary:
+but may not calculate/query the parent world itself.
+
+Existing `core/battlefield_context.py` already provides `ContextLayerSnapshot`, `BattlefieldContext`, point-in-time cutoff validation, context hashes, `NEUTRAL/OBSERVED/DEPLOYMENT` and `DeploymentDecision`.
+
+Still not implemented: general Parent Feature Provider framework, Feature Manifest registry, DSL `ctx.*` grammar/type binding, Runtime Context Binder and production market/sector/group Providers.
+
+## Multi-symbol Add-on seam
+
+The Instrument DSL remains the direct single-instrument tactical authority. Multi-symbol chart display does not create cross-symbol DSL authority.
+
+Future comparative analysis stays behind an optional read-only Add-on:
 
 ```text
-DSL may read a registered parent value
-!=
-DSL may query or calculate the parent world
-```
-
-Therefore DSL execution must not perform database/network calls, symbol discovery, peer scans, sector ranking or Provider function execution. Parent calculations belong to Provider/Add-on modules.
-
-Existing `core/battlefield_context.py` already supplies the immutable envelope primitives:
-
-- `ContextLayerSnapshot`;
-- `BattlefieldContext`;
-- point-in-time `as_of <= knowledge_cutoff` validation;
-- context/snapshot hashes;
-- `NEUTRAL / OBSERVED / DEPLOYMENT` modes;
-- `DeploymentDecision`.
-
-Not implemented yet:
-
-- general Parent Feature Provider framework;
-- Parent Feature Manifest registry;
-- Instrument DSL `ctx.*` grammar/type binding;
-- runtime Context Binder;
-- concrete production market/sector/group Providers.
-
-These are reserved future seams, not current executable claims. The detailed authority is `PARENT_CONTEXT_FEATURE_PROVIDER_POLICY.md`.
-
-## Multi-symbol Add-on policy
-
-The Instrument DSL remains a **single-instrument tactical authority** for direct market-series access.
-
-```text
-multi-symbol chart display
-!=
-multi-symbol Instrument DSL authority
-```
-
-A future cross-symbol analyzer may be added safely only as an optional Add-on. The intended seam is:
-
-```text
-single-instrument DSL / tactic evaluation
- -> immutable point-in-time InstrumentSignalSnapshot per symbol
- -> optional read-only Multi-Symbol Add-on
- -> explicit ALLOW / BLOCK / PRIORITY evidence
+per-symbol immutable snapshots
+ -> optional Multi-Symbol Add-on
+ -> ALLOW / BLOCK / PRIORITY evidence
  -> DeploymentDecision / entry_gate style orchestration
  -> common execution policy
  -> BrokerEmulator
 ```
 
-A Multi-Symbol Add-on may also act as a Parent Feature Provider and publish only registered outputs such as sector breadth, leader strength or follower alignment into `ContextLayerSnapshot`. That does not grant direct peer-symbol DSL syntax.
+The Add-on may also act as a Parent Feature Provider and publish only registered point-in-time outputs. It cannot mutate DSL/runtime state, guess its universe, use future winner information or place Broker orders directly.
 
-Required safety rules:
-
-- Add-on disabled by default in neutral micro discovery;
-- explicit universe and source authority; no universe guessing;
-- all snapshots aligned to the same declared `as_of` / knowledge cutoff;
-- future/end-of-day winner information prohibited;
-- missing/stale/mismatched snapshots handled explicitly and fail closed;
-- deterministic ranking fields and tie-breaks;
-- Add-on is read-only with respect to DSL/runtime state;
-- Add-on cannot place Broker orders directly;
-- Add-on cannot bypass local hard guards or common execution policy;
-- removing/replacing the Add-on must not change Instrument DSL syntax, Parser/Runtime, Backtest accounting or historical single-instrument TacticalProfiles.
-
-The detailed authority is `MULTI_SYMBOL_ADDON_EXTENSION_POLICY.md`.
-
-No multi-symbol Add-on executable or parent-context DSL binding has been introduced in the current tranche; only extension boundaries are documented.
+No executable multi-symbol deployment Add-on or DSL parent-context binding exists yet.
 
 ## Trusted foundations
 
 ### DSL / execution kernel
 
-The typed DSL parser/runtime, indicator implementation, `BacktestEngine`, `BrokerEmulator`, common execution policy, Stage 1 app and Chart SSOT boundary remain trusted lower-level authorities. Tactical, adaptive, parent-context or multi-symbol layers may not bypass or self-modify them.
+Typed Parser/Semantic/Runtime, indicator authority, `BacktestEngine`, `BrokerEmulator`, common execution policy, Stage 1 app and Chart SSOT boundary remain lower-level trust authorities. Tactical/provider/sidecar layers may not bypass them.
 
 ### Micro discovery / competition
 
-`core/tactical_discovery.py`
+`core/tactical_discovery.py`:
 
-- `BattleCase` identity separates symbol/date/case;
-- one tactic executes over frozen multi-symbol/multi-date cases;
-- bounded workers preserve deterministic order/hashes;
-- neutral-context baseline and uniform execution settings are enforced;
+- immutable `BattleCase` identity by symbol/date/case;
+- one tactic across a frozen multi-symbol/multi-date set;
+- deterministic bounded parallelism;
+- neutral context/uniform execution baseline;
 - malformed cases fail the run;
-- complete per-case Backtest evidence remains immutable.
+- complete per-case evidence and aggregate survival/opportunity metrics.
 
-`core/tactical_competition.py`
+`core/tactical_competition.py`:
 
-- only tactics with the same frozen `case_set_hash` and context policy compete;
+- same `case_set_hash` and context policy required;
 - no hidden universal score;
-- per-metric leaderboards and conservative Pareto evidence remain authoritative.
+- metric leaderboards and conservative Pareto frontier.
 
-### E0 evolving micro-warrior contracts
+### E0 evolving micro-warrior
 
-Implemented and previously trusted:
+Trusted contracts include deterministic failure analysis, `SkillSpec`, `CapabilityBudget`, immutable `EvolutionGeneration`, exactly one new skill per child, conservative ACCEPT/REJECT/REVIEW and append-only evolution evidence.
 
-- deterministic failure analysis;
-- `SkillSpec` and `CapabilityBudget`;
-- immutable `EvolutionGeneration`;
-- one-skill `EvolutionArena`;
-- conservative ACCEPT / REJECT / REVIEW;
-- append-only evolution evidence store with explicit family-head promotion.
+`NO_TRADE` is abstention by default. Entered unresolved positions remain active failure evidence.
 
-Current failure evidence includes:
-
-```text
-LOSS
-SEVERE_LOSS
-DRAWDOWN
-ADVERSE_EXCURSION
-WHIPSAW
-MFE_GIVEBACK
-UNRESOLVED_POSITION
-```
-
-`NO_TRADE` is abstention by default. An entered but unresolved position is active failure evidence.
-
-### E1 Korean regular-session BattleCase authority
-
-`core/battlecase_provider.py` provides explicit source authority, exact symbol/date requests, Korean regular-session validation, warm-up/current-session coverage and immutable source/session-policy identity.
+### E1 authoritative Korean regular-session BattleCase Provider
 
 Trusted Full checkpoint:
 
@@ -244,15 +157,13 @@ Trusted Full checkpoint:
 
 ### E2 JMA family / legal skill tree
 
-`core/tactic_family.py` enforces failure relevance, `CapabilityBudget`, prerequisites/exclusions and cycle-safe legal skill trees.
-
-`core/tactic_family_catalog.py` currently contains only:
+Current family:
 
 ```text
 JMA_TREND_CROSS_RESUME_V1
 ```
 
-with bounded skills:
+Legal bounded skills:
 
 ```text
 JMA_RANGE_COOLDOWN
@@ -261,92 +172,122 @@ JMA_CONFIRM_AFTER_RANGE
 JMA_FAST_PROFIT_PROTECTION
 ```
 
-The first E2 Full failure was classified as a **test defect** because a 5m DSL regression test used the default 1d synthetic fixture. Product timeframe validation was not weakened. After remediation, the operator reported:
+The initial E2 failure was classified as **test defect** because a 5m DSL regression used a 1d synthetic fixture. Product timeframe fail-close behavior was preserved.
 
-```text
-[PASS] Tactical P1 verification completed: mode=Full.
-```
-
-Therefore E2 is trusted Full-validated at:
+Trusted Full checkpoint:
 
 ```text
 620f741730b0ae821fc48affd22b5420f38a6cac
+[PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-## E3A optional sidecar seam: causal TacticalObservation
+## E3A trusted sidecar checkpoint
 
-`core/tactical_observation.py` is retained as Tactical Infrastructure / Adaptive Sidecar, not as a new DSL-language responsibility.
+`core/tactical_observation.py` is an optional causal observation sidecar, not a new DSL-language responsibility.
 
-It can freeze causal point-in-time features such as:
+It freezes point-in-time JMA/trend/time/volatility/primitive price-geometry evidence from the market prefix only. The final E3A hardening separated full BattleCase provenance from causal observation identity: future-only market mutation may change full `case_hash`, but must not change the earlier `market_prefix_hash`, feature values or `observation_hash`.
 
-- JMA geometry / slope / spread / crossover state;
-- SMA60 slope and price distance;
-- ATR/range/volume/gap proxies;
-- recent return / session position;
-- higher-high / higher-low and swing geometry;
-- session time position.
+The operator verified exact checkout:
 
-The builder uses only the market prefix ending at the requested timestamp. Future bars are not inputs.
+```text
+06b52962a1b9b1212a11202ccef1f27b8d7f40c0
+[PASS] Tactical P1 verification completed: mode=Full.
+```
 
-`test_stage1_tactical_observation.py` verifies feature exposure, rising high/low geometry, future-bar isolation, timeframe fail-closed behavior and warm-up coverage.
+Therefore **E3A is trusted Full-green at `06b52962a1b9b1212a11202ccef1f27b8d7f40c0`.**
 
-This sidecar is useful future evidence, but TacticalMemory, LocalBattlefieldLearner and adaptive resolution selection are **deferred**. They do not block the main evolution path and must not drive Core DSL changes.
+## E3 current executable tranche: Multi-Battle Parameter Seeker
 
-### Hard equipment before learning
+`core/tactical_parameter_seeker.py` now implements numeric parameter search over one frozen BattleCase set.
 
-Deterministic equipment such as a future `JMS2_RANGE_GUARD` may produce a hard BLOCK before any learned admissibility is consulted. A learned score, parent context or multi-symbol Add-on may never override hard source/safety/equipment or common execution rules unless an explicit future authority defines that particular gate ordering.
+Core contract:
 
-### Adaptive timeframe
+```text
+base TacticCandidate
+ + declared numeric DSL inputs
+ + frozen BattleCases
+        ↓
+grid/random deterministic plan
+        ↓
+replace declared DSL input values only
+        ↓
+TacticalDiscoveryEngine per candidate
+        ↓
+same case_set_hash / context policy
+        ↓
+TacticalCompetitionEngine
+        ↓
+metric leaderboards + Pareto frontier
+```
 
-If later required, 5m/3m/1m are separately validated tactic-family modes selected by orchestration. A running DSL does not mutate its own `timeframe`. Tick mode remains unavailable until authoritative tick data and exact execution semantics exist.
+Important restrictions:
 
-## Current validation status
+- E3 v1 accepts only `ParameterSpec(target="dsl")`;
+- execution-setting parameters are rejected because they would change the frozen comparison contract;
+- no arbitrary expression/structure mutation;
+- no hidden `MAX_RETURN`/`ROBUST_SCORE` promotion authority;
+- no automatic family-head promotion;
+- worker count must not alter seek identity or comparison evidence.
+
+`test_stage1_tactical_parameter_seeker.py` verifies frozen-case identity, Pareto/no-score behavior, worker invariance, deterministic seeded random plans and rejection of execution-setting tuning.
+
+This E3 executable boundary has **not yet received trusted Full validation**.
+
+## Validation status
 
 May claim:
 
 - E1 trusted Full PASS at `6e9b2f357080eff904ddd2d5d369c0a9a2d3b14b`;
 - E2 trusted Full PASS at `620f741730b0ae821fc48affd22b5420f38a6cac`;
-- Core DSL Freeze / Adaptive Sidecar is authoritative;
-- parent-context Provider / read-only inheritance seam is authoritative as design;
-- single-instrument Core / optional multi-symbol Add-on boundary is authoritative;
-- E3A causal observation sidecar source/tests are implemented.
+- E3A trusted Full PASS at `06b52962a1b9b1212a11202ccef1f27b8d7f40c0`;
+- Core Freeze / parent-context / multi-symbol Add-on design boundaries are authoritative;
+- E3 Multi-Battle Parameter Seeker source/tests are implemented.
 
 Do **not** claim yet:
 
-- trusted Full PASS for the E3A executable changes;
-- an implemented Parent Feature Provider framework or DSL `ctx.*` binding;
-- a functioning multi-symbol Add-on or deployment selector;
-- TacticalMemory or a trained LocalBattlefieldLearner;
-- automatic adaptive 5m/3m/1m/tick deployment;
-- learned profitability/generalization;
+- trusted Full PASS for E3;
+- strongest/profitable parameter set or generalization;
+- automatic parameter promotion;
+- E4 Failure Characterizer implementation;
+- TacticalMemory or trained LocalBattlefieldLearner;
+- adaptive 5m/3m/1m/tick deployment;
+- functioning parent-context DSL binding or multi-symbol deployment selector;
 - live-trading readiness;
 - completed macro deployment policy;
-- concrete production sector or general 1516 minute authority unless explicitly configured;
-- donor repository-wide Chart compliance;
-- repository-wide compliance PASS.
+- repository-wide Chart or overall compliance PASS.
 
 `REMEDIATION_REQUIRED` remains authoritative for broader repository compliance.
 
-## Mainline next sequence
+## Next sequence
 
-After the current E3A sidecar boundary is trusted green, return to the original evolution mainline:
+After E3 is trusted green:
 
-1. **E3 Multi-Battle Parameter Seeker** — tune numeric parameters on one frozen BattleCase set while DSL structure remains fixed;
-2. **E4 Causal Failure / Opportunity Characterizer** — time/range/volatility/liquidity/signal-density/latency/overextension evidence without requiring an ML learner;
-3. **E5 Bounded Structural Skill Generator** — propose exactly one legal child capability from observed gaps;
-4. **E6 Train / Validation / OOS / Harsh Evolution Arena**;
-5. **E7 Evolution Memory / Evidence UI**;
-6. **E8 Macro Context Attribution / Deployment**.
+1. **E4 Causal Failure / Opportunity Characterizer**;
+2. **E5 Bounded Structural Skill Generator**;
+3. **E6 Train / Validation / OOS / Harsh Evolution Arena**;
+4. **E7 Evolution Memory / Evidence UI**;
+5. **E8 Macro Context Attribution / Deployment**.
 
-Optional adaptive TacticalMemory / Learner / resolution-mode research, Parent Feature Provider implementations / DSL context binding, and multi-symbol Add-on analysis may resume later only when a concrete mainline need is demonstrated and each remains behind stable sidecar/provider/Add-on interfaces.
+Optional adaptive learning, Parent Feature Provider/`ctx.*` binding and Multi-Symbol Add-on execution remain deferred until a concrete mainline need exists.
 
-Do not add another executable tranche before the current E3A consolidated boundary is green.
+Do not begin E4 executable work before the E3 Full boundary is trusted green.
 
 ## Next automated boundary
 
 ```powershell
 git pull --ff-only origin main
+git rev-parse HEAD
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
-If it fails, classify the first executable failure as `test defect / product defect / authority drift / environment issue / unknown` before changing code.
+If it fails, classify the first executable failure as exactly one of:
+
+```text
+test defect
+product defect
+authority drift
+environment issue
+unknown
+```
+
+before changing code.
