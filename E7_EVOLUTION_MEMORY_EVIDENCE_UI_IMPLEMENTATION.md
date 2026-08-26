@@ -1,6 +1,6 @@
 # E7 Evolution Memory / Evidence UI — Implementation Checkpoint
 
-Status: **IMPLEMENTED / AWAITING TRUSTED FULL VALIDATION / 2026-08-27 KST**
+Status: **TRUSTED FULL PASS / 2026-08-27 KST**
 
 ## 1. Trusted predecessor
 
@@ -42,7 +42,7 @@ read-only Tactical UI
 
 A displayed ACCEPT or `promotion_eligible=true` does not move the family head. Head mutation remains an explicit `TacticalEvolutionStore.promote(...)` operation outside the E7 read API/UI.
 
-## 3. New lineage/evidence layer
+## 3. Lineage/evidence layer
 
 `core/tactical_evolution_lineage.py`
 
@@ -70,42 +70,17 @@ E7 additionally preserves E6 results in an append-only validation evidence table
 evolution_validation_arenas
 ```
 
-Each validation row records:
-
-```text
-family_id
-arena_hash
-parent_generation_hash
-child_candidate_hash
-skill_id
-decision
-full tactical_validation_arena/v1 payload
-created_at
-```
-
-The same `arena_hash` may be recorded repeatedly only when its complete payload is identical. Different evidence under the same immutable hash fails closed.
+Each validation row records family, immutable `arena_hash`, parent generation, child candidate, skill, final decision and the full `tactical_validation_arena/v1` payload. The same `arena_hash` may be repeated only with an identical payload; mismatched evidence fails closed.
 
 ## 4. Validation evidence contract
 
-`record_validation(...)` accepts only:
-
-```text
-schema == tactical_validation_arena/v1
-family_id matches requested family
-parent generation exists in the family
-ACCEPT / REJECT / REVIEW only
-promotion_eligible == (decision == ACCEPT)
-```
-
-For ACCEPT, the carried `accepted_generation` must point back to the exact parent generation and exact child candidate.
-
-For REJECT/REVIEW, an accepted generation payload is forbidden.
+`record_validation(...)` accepts only evidence whose family and parent generation exist and match. `promotion_eligible` must equal `(decision == ACCEPT)`. ACCEPT must carry an accepted generation pointing to the exact parent and child; REJECT/REVIEW may not carry one.
 
 Recording E6 evidence never calls `promote()`.
 
 ## 5. Read-only lineage projection
 
-`TacticalEvolutionLineage.build(family_id)` reads append-only evidence and produces:
+`TacticalEvolutionLineage.build(family_id)` returns:
 
 ```text
 family_id
@@ -123,179 +98,68 @@ Projection policy:
 READ_ONLY_APPEND_ONLY_EVIDENCE_NO_AUTOMATIC_PROMOTION
 ```
 
-The deterministic `lineage_hash` includes accepted lineage identity, attempts and the explicit current head.
+The projection re-validates immutable one-skill lineage at read time. Generation 0 has no parent or acquired skills. Every later accepted generation must point to the previous generation, preserve the parent's acquired-skill prefix, and add exactly one skill. Stored generation/profile candidate identities must match. Malformed stored lineage fails closed.
 
-## 6. Accepted generation nodes
+## 6. Evidence exposed per generation
 
-Each node exposes:
+Each node exposes generation/candidate/profile identity, parent generation, acquired skills, exactly one new skill, capability usage, explicit head state, compact profile metrics and acquisition evidence.
 
-```text
-generation_index
-generation_hash
-parent_generation_hash
-candidate_hash
-profile_run_hash
-acquired_skills[]
-new_skill
-capability_usage
-is_head
-profile_summary
-acquisition_evidence
-```
-
-`acquisition_evidence` exposes the causal reason/evidence chain without inventing a score:
+Acquisition evidence keeps the causal chain visible:
 
 ```text
-failure_hash
-failure_tags[]
-decision_hash
-decision improvements[]
-decision survival violations[]
-validation arena hash
+failure_hash / failure tags
+Train decision / decision hash
+improvements / survival violations
+E6 arena hash
 Validation / OOS / HARSH statuses
 ```
 
-Generation 0 must have no parent and no acquired skills.
+Rejected and reviewed attempts remain outside accepted lineage nodes.
 
-Every later accepted generation must preserve its parent's acquired-skill prefix and add exactly one skill. A malformed stored lineage fails closed at projection time rather than being rendered as a plausible skill tree.
+## 7. Tactical read API / UI
 
-## 7. Attempts remain separate from accepted lineage
-
-Rejected and reviewed children are evidence, not generations.
-
-`attempts[]` exposes:
-
-```text
-parent_generation_hash
-child_candidate_hash
-skill_id
-Train decision / decision_hash
-failure_hash
-improvements[]
-survival_violations[]
-validation arena / holdout result
-promoted_generation_hash if it actually exists in accepted lineage
-```
-
-This preserves the difference between:
-
-```text
-ACCEPT evidence
-promotion eligible
-recorded accepted generation
-explicit current family head
-```
-
-Those concepts are not collapsed into one boolean.
-
-## 8. Tactical read API
-
-`tactical_main.py` now exposes:
+`tactical_main.py` exposes only:
 
 ```text
 GET /api/stage1/tactical/evolution/{family_id}
 ```
 
-The endpoint returns only the read-only lineage projection.
+No promotion write endpoint was added. The lineage reader is lazy-loaded so importing the Tactical application does not eagerly initialize evolution memory.
 
-No POST/PUT/DELETE promotion endpoint is introduced in E7.
+The Tactical page shows explicit head, lineage hash, accepted generations, new skills, failure tags, Train/Validation/OOS/HARSH evidence, compact return/MDD evidence, and rejected/reviewed attempts. Browser code contains no `/promote` operation.
 
-The lineage service is lazy-loaded so importing the Tactical application does not eagerly initialize evolution memory.
+Chart rendering remains under the external Chart SSOT; E7 does not change Chart Document semantics or Chart SSOT source.
 
-The tactical health endpoint advertises:
-
-```text
-evolution_lineage_read_only
-```
-
-## 9. Evidence UI
-
-The existing Tactical page receives a read-only Evolution panel through:
+## 8. Regression coverage
 
 ```text
-core/templates/tactical.html
-core/static/tactical.js
+test_stage1_tactical_evolution_lineage.py
+test_stage1_tactical_evolution_ui.py
 ```
 
-The UI shows:
+Coverage includes append-only validation evidence, one-skill lineage integrity, explicit-head semantics, deterministic lineage hash, GET-only API/UI behavior and absence of automatic promotion controls.
+
+## 9. Mutation boundary
+
+E7 does not modify Parser, Semantic, Runtime, indicators, Backtest accounting, BrokerEmulator, BattleCase semantics, E3 seeker, E4 characterizer, E5 renderer, E6 adjudication, or the family skill catalog.
+
+## 10. Trusted Full checkpoint
+
+The operator fast-forwarded to the exact E7 boundary and confirmed:
 
 ```text
-current explicit head
-lineage hash
-Generation rows
-new skill per generation
-failure tags
-Train / Validation / OOS / HARSH status
-profile average return / worst MDD
-attempt rows
-holdout failures
-whether an attempt became an accepted generation
+dc420d7f7961a4f0517b00c059d159b8face706c
+[PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-The browser code contains no `/promote` call and no family-head mutation control.
+Therefore **E7 is trusted Full-green at `dc420d7f7961a4f0517b00c059d159b8face706c`.**
 
-Chart rendering authority remains the external Chart SSOT. E7 does not change chart-document semantics or Chart SSOT source code.
+## 11. Nonclaims
 
-## 10. Regression coverage
-
-`test_stage1_tactical_evolution_lineage.py` verifies:
-
-- accepted one-skill lineage projection;
-- why-skill-acquired failure/decision/validation evidence;
-- explicit head remains unchanged by projection;
-- head changes only after explicit store promotion;
-- append-only/idempotent E6 validation evidence;
-- invalid family/promotion eligibility fails closed;
-- rejected validation evidence does not move head;
-- deterministic lineage identity.
-
-`test_stage1_tactical_evolution_ui.py` verifies:
-
-- GET-only lineage API contract;
-- no Tactical evolution promotion route;
-- no UI `/promote` action;
-- Generation and Attempts panels are present;
-- health exposes the read-only capability.
-
-The Tactical P1 Full verifier discovers both tests through `test_stage1_*.py`.
-
-## 11. Mutation boundary
-
-E7 does not modify:
-
-```text
-Parser
-Semantic
-Runtime
-TA/indicator authority
-Backtest accounting
-BrokerEmulator
-BattleCase semantics
-E3 numeric seeker
-E4 characterizer
-E5 structural renderer
-E6 validation adjudication
-family skill catalog
-```
-
-E7 adds memory projection/API/UI only.
-
-## 12. Nonclaims
-
-This tranche does **not** establish:
-
-- that a real JMA generation has been promoted through E6;
-- autonomous family-head promotion;
-- production-quality evolution operations/authorization;
-- profitability or live readiness;
-- trained adaptive learner;
-- parent-context DSL binding;
-- functioning multi-symbol deployment selector;
-- macro context attribution;
-- repository-wide compliance PASS.
+This checkpoint does not establish that a real JMA generation has been promoted through E6, autonomous family-head promotion, profitability/generalization/live readiness, trained adaptive learning, parent-context DSL binding, functioning multi-symbol deployment selection, or repository-wide compliance PASS.
 
 `REMEDIATION_REQUIRED` remains a separate broader repository status.
 
-## 13. Next boundary
+## 12. Next boundary
 
-Do not begin E8 Macro Context Attribution / Deployment executable work until this E7 executable/UI boundary receives trusted Full validation at an exact repository SHA.
+E8 Macro Context Attribution / Deployment may begin only from the trusted E7 checkpoint above. E8 must preserve historical micro evidence and use point-in-time parent context as an external attribution/command layer rather than rewriting the Instrument DSL or trusted execution engine.
