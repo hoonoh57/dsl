@@ -142,7 +142,35 @@ AND common execution policy
 
 A multi-symbol Add-on cannot bypass local hard guards, execution settings, position rules, costs or Broker authority.
 
-## 8. Default disabled and replaceable
+## 8. Optional Parent Feature Provider role
+
+A Multi-Symbol Add-on may also publish a bounded set of **registered parent-context features** for later read-only consumption by Instrument DSLs.
+
+Examples:
+
+```text
+sector.breadth
+sector.leader_strength
+group.follower_alignment
+group.relative_strength
+```
+
+In this role the Add-on does not expose peer-symbol runtime state directly to the DSL. It emits an immutable `ContextLayerSnapshot` with explicit `as_of`, source, feature schema/version and snapshot hash.
+
+The allowed flow is:
+
+```text
+immutable per-symbol snapshots
+ -> Multi-Symbol Add-on analysis
+ -> registered parent features
+ -> ContextLayerSnapshot
+ -> BattlefieldContext
+ -> future read-only DSL ctx.* binding
+```
+
+Direct DSL syntax for peer-symbol queries remains prohibited. The detailed parent-context contract is defined in `PARENT_CONTEXT_FEATURE_PROVIDER_POLICY.md`.
+
+## 9. Default disabled and replaceable
 
 The Add-on is optional and disabled by default during baseline micro-tactic discovery.
 
@@ -157,7 +185,9 @@ The system must be able to replace or remove the Add-on without changing:
 - BrokerEmulator;
 - historical single-instrument TacticalProfiles.
 
-## 9. Research before deployment
+A tactic that explicitly requires a registered parent-context feature may become ineligible when its Provider/Add-on is unavailable; missing required context must fail closed rather than be guessed.
+
+## 10. Research before deployment
 
 Cross-symbol analysis should first run in observation-only research mode:
 
@@ -168,28 +198,29 @@ single-instrument results
  -> compare hypothetical selection evidence
 ```
 
-Only after causal Train/Validation/OOS evidence exists may an Add-on be considered for deployment gating.
+Only after causal Train/Validation/OOS evidence exists may an Add-on be considered for deployment gating or for supplying a parent feature used by an entry rule.
 
 This prevents an attractive relative-strength or peer-comparison idea from immediately becoming live order authority.
 
-## 10. Relationship to macro layers
+## 11. Relationship to macro layers
 
 A multi-symbol Add-on is below or beside later market/sector/group deployment intelligence, not a replacement for it.
 
 A future hierarchy may be:
 
 ```text
-Instrument DSL
- -> local tactic eligibility
+Market / Sector / Group Parent Feature Providers
+ -> BattlefieldContext
+ -> Instrument DSL local tactic
  -> optional multi-symbol Add-on ranking
- -> sector/group/macro deployment policy
+ -> deployment policy
  -> common execution policy
  -> BrokerEmulator
 ```
 
-Each layer consumes explicit evidence and produces explicit decisions. No layer rewrites the lower layer's historical evidence.
+The same Add-on may contribute parent features and later perform ranking only when those responsibilities are separately versioned and auditable. Each layer consumes explicit evidence and produces explicit decisions. No layer rewrites the lower layer's historical evidence.
 
-## 11. Change-control rule
+## 12. Change-control rule
 
 Before implementing any cross-symbol feature, ask:
 
@@ -199,14 +230,24 @@ Can the requirement be expressed as read-only analysis of immutable per-symbol s
 
 If yes, it must remain an Add-on.
 
-Direct cross-symbol syntax in Instrument DSL is prohibited unless a future authority change proves that the capability cannot be safely represented through the Add-on seam and independently satisfies the Core promotion criteria in `CORE_DSL_FREEZE_ADAPTIVE_SIDECAR_POLICY.md`.
+If the result is intended for Instrument DSL consumption, ask:
 
-## 12. Success criterion
+```text
+Can the Add-on publish a registered point-in-time parent feature instead of giving the DSL peer-symbol access?
+```
 
-The architecture is correct when both statements are true:
+If yes, use the Parent Feature Provider / Context binding seam.
+
+Direct cross-symbol syntax in Instrument DSL is prohibited unless a future authority change proves that the capability cannot be safely represented through the Add-on/context seam and independently satisfies the Core promotion criteria in `CORE_DSL_FREEZE_ADAPTIVE_SIDECAR_POLICY.md`.
+
+## 13. Success criterion
+
+The architecture is correct when all statements are true:
 
 ```text
 A single-instrument tactic remains simple, deterministic and independently testable.
 
-A future multi-symbol analyzer can compare those tactics safely without changing the Instrument DSL or Broker authority.
+A future multi-symbol analyzer can compare those tactics safely without changing Instrument DSL or Broker authority.
+
+Useful cross-symbol conclusions can be inherited as registered parent context without exposing arbitrary peer-symbol access to the DSL.
 ```
