@@ -18,6 +18,7 @@ from core.multi_symbol import (
 )
 from core.tactical_chart_document import build_tactical_chart_document
 from core.tactical_cohort import CohortMember, CohortSnapshot
+from core.tactical_discovery import BattleCase, TacticCandidate, TacticalDiscoveryEngine
 
 
 DSL = '''strategy "TacticalStress" {
@@ -110,6 +111,37 @@ def run(full: bool) -> None:
     if document["version"] != "chart-document/v1" or len(document["series"]) != 4:
         raise AssertionError("tactical chart contract stress failed")
 
+    # Micro-first discovery must keep a frozen battle set deterministic across
+    # worker counts. Synthetic fixtures here are stress-only, never a real-data fallback.
+    discovery_cases = tuple(
+        BattleCase(
+            case_id=f"20260825:{task.symbol}",
+            symbol=task.symbol,
+            session_date="20260825",
+            knowledge_cutoff="20260825080000",
+            market=task.market,
+            settings={"signal_mode": "bar_close", "total_capital": 1000000.0},
+        )
+        for task in tasks
+    )
+    candidate = TacticCandidate("STRESS_MICRO", DSL, complexity_units=2)
+    discovery_one = TacticalDiscoveryEngine.evaluate(
+        candidate=candidate,
+        cases=discovery_cases,
+        max_workers=1,
+    )
+    discovery_many = TacticalDiscoveryEngine.evaluate(
+        candidate=candidate,
+        cases=discovery_cases,
+        max_workers=min(8, symbol_count),
+    )
+    if discovery_one["case_set_hash"] != discovery_many["case_set_hash"]:
+        raise AssertionError("worker count changed tactical discovery case_set_hash")
+    if discovery_one["run_hash"] != discovery_many["run_hash"]:
+        raise AssertionError("worker count changed tactical discovery run_hash")
+    if [row["case_id"] for row in discovery_many["results"]] != [case.case_id for case in discovery_cases]:
+        raise AssertionError("parallel tactical discovery changed BattleCase order")
+
     try:
         CohortSnapshot.create(
             unit_id="LEAK",
@@ -148,7 +180,8 @@ def run(full: bool) -> None:
 
     print(
         f"[PASS] Tactical contract stress completed: "
-        f"symbols={symbol_count}, bars={bars}, workers={min(8, symbol_count)}"
+        f"symbols={symbol_count}, bars={bars}, workers={min(8, symbol_count)}, "
+        f"discovery_cases={len(discovery_cases)}"
     )
 
 
