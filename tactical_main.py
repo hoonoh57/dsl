@@ -25,8 +25,14 @@ from core.tactical_research import TacticalResearchService
 
 
 research_service = TacticalResearchService()
-evolution_store = TacticalEvolutionStore()
-evolution_lineage = TacticalEvolutionLineage(evolution_store)
+evolution_lineage: TacticalEvolutionLineage | None = None
+
+
+def _get_evolution_lineage() -> TacticalEvolutionLineage:
+    global evolution_lineage
+    if evolution_lineage is None:
+        evolution_lineage = TacticalEvolutionLineage(TacticalEvolutionStore())
+    return evolution_lineage
 
 
 class Tactical1516RunRequest(BaseModel):
@@ -142,7 +148,7 @@ def tactical_high_beta_cohort(
 def tactical_evolution_family(family_id: str):
     """Return read-only append-only generation/attempt evidence for one family."""
     try:
-        return _json_safe(evolution_lineage.build(family_id))
+        return _json_safe(_get_evolution_lineage().build(family_id))
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
