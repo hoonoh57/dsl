@@ -1,6 +1,6 @@
 # E8 Macro Context Attribution / Deployment — Implementation Checkpoint
 
-Status: **IMPLEMENTED / AWAITING TRUSTED FULL VALIDATION / 2026-08-27 KST**
+Status: **TRUSTED FULL PASS / 2026-08-27 KST**
 
 ## 1. Trusted predecessor
 
@@ -11,13 +11,9 @@ dc420d7f7961a4f0517b00c059d159b8face706c
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-Therefore E7 is trusted Full-green at that SHA.
-
 ## 2. E8 objective
 
 E8 begins macro/parent-context use only after independently robust micro evidence exists.
-
-The governing research sequence is:
 
 ```text
 trusted NEUTRAL micro TacticalProfile
@@ -32,16 +28,9 @@ separately declared deployment policy
 DeploymentDecision evidence
 ```
 
-E8 does **not** rewrite historical micro results, modify the Instrument DSL, call provider calculation logic from DSL execution, install an entry gate, or call BrokerEmulator.
+E8 does not rewrite historical micro results, modify Instrument DSL, call provider calculation logic from DSL execution, install an entry gate, or call BrokerEmulator.
 
-This preserves the architecture rule:
-
-```text
-macro intelligence = additive reconnaissance / command evidence
-micro tactic = independently validated tactical authority
-```
-
-## 3. New executable
+## 3. Executable
 
 ```text
 core/tactical_context_attribution.py
@@ -64,92 +53,51 @@ ContextDeploymentPolicy
 
 ## 4. Historical profile remains read-only
 
-Attribution accepts only an existing:
+Attribution accepts only:
 
 ```text
 schema == tactical_discovery/v1
 context_policy.require_neutral_context == true
 ```
 
-profile.
-
-The profile is never re-run or modified merely to attach macro context. E8 joins case-level results to a separate mapping:
+and joins its per-case results to a separate exact mapping:
 
 ```text
 case_id -> OBSERVED BattlefieldContext
 ```
 
-The context mapping must cover the profile's BattleCases exactly: no missing case and no extra case is silently ignored.
-
-This means macro attribution does not contaminate the original:
-
-```text
-profile run_hash
-case_set_hash
-candidate_hash
-historical per-case evidence
-```
+No missing or extra case is silently ignored. The original profile `run_hash`, `case_set_hash`, candidate identity and per-case results remain unchanged.
 
 ## 5. Causal context contract
 
-Every attribution context must:
+Every attribution context must satisfy:
 
 ```text
 mode == OBSERVED
 context.validate_for(case.knowledge_cutoff) == PASS
 ```
 
-Therefore:
-
-```text
-context.as_of <= case knowledge_cutoff
-layer.as_of <= case knowledge_cutoff
-```
-
-Future context fails closed.
-
-E8 consumes existing immutable `ContextLayerSnapshot` / `BattlefieldContext` evidence. It does not implement market/sector/group Provider algorithms or DSL `ctx.*` binding.
+Future context fails closed. E8 consumes existing immutable `ContextLayerSnapshot` / `BattlefieldContext` evidence and does not implement parent-feature provider algorithms or DSL `ctx.*` binding.
 
 ## 6. Explicit context slices
 
-`ContextSliceRule` declares one inspectable condition:
+`ContextSliceRule` declares:
 
 ```text
 slice_id
 layer
 context_id
 feature_key
-operator
+operator = EQ | GT | GTE | LT | LTE
 value
 metadata
 ```
 
-Current operators:
-
-```text
-EQ
-GT
-GTE
-LT
-LTE
-```
-
-Examples:
-
-```text
-MARKET / KOSPI_REGIME / state EQ RISK_ON
-MARKET / KOSPI_REGIME / strength GT 0.5
-SECTOR / SEMICONDUCTOR / relative_strength GT 1.2
-GROUP / LEADER_FOLLOWER / follower_alignment GTE 0.7
-```
-
-A required layer/context/feature missing from a case fails closed. Values are never guessed or silently replaced by zero/false.
-
-Slices are independent declared analyses. They may overlap; E8 does not invent a mutually exclusive hidden regime classifier.
+Required layer/context/feature absence fails closed. Values are never guessed or silently defaulted. Slices are independent declared analyses and may overlap.
 
 ## 7. Attribution evidence
 
-For the complete neutral baseline and each declared slice, E8 computes explicit axes only:
+For the full neutral baseline and each slice E8 exposes explicit axes:
 
 ```text
 cases
@@ -162,18 +110,11 @@ worst_case_return_pct
 worst_mdd_pct
 cost_per_case
 average_mfe_giveback_pct
-```
-
-Each slice also exposes:
-
-```text
 matched_case_ids
 incremental_vs_all
 retained_case_rate
 retained_active_case_rate
 ```
-
-`incremental_vs_all` is a direct axis-by-axis slice-minus-baseline delta. There is no weighted macro score and no `best regime` field.
 
 Policies:
 
@@ -183,116 +124,42 @@ HISTORICAL_MICRO_PROFILE_READ_ONLY
 ATTRIBUTION_ONLY_NO_ENTRY_AUTHORITY
 ```
 
-The deterministic `attribution_hash` includes the original micro identity, the exact case-to-context hashes, declared rules and resulting slice evidence.
-
-Caller order of the context mapping or rule list must not change attribution identity.
+There is no weighted macro score and no automatic `best regime` field.
 
 ## 8. Deployment policy evidence
 
-`ContextDeploymentPolicy` is deliberately separate from attribution.
+`ContextDeploymentPolicy` is separate from attribution and declares explicit policy/version/tactic/rule/attribution identity.
 
-It declares:
-
-```text
-policy_id
-policy_version
-tactic_id
-ContextSliceRule
-attribution_hash
-evidence_status
-validation_evidence_hash
-priority_if_allowed
-```
-
-Evidence status is explicit:
+Evidence status:
 
 ```text
 RESEARCH_ONLY
 VALIDATED
 ```
 
-`VALIDATED` requires a separate non-empty `validation_evidence_hash`. E8 does not manufacture that validation status from training attribution.
+`VALIDATED` requires a separate non-empty `validation_evidence_hash`; training attribution cannot self-promote into deployment validation.
 
-Deployment evaluation accepts only:
+Decision evaluation requires `BattlefieldContext.mode == DEPLOYMENT` and emits the existing `DeploymentDecision` plus deterministic policy/decision hashes.
 
-```text
-BattlefieldContext.mode == DEPLOYMENT
-```
-
-and emits the existing `DeploymentDecision` contract plus deterministic policy/decision hashes.
-
-A slice match may produce an allow decision; a miss produces a block decision for the declared tactic.
-
-However every result also states:
+E8 remains non-operational:
 
 ```text
+policy_evidence_validated = true | false
+operational_authority = false
 execution_integration = NOT_WIRED_TO_DSL_ENTRY_GATE_OR_BROKER
 ```
 
-So this tranche produces command evidence, not a live order path.
-
-## 9. Why OBSERVED and DEPLOYMENT are separate
-
-The progression remains:
-
-```text
-NEUTRAL micro baseline
- -> OBSERVED context attribution
- -> separate Validation / OOS evidence for a context policy
- -> explicit DEPLOYMENT policy
-```
-
-This prevents the common error:
-
-```text
-training context happened to correlate with profit
- -> immediately block all other environments
- -> tactic appears robust only because difficult battles disappeared
-```
-
-Macro intelligence may improve deployment, but it cannot retroactively become life support for an otherwise weak micro tactic.
-
-## 10. Cascading parent-feature compatibility
-
-E8 is compatible with the authoritative parent-feature architecture:
-
-```text
-Market/Index Provider
- -> MARKET ContextLayerSnapshot
- -> Sector Provider + MARKET snapshot
- -> SECTOR ContextLayerSnapshot
- -> Group/Leader-Follower Provider + parent snapshots
- -> GROUP ContextLayerSnapshot
- -> E8 attribution/deployment evidence
-```
-
-The Provider implementation may later come from deterministic market logic, a sector engine or an optional Multi-Symbol Add-on. Instrument DSL still receives no arbitrary peer-symbol query authority.
-
-## 11. Regression coverage
+## 9. Regression coverage
 
 ```text
 test_stage1_tactical_context_attribution.py
 ```
 
-Coverage includes:
+Coverage includes neutral-profile immutability, exact causal context coverage, future-context fail-close, deterministic ordering, axis deltas with no hidden score, DEPLOYMENT-only policy evaluation, research-only non-authority, separate validation-evidence requirement and absence of execution wiring.
 
-- OBSERVED context attribution against a neutral frozen micro profile;
-- historical profile remains unchanged;
-- exact case coverage;
-- future context fail-close;
-- neutral-baseline requirement;
-- deterministic identity independent of mapping/rule input order;
-- explicit axis deltas with no hidden score/best field;
-- DEPLOYMENT-only command-policy evaluation;
-- RESEARCH_ONLY decisions have no operational authority;
-- VALIDATED status requires separate validation evidence;
-- no DSL entry-gate/Broker integration claim.
+## 10. Mutation boundary
 
-The Tactical P1 verifier discovers the regression through `test_stage1_*.py`.
-
-## 12. Mutation boundary
-
-E8 adds no changes to:
+E8 changed none of:
 
 ```text
 Parser
@@ -309,25 +176,34 @@ E6 validation adjudication
 E7 evolution lineage/promotion authority
 ```
 
-It is a read-only analysis/command sidecar over immutable evidence.
+## 11. Trusted Full checkpoint
 
-## 13. Nonclaims
+The operator synchronized `main`, confirmed exact checkout:
 
-This tranche does **not** establish:
+```text
+3256f1de6b9bb7e8b79342ea037edcd51125bcda
+```
 
-- that any real JMA generation has a profitable macro slice;
-- that a context rule generalizes OOS;
-- a production Market/Sector/Group Parent Feature Provider;
-- DSL `ctx.*` binding;
-- a functioning multi-symbol selection/deployment Add-on;
-- live entry-gate integration;
-- Broker order authority from macro context;
-- autonomous portfolio allocation;
-- production profitability/live readiness;
-- repository-wide compliance PASS.
+and ran:
+
+```text
+[PASS] Tactical P1 verification completed: mode=Full.
+```
+
+Therefore **E8 is trusted Full-green at `3256f1de6b9bb7e8b79342ea037edcd51125bcda`.**
+
+## 12. Nonclaims
+
+E8 does not establish a profitable/generalizing real JMA macro slice, production parent-feature providers, DSL `ctx.*` binding, functioning multi-symbol deployment selection, operational entry-gate/Broker authority, autonomous allocation, adaptive learner, live readiness or repository-wide compliance PASS.
 
 `REMEDIATION_REQUIRED` remains broader repository status.
 
-## 14. Next boundary
+## 13. Post-E8 boundary
 
-Do not treat E8 as trusted or wire any context decision into production entry authorization until the exact E8 repository SHA receives Tactical P1 Full validation.
+The next concrete blocker is reproducible context production. The authorized next tranche is:
+
+```text
+PCTX1 Parent Feature Provider / Feature Manifest
+```
+
+PCTX1 remains outside Instrument DSL execution and must receive its own trusted Full validation before any Core-facing `ctx.*` binding or operational deployment wiring begins.
