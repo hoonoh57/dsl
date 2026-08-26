@@ -13,6 +13,8 @@ class TacticalLauncherContractTests(unittest.TestCase):
         self.assertIn('"app":"cascading-feature-solution"', text)
         self.assertIn("Node.js >= 24", text)
         self.assertIn("pymysql", text)
+        self.assertIn("$tacticalPidValue = $null", text)
+        self.assertIn("$chartPidValue = $null", text)
         self.assertNotIn("dummy", text.lower())
 
     def test_consolidated_verifier_keeps_base_full_boundary_then_adds_tactical_stress_and_smoke(self):
@@ -26,11 +28,20 @@ class TacticalLauncherContractTests(unittest.TestCase):
     def test_tactical_app_cohort_inspection_does_not_return_outcomes(self):
         text = (ROOT / "tactical_main.py").read_text(encoding="utf-8")
         cohort_start = text.index("def tactical_1516_cohort")
-        run_start = text.index("def tactical_1516_run")
-        cohort_block = text[cohort_start:run_start]
+        beta_start = text.index("def tactical_high_beta_cohort")
+        cohort_block = text[cohort_start:beta_start]
         self.assertIn("bundle.public_snapshot()", cohort_block)
         self.assertNotIn("bundle.outcomes", cohort_block)
         self.assertNotIn("to_evaluation_payload", cohort_block)
+
+    def test_tactical_app_exposes_high_beta_inspection_without_guessing_minute_table(self):
+        text = (ROOT / "tactical_main.py").read_text(encoding="utf-8")
+        self.assertIn('/api/stage1/tactical/high-beta/cohort', text)
+        self.assertIn('market_database: str = ""', text)
+        self.assertIn('market_table: str = ""', text)
+        self.assertNotIn('market_table: str = "minute_candles_5m"', text)
+        self.assertIn("database=req.market_database or None", text)
+        self.assertIn("table=req.market_table or None", text)
 
 
 if __name__ == "__main__":
