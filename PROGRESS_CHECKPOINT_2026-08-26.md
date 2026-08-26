@@ -1,8 +1,14 @@
 # Quant DSL Progress Checkpoint — through 2026-08-27 KST
 
-Status: **E7_TRUSTED_FULL_PASS / E8_MACRO_CONTEXT_ATTRIBUTION_DEPLOYMENT_IMPLEMENTED_AWAITING_TRUSTED_FULL / CORE_DSL_FREEZE_ACTIVE**
+Status: **E8_TRUSTED_FULL_PASS / PCTX1_PARENT_FEATURE_PROVIDER_IMPLEMENTED_AWAITING_TRUSTED_FULL / CORE_DSL_FREEZE_ACTIVE**
 
 ## Trusted Full checkpoints
+
+Each exact checkout below received:
+
+```text
+[PASS] Tactical P1 verification completed: mode=Full.
+```
 
 ```text
 E0  ac01525223f897f155de63f02529b0a6429a0882
@@ -14,17 +20,14 @@ E4  560526b7f5af19462a57fd1e5b433bcbe5596500
 E5  c1351152d58e4219b9998f0b35b7636f340dc986
 E6  ad87a68a1f8d0595f51a3c02bde022a63ea22cc6
 E7  dc420d7f7961a4f0517b00c059d159b8face706c
+E8  3256f1de6b9bb7e8b79342ea037edcd51125bcda
 ```
 
-Each exact checkpoint above received:
+E4's first Full failure was classified `environment issue` because the local external Chart SSOT checkout was stale. After fast-forwarding Chart SSOT to `7a43f0f52928045904d192deb7d8d532cb4c533e`, the same E4 DSL SHA passed without changing E4 product/tests.
 
-```text
-[PASS] Tactical P1 verification completed: mode=Full.
-```
+## Stability architecture
 
-E4's first Full failure was classified `environment issue`: the local external Chart SSOT checkout was behind remote. After fast-forwarding Chart SSOT to `7a43f0f52928045904d192deb7d8d532cb4c533e`, the same E4 DSL SHA passed without changing E4 source/tests.
-
-## Stability architecture remains authoritative
+Authoritative boundaries remain:
 
 ```text
 CORE_DSL_FREEZE_ADAPTIVE_SIDECAR_POLICY.md
@@ -33,200 +36,178 @@ MULTI_SYMBOL_ADDON_EXTENSION_POLICY.md
 MICRO_FIRST_MACRO_READY_ARCHITECTURE.md
 ```
 
-Core remains deterministic and narrow. Parent/cascading intelligence is computed outside Instrument DSL, frozen as point-in-time context, and may later be consumed through a read-only context seam. Arbitrary peer-symbol query/ranking remains outside Core. Macro intelligence cannot bypass hard local guards or common execution authority.
+Core stays deterministic and single-instrument. Parent feature calculation, peer-symbol analysis, ranking, provider I/O and adaptive learning stay outside Instrument DSL execution.
 
-## E7 trusted checkpoint
+## E8 trusted checkpoint
 
-E7 adds append-only E6 validation memory plus deterministic read-only evolution lineage and Tactical UI evidence.
-
-Key distinctions remain explicit:
+E8 separates:
 
 ```text
-Train ACCEPT
-!= E6 final ACCEPT
-!= promotion_eligible
-!= recorded accepted generation
-!= explicit family head
+trusted NEUTRAL micro profile
+ -> OBSERVED context attribution
+ -> separate context-policy validation
+ -> DEPLOYMENT decision evidence
+ -> future operational integration
 ```
 
-The lineage API is GET-only:
+The operator confirmed exact E8 checkout:
 
 ```text
-GET /api/stage1/tactical/evolution/{family_id}
+3256f1de6b9bb7e8b79342ea037edcd51125bcda
 ```
 
-No promotion write route or browser `/promote` action exists. Head mutation remains explicit `TacticalEvolutionStore.promote(...)` authority.
+and Full PASS.
 
-The operator synchronized `main`, confirmed:
+Therefore **E8 is trusted Full-green at `3256f1de6b9bb7e8b79342ea037edcd51125bcda`.**
+
+E8 remains deliberately non-operational:
 
 ```text
-dc420d7f7961a4f0517b00c059d159b8face706c
+operational_authority = false
+execution_integration = NOT_WIRED_TO_DSL_ENTRY_GATE_OR_BROKER
 ```
 
-and ran:
+## Post-E8 mainline decision
+
+The immediate blocker is now reproducible parent-context production, not entry-gate wiring and not Core `ctx.*` grammar.
+
+The next tranche is named separately from the E0-E8 roadmap:
 
 ```text
-[PASS] Tactical P1 verification completed: mode=Full.
+PCTX1 Parent Feature Provider / Feature Manifest
 ```
 
-Therefore **E7 is trusted Full-green at `dc420d7f7961a4f0517b00c059d159b8face706c`.**
+This follows the authoritative parent-context policy and avoids inventing an unsupported `E9` phase.
 
-Detailed checkpoint:
-
-```text
-E7_EVOLUTION_MEMORY_EVIDENCE_UI_IMPLEMENTATION.md
-```
-
-## E8 executable boundary now added
+## PCTX1 executable boundary
 
 New module:
 
 ```text
-core/tactical_context_attribution.py
+core/parent_feature_provider.py
 ```
 
 New regression:
 
 ```text
-test_stage1_tactical_context_attribution.py
+test_stage1_parent_feature_provider.py
 ```
 
-Detailed authority:
+Detailed checkpoint:
 
 ```text
-E8_MACRO_CONTEXT_ATTRIBUTION_DEPLOYMENT_IMPLEMENTATION.md
+PCTX1_PARENT_FEATURE_PROVIDER_IMPLEMENTATION.md
 ```
 
-### E8 evidence flow
+### Contracts
 
 ```text
-trusted NEUTRAL TacticalProfile
- + exact case_id -> OBSERVED BattlefieldContext mapping
- + declared ContextSliceRule(s)
-        ↓
-read-only attribution
-        ↓
-axis-by-axis slice evidence vs full micro baseline
-        ↓
-explicit ContextDeploymentPolicy
-        ↓
-DEPLOYMENT BattlefieldContext
-        ↓
-DeploymentDecision evidence only
+ParentFeatureSpec
+ParentFeatureManifest
+ParentFeatureRegistry
+ParentFeatureProviderResult
+ParentFeatureProvider Protocol
+ParentContextAssembly
+ParentContextAssembler
 ```
 
-### Neutral micro identity is preserved
-
-Attribution accepts only `tactical_discovery/v1` profiles that were created under `require_neutral_context=true`.
-
-It does not rewrite or re-run the profile merely to attach parent context. Existing `run_hash`, `case_set_hash`, candidate identity and per-case results remain historical micro evidence.
-
-External context coverage must exactly match the profile case IDs. Every `OBSERVED BattlefieldContext` must be causal at the case `knowledge_cutoff`. Future/missing/extra/mismatched context fails closed.
-
-### Context slices are explicit
-
-A `ContextSliceRule` declares:
+Schemas:
 
 ```text
-slice_id
-layer
-context_id
+parent_feature_provider/v1
+parent_feature_registry/v1
+parent_context_assembly/v1
+```
+
+### Feature identity
+
+A public feature is declared through provider/version/layer/context metadata and a typed feature spec:
+
+```text
+feature_id
 feature_key
-operator = EQ | GT | GTE | LT | LTE
-value
+value_type
+semantic_version
+causality_policy
+required
+missing_policy
 ```
 
-This supports market regime/KOSPI state, sector strength, leader/follower alignment or other registered point-in-time parent features without allowing direct peer-symbol queries from Instrument DSL.
-
-### No hidden macro score
-
-Baseline and each slice expose explicit metrics:
+Current v1 supports:
 
 ```text
-cases / active / no-trade
-profitable_case_rate
-average / median return
-worst case return / worst MDD
-cost per case
-average MFE giveback
-slice-minus-baseline delta
-retained case / active rate
+NUMBER
+STRING
+BOOLEAN
+CONFIRMED_ONLY
+FAIL_CLOSED
+OPTIONAL_ABSENT
 ```
 
-Policies:
+### Registry
+
+The deterministic registry exposes stable feature IDs without exposing calculation implementation. It rejects duplicate provider/version and duplicate feature identities.
+
+This is the future discoverability seam for strategy generators and a generic read-only binder.
+
+### Provider result
+
+Provider-specific calculation remains external to Instrument DSL. Once computed, a result records:
 
 ```text
-INDEPENDENT_DECLARED_CONTEXT_SLICES_NO_HIDDEN_SCORE
-HISTORICAL_MICRO_PROFILE_READ_ONLY
-ATTRIBUTION_ONLY_NO_ENTRY_AUTHORITY
+manifest
+as_of
+knowledge_cutoff
+source
+features
+dependency_result_hashes
+metadata
+snapshot_hash
+result_hash
 ```
 
-No universal score, automatic best regime, profile rewrite or automatic macro gate exists.
+It fails closed on future/stale evidence, required-feature absence, undeclared features, type mismatch, missing source or malformed dependencies.
 
-### Deployment evidence is separate
+### Cascading context
 
-`ContextDeploymentPolicy` requires explicit policy/version/tactic/rule/attribution identity.
+Parent results can form an explicit causal chain through immutable `result_hash` dependencies. Assembly requires dependencies to exist and not be later than the child provider result.
 
-Evidence status:
+`ParentContextAssembler` accepts only precomputed results and emits OBSERVED/DEPLOYMENT `BattlefieldContext` with manifest/result provenance in context metadata.
+
+Policy:
 
 ```text
-RESEARCH_ONLY
-VALIDATED
+PRECOMPUTED_IMMUTABLE_CAUSAL_PROVIDER_RESULTS_ONLY
 ```
 
-`VALIDATED` requires a separate `validation_evidence_hash`; training attribution cannot self-promote into deployment validation.
+Input result ordering must not change context/assembly identity.
 
-The decision context must be `DEPLOYMENT` mode. E8 emits the existing `DeploymentDecision` and deterministic policy/decision hashes.
+### Mutation boundary
 
-E8 is still non-operational:
+PCTX1 does not modify:
 
 ```text
-policy_evidence_validated = true|false
-operational_authority = false
-execution_integration = NOT_WIRED_TO_DSL_ENTRY_GATE_OR_BROKER
+Parser
+Semantic
+Runtime
+Backtest
+BrokerEmulator
+TA/indicator authority
+Chart SSOT
+E3-E8 adjudication semantics
 ```
 
-A future separately validated integration is required before any deployment decision can restrict real entry authorization.
-
-### Regression coverage
-
-`test_stage1_tactical_context_attribution.py` covers:
-
-- neutral profile immutability;
-- OBSERVED causal context attribution;
-- exact context-case coverage;
-- future-context fail-close;
-- neutral-baseline requirement;
-- deterministic mapping/rule ordering;
-- explicit slice delta evidence and absence of hidden score/best;
-- DEPLOYMENT-only policy decisions;
-- research-only non-authority;
-- separate validation-evidence requirement.
-
-The existing Tactical P1 Full verifier discovers this regression through `test_stage1_*.py`.
+It does not yet implement production market/sector/group calculators, context timelines, DSL `ctx.*`, Runtime binder or operational deployment wiring.
 
 ## Current validation status
 
-May claim E1 through E7 trusted Full PASS at the exact SHAs above and E8 source/tests implemented awaiting Full.
+May claim E0-E8 trusted Full PASS and PCTX1 source/tests implemented awaiting Full.
 
-Do not claim yet:
-
-- trusted Full PASS for E8;
-- profitable/generalizing macro slice for a real JMA generation;
-- production parent-feature Providers;
-- DSL `ctx.*` runtime binding;
-- functioning multi-symbol deployment selector;
-- operational context entry gate or Broker authority;
-- autonomous portfolio allocation;
-- trained adaptive learner;
-- production/live readiness;
-- repository-wide compliance PASS.
+Do not claim PCTX1 trusted, production parent-feature calculation, DSL parent-context binding, operational macro gate, autonomous allocation, live readiness or repository-wide compliance PASS.
 
 `REMEDIATION_REQUIRED` remains broader repository status.
 
 ## Immediate boundary
-
-Run:
 
 ```powershell
 git pull --ff-only origin main
@@ -234,7 +215,7 @@ git rev-parse HEAD
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
-If it fails, classify the first executable failure as exactly one of:
+If Full fails, classify the first executable failure exactly as:
 
 ```text
 test defect
@@ -244,4 +225,4 @@ environment issue
 unknown
 ```
 
-before editing. Do not wire E8 into production execution before trusted Full validation.
+before editing. Do not begin PCTX2 or Core `ctx.*` work before PCTX1 is trusted green.
