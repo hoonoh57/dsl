@@ -15,10 +15,14 @@ class FakeExecutor:
             return [{"Field": name} for name in ("code", "date", "close")]
         dates = ["2026-08-19", "2026-08-20", "2026-08-21", "2026-08-24", "2026-08-25"]
         rows = []
+        # Construct returns so A has approximately 2x benchmark beta and B
+        # has a much smaller positive beta. The previous monotonic fixture made
+        # A's returns rise while benchmark returns fell, which correctly
+        # produced a negative covariance and invalidated the intended ranking.
         values = {
-            "KOSPI": [100, 101, 102, 103, 104],
-            "A": [100, 102, 104, 107, 110],
-            "B": [100, 100.5, 101, 101.5, 102],
+            "KOSPI": [100, 101, 100, 102, 101],
+            "A": [100, 102, 100, 104, 102],
+            "B": [100, 100.5, 100.25, 100.75, 100.5],
         }
         for code, closes in values.items():
             for day, close in zip(dates, closes):
