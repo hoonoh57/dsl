@@ -1,31 +1,32 @@
 # Quant DSL Current State
 
-Status: **E7_EVOLUTION_MEMORY_EVIDENCE_UI_IMPLEMENTED_AWAITING_TRUSTED_FULL_VALIDATION / REMEDIATION_REQUIRED**  
+Status: **E8_MACRO_CONTEXT_ATTRIBUTION_DEPLOYMENT_IMPLEMENTED_AWAITING_TRUSTED_FULL_VALIDATION / REMEDIATION_REQUIRED**  
 Updated: 2026-08-27 KST
 
 ## Authority
 
 Read in this order:
 
-1. `EVOLVING_MICRO_WARRIOR_PLAN.md` — one-skill evolution doctrine, capability budget and immutable-generation contract.
-2. `CORE_DSL_FREEZE_ADAPTIVE_SIDECAR_POLICY.md` — Core DSL stability, sidecar isolation and promotion rules.
-3. `PARENT_CONTEXT_FEATURE_PROVIDER_POLICY.md` — parent-feature calculation outside DSL and future read-only context inheritance.
-4. `MULTI_SYMBOL_ADDON_EXTENSION_POLICY.md` — single-instrument Core boundary and safe optional cross-symbol Add-on contract.
-5. `ADAPTIVE_MICRO_WARRIOR_LEARNING_ARCHITECTURE.md` — optional future local-learning design, subordinate to Core Freeze.
-6. `MICRO_FIRST_MACRO_READY_ARCHITECTURE.md` — micro-first research order and macro-ready seam.
-7. `MULTI_LAYER_DSL_ARCHITECTURE.md` — final macro-to-micro runtime/deployment architecture.
-8. `E3_MULTI_BATTLE_PARAMETER_SEEKER_IMPLEMENTATION.md` — trusted E3 executable contract.
-9. `E4_CAUSAL_FAILURE_OPPORTUNITY_CHARACTERIZER_IMPLEMENTATION.md` — trusted E4 executable contract.
-10. `E5_BOUNDED_STRUCTURAL_SKILL_GENERATOR_IMPLEMENTATION.md` — trusted E5 executable contract.
-11. `E6_VALIDATION_HARSH_ARENA_IMPLEMENTATION.md` — trusted E6 executable contract.
-12. `E7_EVOLUTION_MEMORY_EVIDENCE_UI_IMPLEMENTATION.md` — current E7 executable/UI contract.
-13. `MICRO_TACTICAL_DISCOVERY_IMPLEMENTATION.md` — discovery/competition checkpoint.
-14. `P1_TACTICAL_DATA_IMPLEMENTATION.md` — P1 data/provider/UI/verification boundary.
-15. `PRODUCT_IMPLEMENTATION_PLAN.md` — original roadmap and Stage 1 kernel plan.
-16. `STAGE1_EXECUTION_POLICY.md` — implementation/verification policy.
-17. `QUANT_DSL_PLAYBOOK.md` — generated-DSL language contract.
-18. `DSL_ENGINE_AUDIT.md` — engine trust-boundary criteria.
-19. `PROGRESS_CHECKPOINT_2026-08-26.md` — exact trusted Full checkpoints.
+1. `EVOLVING_MICRO_WARRIOR_PLAN.md`
+2. `CORE_DSL_FREEZE_ADAPTIVE_SIDECAR_POLICY.md`
+3. `PARENT_CONTEXT_FEATURE_PROVIDER_POLICY.md`
+4. `MULTI_SYMBOL_ADDON_EXTENSION_POLICY.md`
+5. `ADAPTIVE_MICRO_WARRIOR_LEARNING_ARCHITECTURE.md`
+6. `MICRO_FIRST_MACRO_READY_ARCHITECTURE.md`
+7. `MULTI_LAYER_DSL_ARCHITECTURE.md`
+8. `E3_MULTI_BATTLE_PARAMETER_SEEKER_IMPLEMENTATION.md`
+9. `E4_CAUSAL_FAILURE_OPPORTUNITY_CHARACTERIZER_IMPLEMENTATION.md`
+10. `E5_BOUNDED_STRUCTURAL_SKILL_GENERATOR_IMPLEMENTATION.md`
+11. `E6_VALIDATION_HARSH_ARENA_IMPLEMENTATION.md`
+12. `E7_EVOLUTION_MEMORY_EVIDENCE_UI_IMPLEMENTATION.md`
+13. `E8_MACRO_CONTEXT_ATTRIBUTION_DEPLOYMENT_IMPLEMENTATION.md`
+14. `MICRO_TACTICAL_DISCOVERY_IMPLEMENTATION.md`
+15. `P1_TACTICAL_DATA_IMPLEMENTATION.md`
+16. `PRODUCT_IMPLEMENTATION_PLAN.md`
+17. `STAGE1_EXECUTION_POLICY.md`
+18. `QUANT_DSL_PLAYBOOK.md`
+19. `DSL_ENGINE_AUDIT.md`
+20. `PROGRESS_CHECKPOINT_2026-08-26.md`
 
 ## Product direction
 
@@ -43,35 +44,36 @@ Parent battlefield feature providers
  -> BrokerEmulator
 ```
 
-Current mainline research is:
+Research remains micro-first:
 
 ```text
 minimal tactic family
  -> frozen BattleCases
  -> deterministic failure evidence
- -> causal failure/opportunity characterization
+ -> causal characterization
  -> one legal structural skill child
- -> Multi-Battle numeric Parameter Seeker where parameters exist
- -> Train / Validation / OOS / harsh replay
+ -> numeric Parameter Seeker where needed
+ -> Train / Validation / OOS / Harsh
  -> ACCEPT / REJECT / REVIEW evidence
- -> append-only evolution memory / explicit head
- -> read-only lineage/evidence UI
- -> later macro attribution/deployment
+ -> append-only generation memory / explicit head
+ -> lineage/evidence UI
+ -> macro/parent-context attribution
+ -> separately validated deployment policy
 ```
 
-Adaptive learning, parent-context deployment and cross-symbol analysis remain optional seams rather than mandatory Core DSL responsibilities.
+Macro remains an amplifier, not life support for a weak micro tactic.
 
-## Core DSL freeze and cascading context seam
+## Core DSL freeze / parent inheritance
 
 The governing rule remains:
 
 > **Core DSL Freeze + Adaptive/Analysis Sidecar.**
 
-Core owns deterministic scalar/series calculations, registered indicators/state primitives, causal signals, one declared base timeframe, supported completed higher-timeframe MTF, explicit order intent and reproducible Backtest/Broker semantics.
+Core owns deterministic local calculations, registered indicators/state, causal signals, one base timeframe, supported completed higher-timeframe MTF, explicit order intent and reproducible Backtest/Broker semantics.
 
-Core does **not** own online learning, arbitrary peer-symbol reads, cross-symbol ranking, market-regime calculation, sector discovery, leader/follower scans, dynamic lower-timeframe/tick requests, external DB/network calls or portfolio selection logic.
+Core does not own market-regime calculation, sector discovery, leader/follower scans, arbitrary peer-symbol reads/ranking, online learning, external DB/network calls or portfolio selection.
 
-Cascading parent inheritance remains reserved through:
+Cascading parent inheritance remains preserved through:
 
 ```text
 Market / Sector / Group / Leader-Follower Provider
@@ -82,237 +84,186 @@ Market / Sector / Group / Leader-Follower Provider
  -> Instrument DSL local tactic
 ```
 
-Still not implemented: general Parent Feature Provider framework, Feature Manifest registry, DSL `ctx.*` grammar/type binding, Runtime Context Binder and production market/sector/group Providers.
+Still not implemented: general Parent Feature Provider framework, Feature Manifest registry, DSL `ctx.*` grammar/type binding, Runtime Context Binder and production Market/Sector/Group Providers.
 
-Future multi-symbol comparative analysis remains an optional read-only Add-on. No executable multi-symbol deployment selector or DSL parent-context binding exists yet.
+The optional Multi-Symbol Add-on remains distinct from parent-context consumption. No production multi-symbol deployment selector exists.
 
-## Trusted checkpoints
-
-### E1 Korean regular-session BattleCase Provider
+## Trusted Full checkpoints
 
 ```text
-6e9b2f357080eff904ddd2d5d369c0a9a2d3b14b
+E1  6e9b2f357080eff904ddd2d5d369c0a9a2d3b14b
+E2  620f741730b0ae821fc48affd22b5420f38a6cac
+E3A 06b52962a1b9b1212a11202ccef1f27b8d7f40c0
+E3  cc3096c28ea8b9af718a1784df1b17af62bcde9a
+E4  560526b7f5af19462a57fd1e5b433bcbe5596500
+E5  c1351152d58e4219b9998f0b35b7636f340dc986
+E6  ad87a68a1f8d0595f51a3c02bde022a63ea22cc6
+E7  dc420d7f7961a4f0517b00c059d159b8face706c
+```
+
+Each checkpoint above received:
+
+```text
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-### E2 JMA family / legal skill tree
+E4's first Full attempt failed because the local external Chart SSOT checkout was stale; classification was `environment issue`. After fast-forwarding Chart SSOT to `7a43f0f52928045904d192deb7d8d532cb4c533e`, the same E4 DSL SHA passed without modifying E4 product/tests.
 
-Current family:
+### E7 trusted state
 
-```text
-JMA_TREND_CROSS_RESUME_V1
-```
+E7 preserves E6 validation evidence append-only and projects one-skill lineage read-only. `GET /api/stage1/tactical/evolution/{family_id}` and the Tactical UI expose accepted generations, current explicit head, failure reasons, Train/Validation/OOS/Harsh evidence and rejected/reviewed attempts.
 
-Legal bounded skills:
+No promotion write route exists. Head mutation remains explicit `TacticalEvolutionStore.promote(...)` authority.
 
-```text
-JMA_RANGE_COOLDOWN
-JMA_ADX_ENTRY_QUALITY
-JMA_CONFIRM_AFTER_RANGE
-JMA_FAST_PROFIT_PROTECTION
-```
-
-Trusted Full checkpoint:
+Trusted E7 checkpoint:
 
 ```text
-620f741730b0ae821fc48affd22b5420f38a6cac
+dc420d7f7961a4f0517b00c059d159b8face706c
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-### E3A causal TacticalObservation sidecar
+## E8 current executable tranche: Macro Context Attribution / Deployment Evidence
 
-Future-only market mutation cannot change an earlier observation's causal prefix identity/features.
-
-```text
-06b52962a1b9b1212a11202ccef1f27b8d7f40c0
-[PASS] Tactical P1 verification completed: mode=Full.
-```
-
-### E3 Multi-Battle Parameter Seeker
-
-Declared numeric DSL inputs only; frozen BattleCases/context; metric/Pareto evidence; no hidden universal score or automatic promotion.
+New executable:
 
 ```text
-cc3096c28ea8b9af718a1784df1b17af62bcde9a
-[PASS] Tactical P1 verification completed: mode=Full.
+core/tactical_context_attribution.py
 ```
 
-### E4 Causal Failure / Opportunity Characterizer
-
-Causal observation features and later outcome labels remain separately hashed. The first E4 Full failure was classified **environment issue** because the local external Chart SSOT checkout was stale. After Chart fast-forward, the same E4 DSL SHA passed Full without weakening product/tests.
+Schemas:
 
 ```text
-DSL:
-560526b7f5af19462a57fd1e5b433bcbe5596500
-
-Chart SSOT:
-7a43f0f52928045904d192deb7d8d532cb4c533e
-
-[PASS] Tactical P1 verification completed: mode=Full.
+tactical_context_attribution/v1
+tactical_context_deployment/v1
 ```
 
-### E5 Bounded Structural Skill Generator
+### Attribution boundary
 
-Only legal registered one-skill child structures are proposed. No free-form engine mutation, hidden ranking or automatic promotion.
+E8 accepts only a frozen `tactical_discovery/v1` profile whose discovery contract required `NEUTRAL` context. It joins the existing per-case results to a separate exact mapping:
 
 ```text
-c1351152d58e4219b9998f0b35b7636f340dc986
-[PASS] Tactical P1 verification completed: mode=Full.
+case_id -> OBSERVED BattlefieldContext
 ```
 
-### E6 Validation / Harsh Arena
+The mapping must cover every profile case exactly. Every context must pass `validate_for(result.knowledge_cutoff)`. Future context, missing context, extra context, missing layer/context/feature or incompatible mode fails closed.
 
-One fixed parent/child pair is replayed through explicit TRAIN / VALIDATION / OOS / HARSH partitions. TRAIN uses the existing `EvolutionArena`; holdouts use explicit axis tolerances. Default `engagement_collapse` prevents apparent robustness by total holdout abstention when the parent was active. Final ACCEPT remains promotion-eligible evidence only.
-
-Trusted Full checkpoint:
+Historical micro evidence is not rewritten:
 
 ```text
-ad87a68a1f8d0595f51a3c02bde022a63ea22cc6
-[PASS] Tactical P1 verification completed: mode=Full.
+profile run_hash unchanged
+case_set_hash unchanged
+candidate_hash unchanged
+per-case result evidence unchanged
 ```
 
-Therefore **E6 is trusted Full-green at `ad87a68a1f8d0595f51a3c02bde022a63ea22cc6`.**
+### ContextSliceRule
 
-## E7 current executable/UI tranche: Evolution Memory / Evidence UI
-
-Existing `core/tactical_evolution_store.py` remains the append-only authority for:
+Declared slice fields:
 
 ```text
-profiles
-failures
-generations
-Train evolution decisions
-explicit family head
+slice_id
+layer
+context_id
+feature_key
+operator = EQ | GT | GTE | LT | LTE
+value
+metadata
 ```
 
-New `core/tactical_evolution_lineage.py` adds E6 validation evidence preservation plus a deterministic read-only lineage projection.
+This can inspect point-in-time parent features such as market regime, KOSPI strength, sector relative strength, leader strength or follower alignment without allowing Instrument DSL to query peer symbols directly.
 
-Projection schema:
+### Attribution evidence
+
+For the complete neutral baseline and each independent declared slice, E8 exposes:
 
 ```text
-tactical_evolution_lineage/v1
+cases / active / no-trade
+profitable_case_rate
+average / median return
+worst case return
+worst MDD
+cost per case
+average MFE giveback
+matched case IDs
+slice-minus-baseline deltas
+retained case / active-case rate
 ```
 
-### E6 validation evidence memory
-
-E7 adds append-only validation evidence keyed by immutable `arena_hash`:
+Policies:
 
 ```text
-family_id
-parent_generation_hash
-child_candidate_hash
-skill_id
-ACCEPT / REJECT / REVIEW
-full tactical_validation_arena/v1 payload
+INDEPENDENT_DECLARED_CONTEXT_SLICES_NO_HIDDEN_SCORE
+HISTORICAL_MICRO_PROFILE_READ_ONLY
+ATTRIBUTION_ONLY_NO_ENTRY_AUTHORITY
 ```
 
-The same arena hash with different payload fails closed. Recording validation evidence never promotes a family head.
+There is no weighted macro score and no automatic `best regime` selection. Rule/context input order must not change `attribution_hash`.
 
-### Accepted lineage contract
+### Deployment evidence boundary
 
-The projection validates:
+`ContextDeploymentPolicy` is separate from attribution and requires an explicit `policy_id`, version, tactic, slice rule and attribution hash.
+
+Evidence state is explicit:
 
 ```text
-G0 has no parent and no skills
-each later generation points to the immediately previous generation
-parent acquired_skills remain an exact prefix
-exactly one new skill is added per accepted generation
-stored generation candidate matches stored profile candidate
-explicit head points to a stored generation
+RESEARCH_ONLY
+VALIDATED
 ```
 
-Malformed stored lineage fails closed rather than being rendered as a plausible tree.
+`VALIDATED` additionally requires a separate `validation_evidence_hash`; E8 does not infer validation from training attribution.
 
-### Evidence shown per generation
+Decision evaluation requires `BattlefieldContext.mode == DEPLOYMENT` and emits an existing `DeploymentDecision` plus deterministic policy/decision hashes.
+
+However E8 v1 is **not operational wiring**. Even a policy carrying validated evidence reports:
 
 ```text
-new skill
-failure_hash / failure tags
-Train decision hash
-improvements / survival violations
-E6 validation arena hash
-Validation / OOS / HARSH statuses
-compact generation profile metrics
-explicit is_head state
+operational_authority = false
+execution_integration = NOT_WIRED_TO_DSL_ENTRY_GATE_OR_BROKER
 ```
 
-Rejected/reviewed attempts remain separate from accepted generation nodes.
+A future separately validated integration must connect deployment permission to the common entry gate. E8 itself does not call BrokerEmulator or modify DSL execution.
 
-Projection policy:
+### Regression coverage
 
 ```text
-READ_ONLY_APPEND_ONLY_EVIDENCE_NO_AUTOMATIC_PROMOTION
+test_stage1_tactical_context_attribution.py
 ```
 
-### Read-only Tactical API/UI
+It covers neutral baseline immutability, causal OBSERVED context, exact case coverage, future-context fail-close, deterministic rule/context ordering, explicit slice deltas, no hidden score, DEPLOYMENT-only policy decisions, RESEARCH_ONLY non-authority and separate validation-evidence requirement.
 
-`tactical_main.py` now exposes only:
+Detailed checkpoint:
 
 ```text
-GET /api/stage1/tactical/evolution/{family_id}
+E8_MACRO_CONTEXT_ATTRIBUTION_DEPLOYMENT_IMPLEMENTATION.md
 ```
 
-No evolution promotion write route was added. The reader is lazy-loaded so importing the Tactical app does not eagerly initialize evolution memory.
+This E8 boundary has **not yet received trusted Full validation**.
 
-The Tactical page now contains a read-only Evolution Skill Tree / Evidence panel showing accepted generations, current explicit head, failure reasons, Train/Validation/OOS/HARSH status and rejected/reviewed attempts.
+## Validation status / nonclaims
 
-Browser UI contains no `/promote` operation. Chart SSOT source and chart-document semantics were not changed by E7.
+May claim E1 through E7 trusted Full PASS at the exact SHAs above and E8 source/tests implemented awaiting Full.
 
-Regression files:
+Do not claim yet:
 
-```text
-test_stage1_tactical_evolution_lineage.py
-test_stage1_tactical_evolution_ui.py
-```
-
-Detailed authority:
-
-```text
-E7_EVOLUTION_MEMORY_EVIDENCE_UI_IMPLEMENTATION.md
-```
-
-This E7 boundary has **not yet received trusted Full validation**.
-
-## Validation status
-
-May claim:
-
-- E1 trusted Full PASS at `6e9b2f357080eff904ddd2d5d369c0a9a2d3b14b`;
-- E2 trusted Full PASS at `620f741730b0ae821fc48affd22b5420f38a6cac`;
-- E3A trusted Full PASS at `06b52962a1b9b1212a11202ccef1f27b8d7f40c0`;
-- E3 trusted Full PASS at `cc3096c28ea8b9af718a1784df1b17af62bcde9a`;
-- E4 trusted Full PASS at `560526b7f5af19462a57fd1e5b433bcbe5596500` with Chart SSOT `7a43f0f52928045904d192deb7d8d532cb4c533e`;
-- E5 trusted Full PASS at `c1351152d58e4219b9998f0b35b7636f340dc986`;
-- E6 trusted Full PASS at `ad87a68a1f8d0595f51a3c02bde022a63ea22cc6`;
-- E7 source/tests/read-only Tactical UI are implemented awaiting Full;
-- Core Freeze / parent-context / multi-symbol Add-on boundaries remain authoritative.
-
-Do **not** claim yet:
-
-- trusted Full PASS for E7;
-- that any real JMA generation has passed E6 or been promoted;
-- autonomous family-head promotion;
-- profitability/generalization/live readiness;
-- production-quality harsh universe construction;
-- TacticalMemory or trained LocalBattlefieldLearner;
+- trusted Full PASS for E8;
+- that a real JMA macro/context slice is profitable or generalizes;
+- a production Market/Sector/Group Parent Feature Provider;
+- DSL `ctx.*` binding;
+- functioning multi-symbol deployment selection;
+- operational macro entry-gate/Broker authority;
+- autonomous portfolio allocation;
+- trained TacticalMemory/LocalBattlefieldLearner;
 - adaptive 5m/3m/1m/tick deployment;
-- functioning parent-context DSL binding or multi-symbol deployment selector;
-- completed macro attribution/deployment;
+- live-trading readiness;
 - repository-wide Chart or overall compliance PASS.
 
 `REMEDIATION_REQUIRED` remains authoritative for broader repository compliance.
 
-## Next sequence
+## Immediate boundary
 
-After E7 is trusted green:
+Do not wire E8 context decisions into production execution until this exact E8 executable boundary receives trusted Full validation.
 
-1. **E8 Macro Context Attribution / Deployment**.
-
-Optional adaptive learning and broader Parent Feature Provider/`ctx.*` binding or Multi-Symbol Add-on execution remain separately gated by concrete need and their own validation.
-
-Do not begin E8 executable work before the E7 Full boundary is trusted green.
-
-## Next automated boundary
+Run:
 
 ```powershell
 git pull --ff-only origin main
@@ -330,4 +281,4 @@ environment issue
 unknown
 ```
 
-before changing code.
+before editing.
