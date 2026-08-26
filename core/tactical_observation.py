@@ -18,7 +18,7 @@ from core.indicators import CoreTALib
 from core.tactical_discovery import BattleCase
 
 
-SCHEMA_VERSION = "tactical_observation/jma_local_v1"
+SCHEMA_VERSION = "tactical_observation/jma_local_v2"
 
 
 def _stable_hash(value: Any) -> str:
@@ -69,6 +69,33 @@ def _safe_ratio(numerator: float, denominator: float, *, default: float = 0.0) -
 
 def _pct_change(current: float, previous: float) -> float:
     return _safe_ratio(float(current) - float(previous), abs(float(previous))) * 100.0
+
+
+def _market_prefix_hash(data: Mapping[str, Any], meta: Mapping[str, Any]) -> str:
+    required = ("time", "open", "high", "low", "close", "volume")
+    lengths = {key: len(data[key]) for key in required}
+    if len(set(lengths.values())) != 1 or next(iter(lengths.values()), 0) < 1:
+        raise ValueError(f"observation market prefix 길이가 올바르지 않습니다: {lengths}")
+    rows = []
+    for index in range(lengths["time"]):
+        rows.append(
+            (
+                _timestamp(data["time"][index]),
+                float(data["open"][index]),
+                float(data["high"][index]),
+                float(data["low"][index]),
+                float(data["close"][index]),
+                float(data["volume"][index]),
+            )
+        )
+    return _stable_hash(
+        {
+            "rows": rows,
+            "timeframe": meta.get("timeframe"),
+            "source": meta.get("source"),
+            "instrument": meta.get("instrument"),
+        }
+    )
 
 
 @dataclass(frozen=True)
@@ -130,6 +157,7 @@ class JmaLocalObservationConfig:
 class TacticalObservation:
     case_id: str
     case_hash: str
+    market_prefix_hash: str
     symbol: str
     session_date: str
     timestamp: str
@@ -150,6 +178,7 @@ class TacticalObservation:
         family_id: str,
         generation_hash: str,
         resolution_mode: str,
+        market_prefix_hash: str,
         features: Mapping[str, float],
     ) -> "TacticalObservation":
         case.validate()
@@ -157,15 +186,18 @@ class TacticalObservation:
         family_id = str(family_id or "").strip()
         generation_hash = str(generation_hash or "").strip()
         resolution_mode = str(resolution_mode or "").strip()
+        market_prefix_hash = str(market_prefix_hash or "").strip()
         if not family_id or not generation_hash or not resolution_mode:
             raise ValueError("family_id/generation_hash/resolution_mode가 필요합니다.")
+        if not market_prefix_hash:
+            raise ValueError("market_prefix_hash가 필요합니다.")
         normalized = {str(key): _finite(str(key), value) for key, value in dict(features).items()}
         if not normalized:
             raise ValueError("TacticalObservation features가 비어 있습니다.")
         identity = {
             "schema": SCHEMA_VERSION,
             "case_id": case.case_id,
-            "case_hash": case.case_hash,
+            "market_prefix_hash": market_prefix_hash,
             "symbol": case.symbol,
             "session_date": _digits(case.session_date)[:8],
             "timestamp": timestamp,
@@ -178,6 +210,7 @@ class TacticalObservation:
         return cls(
             case_id=case.case_id,
             case_hash=case.case_hash,
+            market_prefix_hash=market_prefix_hash,
             symbol=case.symbol,
             session_date=_digits(case.session_date)[:8],
             timestamp=timestamp,
@@ -244,6 +277,7 @@ class JmaLocalObservationBuilder:
     ) -> TacticalObservation:
         data, _ = self._prefix(case, timestamp)
         timestamp = _timestamp(timestamp)
+        prefix_hash = _market_prefix_hash(data, dict(case.market.get("_meta") or {}))
         cfg = self.config
         o, h, l, c, v = (data[key] for key in ("open", "high", "low", "close", "volume"))
         if not all(np.all(np.isfinite(values)) for values in (o, h, l, c, v)):
@@ -348,5 +382,6 @@ class JmaLocalObservationBuilder:
             family_id=family_id,
             generation_hash=generation_hash,
             resolution_mode=resolution_mode,
+            market_prefix_hash=prefix_hash,
             features=features,
         )
