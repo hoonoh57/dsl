@@ -17,12 +17,16 @@ from stage1_main import app, ROOT
 from core.stage1_oos import _json_safe
 from core.tactical_beta_provider import HighBetaDailyCohortProvider, HighBetaSpec
 from core.tactical_chart_document import build_tactical_chart_document
+from core.tactical_evolution_lineage import TacticalEvolutionLineage
+from core.tactical_evolution_store import TacticalEvolutionStore
 from core.tactical_market import MySQLBarProvider
 from core.tactical_providers import Performance1516CohortProvider
 from core.tactical_research import TacticalResearchService
 
 
 research_service = TacticalResearchService()
+evolution_store = TacticalEvolutionStore()
+evolution_lineage = TacticalEvolutionLineage(evolution_store)
 
 
 class Tactical1516RunRequest(BaseModel):
@@ -134,6 +138,15 @@ def tactical_high_beta_cohort(
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@app.get("/api/stage1/tactical/evolution/{family_id}")
+def tactical_evolution_family(family_id: str):
+    """Return read-only append-only generation/attempt evidence for one family."""
+    try:
+        return _json_safe(evolution_lineage.build(family_id))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @app.post("/api/stage1/tactical/1516/run")
 def tactical_1516_run(req: Tactical1516RunRequest):
     try:
@@ -189,7 +202,11 @@ def tactical_health():
         "cohort_contract": "point_in_time_cohort/v1",
         "outcome_policy": "post_execution_only",
         "chart_contract": "chart-document/v1",
-        "capabilities": ["1516_run", "high_beta_cohort_inspection"],
+        "capabilities": [
+            "1516_run",
+            "high_beta_cohort_inspection",
+            "evolution_lineage_read_only",
+        ],
     }
 
 
