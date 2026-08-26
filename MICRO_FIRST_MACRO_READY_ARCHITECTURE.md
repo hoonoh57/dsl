@@ -255,3 +255,100 @@ The existing project already has the critical lower-level separations required f
 The missing seam was an explicit distinction between **micro discovery evidence** and **future battlefield command context**. This addendum makes that seam first-class.
 
 With `BattlefieldContext` optional and immutable, micro research can now be strengthened aggressively without coupling every tactic to KOSPI/KOSDAQ, sector, beta or narrative logic. Later macro modules attach through context providers and deployment policy instead of forcing a rewrite of the tactical kernel.
+
+## 10. Autonomous evolving micro-warrior doctrine
+
+The micro layer is not a blindly obedient entry trigger. Its objective is to create a **survivable, mission-capable and continuously improvable tactical agent** that can operate before macro assistance is available.
+
+### 10.1 Mission command, not forced entry
+
+A future `DeploymentDecision.allowed = true` is permission to operate, not an order to enter.
+
+Actual entry authority is conjunctive:
+
+```text
+higher-layer permission
+AND local survival/admissibility decision
+AND tactic trigger
+AND common execution/risk policy
+```
+
+Therefore a micro tactic retains an autonomous `NO_TRADE` outcome when local evidence is poor. No macro layer may force a DSL signal or bypass the tactic's local safety/admissibility logic.
+
+### 10.2 Survival across environments is a first-class objective
+
+Neutral discovery must deliberately include favorable, ordinary and adverse symbol/date battles instead of filtering away difficult cases.
+
+A strong micro warrior is not defined only by average return. Its profile must expose at least:
+
+- profitable / losing / no-trade case rates;
+- worst and tail drawdown evidence;
+- maximum loss concentration / winner concentration;
+- trade frequency and cost burden;
+- MFE capture and giveback;
+- behavior in adverse volatility/liquidity/time-of-day slices;
+- recovery / repeated-loss behavior when the execution model supports it.
+
+The system should reward tactics that remain functional or intelligently abstain under hostile local conditions rather than tactics that require a favorable macro filter to avoid collapse.
+
+### 10.3 Personal arsenal / capability budget
+
+The strongest tactic is not the tactic with the largest number of indicators or branches.
+
+Each evolving tactic family must eventually declare a bounded `CapabilityBudget`, such as:
+
+```text
+allowed indicator / signal primitives
+maximum independent state variables
+maximum tunable parameters
+maximum decision branches
+maximum concurrent setup variants
+```
+
+The exact budget is a declared research contract, not a hidden formula. Tactics exceeding the budget are a different class and cannot be compared as if they were equally operable.
+
+This formalizes the principle that a micro warrior should receive weapons it can actually operate reliably; adding a heavy, complex mechanism that increases fragility is not automatically an upgrade.
+
+### 10.4 Evolution is evidence-gated, not self-modifying production code
+
+The warrior evolves through immutable generations rather than rewriting the trusted engine.
+
+```text
+Generation N
+ -> observe battle evidence
+ -> diagnose failure / missed opportunity
+ -> propose bounded structural mutation
+ -> Seeker re-optimizes numeric parameters
+ -> re-run on the same frozen training contract
+ -> validation / OOS / harsh cases
+ -> compare against parent
+ -> ACCEPT or REJECT
+ -> Generation N+1 only after explicit promotion
+```
+
+Permitted evolution targets are DSL structure, tactic-family parameters and declared tactic metadata/policy. Parser, Runtime, Indicator implementations, Backtest accounting, BrokerEmulator and validation assertions are outside the mutation boundary.
+
+### 10.5 Parent survival must be preserved
+
+A child generation is not promoted merely because peak return is higher.
+
+Promotion evidence must show the declared mission improvement without unacceptable regression in survival axes such as drawdown, tail cases, cost, concentration, complexity and no-trade discipline.
+
+Where objectives conflict, retain the parent and child on a Pareto frontier until a declared mission contract chooses between them. Do not hide trade-offs in one opaque universal score.
+
+### 10.6 Macro intelligence is an amplifier, not life support
+
+Market regime, leading sector, high-beta, theme/policy and leader/follower intelligence are later battlefield reconnaissance layers.
+
+They should improve deployment by:
+
+- avoiding known unfavorable battlefields;
+- prioritizing environments where a validated warrior historically performs best;
+- choosing the appropriate tactic family for the current battlefield;
+- reducing unnecessary exposure and capital competition.
+
+But a micro tactic that only survives because macro filters remove all difficult battles has not yet earned the status of a strong autonomous warrior.
+
+The development target is therefore:
+
+> **First breed a compact, independently survivable and evidence-driven evolving micro warrior. Then give that warrior superior battlefield intelligence so it fights less often, but on increasingly favorable ground.**
