@@ -4,7 +4,8 @@ const params=new URLSearchParams(location.search);
 const chartBase=(params.get('chartSsot')||'http://127.0.0.1:5174').replace(/\/$/,'');
 const chartOrigin=new URL(chartBase).origin;
 let frame=null,ready=false,pending=null,seq=0;
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
+const shortHash=s=>String(s||'').slice(0,10)||'-';
 function state(text,kind=''){const n=$('state');n.textContent=text;n.className=`badge ${kind}`;}
 async function api(url,options={}){const r=await fetch(url,{headers:{'Content-Type':'application/json'},...options});const b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.detail||`HTTP ${r.status}`);return b;}
 function q(){return new URLSearchParams({
@@ -38,6 +39,47 @@ async function loadCohort(){
     members:d.members?.map(x=>({symbol:x.symbol,...x.features}))
   },null,2);
   state(`Cohort ${d.members?.length||0} symbols`,'ok');
+}
+function partitionStatus(validation,role){
+  const row=(validation?.partitions||[]).find(x=>x.role===role);
+  return row?.status||'-';
+}
+async function loadEvolution(){
+  const family=$('evo-family').value.trim();
+  if(!family)throw new Error('Evolution family를 입력하세요.');
+  state('Evolution lineage loading…');
+  const d=await api(`/api/stage1/tactical/evolution/${encodeURIComponent(family)}`);
+  $('evo-head').textContent=`Head: ${shortHash(d.head_generation_hash)}`;
+  $('evo-lineage').textContent=`Lineage: ${shortHash(d.lineage_hash)}`;
+  $('evo-nodes').innerHTML=(d.nodes||[]).map(node=>{
+    const evidence=node.acquisition_evidence||{};
+    const validation=evidence.validation||null;
+    const summary=node.profile_summary||{};
+    return `<tr>`+
+      `<td>G${Number(node.generation_index||0)} <span class="hash">${esc(shortHash(node.generation_hash))}</span></td>`+
+      `<td>${node.is_head?'HEAD':'-'}</td>`+
+      `<td>${esc(node.new_skill||'BASE')}</td>`+
+      `<td>${esc((evidence.failure_tags||[]).join(', ')||'-')}</td>`+
+      `<td>${esc(validation?.partitions?.find(x=>x.role==='TRAIN')?.status||'-')}</td>`+
+      `<td>${esc(partitionStatus(validation,'VALIDATION'))}</td>`+
+      `<td>${esc(partitionStatus(validation,'OOS'))}</td>`+
+      `<td>${esc(partitionStatus(validation,'HARSH'))}</td>`+
+      `<td>${summary.average_return_pct==null?'-':Number(summary.average_return_pct).toFixed(3)}</td>`+
+      `<td>${summary.worst_mdd_pct==null?'-':Number(summary.worst_mdd_pct).toFixed(3)}</td>`+
+      `</tr>`;
+  }).join('');
+  $('evo-attempts').innerHTML=(d.attempts||[]).map(item=>{
+    const validation=item.validation||null;
+    return `<tr>`+
+      `<td>${esc(item.skill_id||'-')}</td>`+
+      `<td class="hash">${esc(shortHash(item.child_candidate_hash))}</td>`+
+      `<td>${esc(item.train_decision||'-')}</td>`+
+      `<td>${esc(validation?.decision||'-')}</td>`+
+      `<td>${esc((validation?.holdout_failures||[]).join(', ')||'-')}</td>`+
+      `<td class="hash">${esc(shortHash(item.promoted_generation_hash))}</td>`+
+      `</tr>`;
+  }).join('');
+  state(`Evolution ${d.summary?.generations||0} generations / ${d.summary?.attempts||0} attempts`,'ok');
 }
 async function run(){
   if(!$('search-date').value)throw new Error('Search date를 입력하세요.');
@@ -79,5 +121,6 @@ async function run(){
 function wrap(fn){return async()=>{try{await fn();}catch(e){state(e.message,'fail');}}}
 $('load').onclick=wrap(loadCohort);
 $('run').onclick=wrap(run);
+$('evo-load').onclick=wrap(loadEvolution);
 ensureChart();
 })();
