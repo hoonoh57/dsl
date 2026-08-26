@@ -8,6 +8,15 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timedelta
 import math
+from pathlib import Path
+import sys
+
+# This script is invoked directly by the PowerShell verifier.  In that mode
+# Python places ``scripts`` (not the repository root) at sys.path[0], so make
+# the repository root explicit before importing the production ``core`` package.
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from core.multi_symbol import (
     CommonPolicySpec,
