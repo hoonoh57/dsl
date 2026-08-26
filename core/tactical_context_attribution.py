@@ -1,11 +1,11 @@
 """Read-only macro/parent-context attribution and deployment evidence.
 
 E8 deliberately keeps macro intelligence outside the Instrument DSL and trusted
-execution engine.  A previously frozen NEUTRAL tactical profile is joined to
+execution engine. A previously frozen NEUTRAL tactical profile is joined to
 separate point-in-time OBSERVED BattlefieldContext snapshots for attribution.
-A separately declared policy may later turn a DEPLOYMENT context into a
-DeploymentDecision, but this module never calls BrokerEmulator, mutates DSL
-source, rewrites historical profiles, or installs an entry gate.
+A separately declared policy may turn a DEPLOYMENT context into command
+evidence, but this module never calls BrokerEmulator, mutates DSL source,
+rewrites historical profiles, or installs an entry gate.
 """
 from __future__ import annotations
 
@@ -252,7 +252,9 @@ class TacticalContextAttributor:
         if set(supplied) != set(row_by_case):
             missing = sorted(set(row_by_case) - set(supplied))
             extra = sorted(set(supplied) - set(row_by_case))
-            raise ValueError(f"context attribution case coverage가 정확히 일치해야 합니다: missing={missing}, extra={extra}")
+            raise ValueError(
+                f"context attribution case coverage가 정확히 일치해야 합니다: missing={missing}, extra={extra}"
+            )
 
         context_identity = []
         for case_id in sorted(row_by_case):
@@ -407,7 +409,8 @@ class ContextDeploymentPolicy:
             "context_hash": context.context_hash,
             "matched": matched,
             "decision": public_decision,
-            "operational_authority": status == "VALIDATED",
+            "policy_evidence_validated": status == "VALIDATED",
+            "operational_authority": False,
             "execution_integration": "NOT_WIRED_TO_DSL_ENTRY_GATE_OR_BROKER",
             "decision_hash": _stable_hash(identity),
         }
