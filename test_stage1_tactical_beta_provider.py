@@ -1,4 +1,6 @@
+import os
 import unittest
+from unittest.mock import patch
 
 from core.tactical_beta_provider import HighBetaDailyCohortProvider, HighBetaSpec
 
@@ -74,6 +76,11 @@ class HighBetaProviderTests(unittest.TestCase):
                     calendar_lookback_days=20,
                 ),
             )
+
+    def test_high_beta_database_is_not_guessed(self):
+        with patch.dict(os.environ, {"TACTICAL_DAILY_DATABASE": ""}, clear=False):
+            with self.assertRaisesRegex(ValueError, "TACTICAL_DAILY_DATABASE"):
+                HighBetaDailyCohortProvider(FakeExecutor())
 
 
 if __name__ == "__main__":
