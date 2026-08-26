@@ -25,6 +25,14 @@ class TacticalLauncherContractTests(unittest.TestCase):
         self.assertIn("Select-Object -Last 80", text)
         self.assertIn("[PASS] Tactical P1 verification completed", text)
 
+    def test_tactical_stress_direct_script_bootstraps_repository_root_before_core_imports(self):
+        text = (ROOT / "scripts" / "tactical_contract_stress.py").read_text(encoding="utf-8")
+        root_index = text.index("ROOT = Path(__file__).resolve().parents[1]")
+        path_index = text.index("sys.path.insert(0, str(ROOT))")
+        core_index = text.index("from core.multi_symbol import")
+        self.assertLess(root_index, path_index)
+        self.assertLess(path_index, core_index)
+
     def test_tactical_app_cohort_inspection_does_not_return_outcomes(self):
         text = (ROOT / "tactical_main.py").read_text(encoding="utf-8")
         cohort_start = text.index("def tactical_1516_cohort")
