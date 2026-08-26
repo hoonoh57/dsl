@@ -4,7 +4,7 @@ const params=new URLSearchParams(location.search);
 const chartBase=(params.get('chartSsot')||'http://127.0.0.1:5174').replace(/\/$/,'');
 const chartOrigin=new URL(chartBase).origin;
 let frame=null,ready=false,pending=null,seq=0;
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const shortHash=s=>String(s||'').slice(0,10)||'-';
 function state(text,kind=''){const n=$('state');n.textContent=text;n.className=`badge ${kind}`;}
 async function api(url,options={}){const r=await fetch(url,{headers:{'Content-Type':'application/json'},...options});const b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.detail||`HTTP ${r.status}`);return b;}
