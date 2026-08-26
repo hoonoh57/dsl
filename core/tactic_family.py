@@ -8,6 +8,17 @@ from core.tactical_discovery import TacticCandidate
 from core.tactical_evolution import CapabilityBudget, EvolutionGeneration, SkillSpec
 
 
+USAGE_KEYS = {
+    "skills",
+    "complexity_units",
+    "indicators",
+    "parameters",
+    "state_variables",
+    "branches",
+    "setup_variants",
+}
+
+
 @dataclass(frozen=True)
 class TacticFamilySpec:
     family_id: str
@@ -28,6 +39,9 @@ class TacticFamilySpec:
             raise ValueError("base_complexity_units는 1 이상이어야 합니다.")
         self.budget.validate()
         usage = {str(key): int(value) for key, value in dict(self.base_usage).items()}
+        unknown_usage = set(usage) - USAGE_KEYS
+        if unknown_usage:
+            raise ValueError(f"TacticFamily 알 수 없는 base_usage 항목: {sorted(unknown_usage)}")
         usage.setdefault("skills", 0)
         usage.setdefault("complexity_units", int(self.base_complexity_units))
         if usage["skills"] != 0:
@@ -44,11 +58,13 @@ class TacticFamilySpec:
 
     def base_candidate(self) -> TacticCandidate:
         self.validate()
+        # Authoritative family identity cannot be overwritten by free-form metadata.
+        metadata = {**dict(self.metadata), "family_id": self.family_id, "generation": 0}
         return TacticCandidate(
             candidate_id=self.base_candidate_id,
             dsl_code=self.base_dsl,
             complexity_units=int(self.base_complexity_units),
-            metadata={"family_id": self.family_id, "generation": 0, **dict(self.metadata)},
+            metadata=metadata,
         )
 
     def normalized_base_usage(self) -> dict[str, int]:
