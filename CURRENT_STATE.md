@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **EVOLVING_MICRO_WARRIOR_E0_IMPLEMENTED_AWAITING_TRUSTED_FULL_VALIDATION / REMEDIATION_REQUIRED**  
+Status: **EVOLVING_MICRO_WARRIOR_E0_TRUSTED_FULL_PASS_E1_E2_FOUNDATION / REMEDIATION_REQUIRED**  
 Updated: 2026-08-26 KST
 
 ## Authority
@@ -16,6 +16,7 @@ Read in this order:
 7. `STAGE1_EXECUTION_POLICY.md` — continuous implementation / verification policy.
 8. `QUANT_DSL_PLAYBOOK.md` — official generated-DSL language contract.
 9. `DSL_ENGINE_AUDIT.md` — engine trust-boundary criteria.
+10. `PROGRESS_CHECKPOINT_2026-08-26.md` — trusted local Tactical P1 Full PASS evidence checkpoint.
 
 ## Product direction
 
@@ -107,7 +108,7 @@ Later market/index, breadth/volatility, sector, high-beta, theme/policy, leader/
 
 Consumes immutable `tactical_discovery/v1` profiles and produces `tactical_failure/v1` evidence.
 
-Initial failure tags:
+Current failure tags include:
 
 ```text
 LOSS
@@ -116,11 +117,12 @@ DRAWDOWN
 ADVERSE_EXCURSION
 WHIPSAW
 MFE_GIVEBACK
+UNRESOLVED_POSITION
 ```
 
 For each cluster it records affected BattleCases, frequency, negative return impact and suggested capability gaps.
 
-`NO_TRADE` is explicitly `ABSTENTION_IS_NOT_FAILURE_BY_DEFAULT`.
+`NO_TRADE` is explicitly `ABSTENTION_IS_NOT_FAILURE_BY_DEFAULT`. A case with an actual entry but an unresolved open position is active failure evidence, not abstention.
 
 This taxonomy is intentionally evidence-limited. Late-entry, local-leader, re-engagement, liquidity and time-of-day failure classes are deferred until causal local-state evidence is implemented.
 
@@ -203,7 +205,7 @@ There is no opaque weighted score.
 
 `core/tactical_evolution_store.py`
 
-Append-only SQLite evidence tables now persist:
+Append-only SQLite evidence tables persist:
 
 - every tactical discovery profile used by an evolution family;
 - every failure report;
@@ -215,14 +217,43 @@ Recording an accepted child does not silently promote it. Promotion remains an e
 
 This preserves losing/rejected experience rather than remembering only winners.
 
-### New regression contracts
+## E1/E2 foundation now present
 
-Stage1 discovery will include:
+### Explicit frozen BattleCase provider foundation
+
+`core/battlecase_provider.py`
+
+- requires exact symbol/date `BattleCaseRequest` inputs;
+- composes them through an explicit `SessionMarketProvider`;
+- creates deterministic `FrozenBattleCaseBatch` identity;
+- does not invent a production universe or substitute a dummy/fallback source;
+- defaults micro research context to `NEUTRAL` when no explicit context is supplied.
+
+This is an E1 foundation, not the final authoritative Korean regular-session universe/source contract. Concrete source authority and regular-session/warm-up rules still require the next tranche.
+
+### Bounded tactic-family / legal one-skill registry foundation
+
+`core/tactic_family.py`
+
+- `TacticFamilySpec` declares base DSL, base usage, `CapabilityBudget`, legal skills and family metadata;
+- `TacticFamilyRegistry` provides explicit family registration and lookup;
+- legal skill candidates must address an observed failure, must not already be acquired and must fit remaining budget;
+- unknown capability-usage keys fail closed;
+- free-form metadata cannot overwrite authoritative family identity/generation fields.
+
+This is an E2 foundation. A production family catalog/upgrade tree remains to be built family-by-family after E1 source authority is fixed.
+
+### Regression contracts included in consolidated Stage 1 discovery
+
+`verify_stage1.ps1` executes `python -m unittest discover -v -p test_stage1_*.py`, therefore the Tactical P1 Full verifier transitively includes newly-added Stage 1 contracts such as:
 
 - `test_stage1_tactical_evolution.py`
 - `test_stage1_tactical_evolution_store.py`
+- `test_stage1_tactical_failure.py`
+- `test_stage1_battlecase_provider.py`
+- `test_stage1_tactic_family.py`
 
-Contracts cover NO_TRADE semantics, observed-failure relevance, one-skill lineage, same-battlefield comparison, survival regression, capability-budget rejection, immutable experience persistence and explicit promotion.
+The reported trusted Tactical P1 Full PASS therefore covered these tests for the executable checkout that produced the PASS.
 
 ## Tactical P1 infrastructure still present
 
@@ -251,13 +282,23 @@ A later P1 Full attempt found a High-Beta test-fixture defect; the product beta 
 
 The next P1 run then found a tactical stress harness environment/import defect (`ModuleNotFoundError: core`); the direct-script repository-root setup was fixed.
 
-The E0 evolution mutations were added after that failure and have not yet received a trusted local Full PASS.
+After the E0 plus E1/E2 foundation mutations, the operator ran the consolidated trusted Windows PowerShell 5.1 boundary and reported:
+
+```text
+[PASS] Tactical P1 verification completed: mode=Full.
+```
+
+The executable `main` state at that PASS boundary was `ac01525223f897f155de63f02529b0a6429a0882`. Subsequent commits up to this checkpoint are documentation-only and do not alter that executable boundary.
 
 ## Current validation status
 
+May claim:
+
+- trusted Tactical P1 Full PASS for executable checkpoint `ac01525223f897f155de63f02529b0a6429a0882`;
+- E0 evolution contracts plus the E1/E2 foundation regression tests were inside that consolidated verifier boundary.
+
 Do not claim yet:
 
-- Tactical P1 / E0 Full PASS;
 - any tactic is the strongest or profitable;
 - autonomous evolution has produced a superior live tactic;
 - production profitability/generalization;
@@ -265,16 +306,18 @@ Do not claim yet:
 - completed macro deployment rules;
 - a concrete production sector snapshot authority;
 - a concrete general 1516 minute table unless supplied by deployment configuration;
-- donor repository-wide Chart compliance.
+- the final authoritative Korean regular-session BattleCase universe/source boundary;
+- donor repository-wide Chart compliance;
+- repository-wide compliance PASS.
 
-`REMEDIATION_REQUIRED` remains authoritative.
+`REMEDIATION_REQUIRED` remains authoritative for broader repository compliance and is separate from the trusted Tactical P1 Full PASS.
 
-## Next implementation sequence after trusted boundary
+## Next implementation sequence
 
 Continue micro strengthening in this order:
 
-1. authoritative Korean regular-session `BattleCaseProvider`;
-2. `TacticFamilyRegistry` + legal `SkillSpec` upgrade tree + CapabilityBudget per family;
+1. complete the authoritative Korean regular-session `BattleCaseProvider` source/session/warm-up boundary;
+2. expand `TacticFamilyRegistry` into explicit family-by-family legal `SkillSpec` catalogs and CapabilityBudgets;
 3. multi-BattleCase Parameter Seeker adapter;
 4. causal Tactical Characterizer for time/range/volatility/liquidity/signal-density/local-leader/entry-latency/re-engagement evidence;
 5. bounded structural Skill Generator that proposes one child capability from observed gaps;
@@ -284,13 +327,13 @@ Continue micro strengthening in this order:
 
 ## Next automated boundary
 
-After pulling current `main`, run one consolidated trusted Windows verification:
+No repeated trusted Full run is required for documentation-only checkpoints.
+
+After the next executable micro-tranche is merged to `main`, run the consolidated trusted Windows verification again:
 
 ```powershell
 git pull --ff-only origin main
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
-
-Do not begin per-feature UI inspection before this automated boundary is green.
 
 If it fails, classify the first failure as test defect / product defect / authority drift / environment issue / unknown before changing code.
