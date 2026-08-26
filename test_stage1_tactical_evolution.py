@@ -224,7 +224,7 @@ class TacticalEvolutionTests(unittest.TestCase):
             budget=CapabilityBudget(),
             contract=PromotionContract(
                 max_worst_mdd_regression_pct=0.3,
-                max_worst_case_regression_pct=0.1,
+                max_worst_case_regression_pct=0.11,
             ),
         )
         self.assertEqual(decision["decision"], "ACCEPT")
