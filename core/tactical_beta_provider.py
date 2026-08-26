@@ -3,6 +3,8 @@
 The calculation mirrors the legacy leader/follower beta convention: benchmark
 returns are the independent series and symbol beta is covariance(benchmark,
 symbol) / variance(benchmark). Only bars at or before ``as_of`` are queried.
+The daily table contract is ``daily_candles`` unless explicitly overridden,
+but the production database must be explicitly supplied or configured.
 """
 from __future__ import annotations
 
@@ -69,10 +71,15 @@ class HighBetaDailyCohortProvider:
         table: Optional[str] = None,
     ):
         self.executor = executor or MySQLQueryExecutor()
-        self.database = _safe_identifier(
-            database or os.getenv("TACTICAL_DAILY_DATABASE", "master_db"),
-            "daily database",
-        )
+        resolved_database = str(
+            database or os.getenv("TACTICAL_DAILY_DATABASE", "") or ""
+        ).strip()
+        if not resolved_database:
+            raise ValueError(
+                "High-Beta daily database가 필요합니다. 명시적으로 지정하거나 "
+                "TACTICAL_DAILY_DATABASE 환경변수를 설정하세요."
+            )
+        self.database = _safe_identifier(resolved_database, "daily database")
         self.table = _safe_identifier(
             table or os.getenv("TACTICAL_DAILY_TABLE", "daily_candles"),
             "daily table",
