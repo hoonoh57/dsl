@@ -1,0 +1,125 @@
+"""Tactic-family registry for bounded evolving micro-warrior skill trees."""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Mapping, Sequence
+
+from core.tactical_discovery import TacticCandidate
+from core.tactical_evolution import CapabilityBudget, EvolutionGeneration, SkillSpec
+
+
+@dataclass(frozen=True)
+class TacticFamilySpec:
+    family_id: str
+    base_candidate_id: str
+    base_dsl: str
+    base_complexity_units: int
+    budget: CapabilityBudget
+    base_usage: Mapping[str, int]
+    skills: tuple[SkillSpec, ...] = ()
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def validate(self) -> None:
+        if not self.family_id.strip():
+            raise ValueError("TacticFamily family_id가 필요합니다.")
+        if not self.base_candidate_id.strip() or not self.base_dsl.strip():
+            raise ValueError("TacticFamily base candidate/DSL이 필요합니다.")
+        if int(self.base_complexity_units) < 1:
+            raise ValueError("base_complexity_units는 1 이상이어야 합니다.")
+        self.budget.validate()
+        usage = {str(key): int(value) for key, value in dict(self.base_usage).items()}
+        usage.setdefault("skills", 0)
+        usage.setdefault("complexity_units", int(self.base_complexity_units))
+        if usage["skills"] != 0:
+            raise ValueError("base_usage.skills는 0이어야 합니다.")
+        if usage["complexity_units"] < int(self.base_complexity_units):
+            raise ValueError("base_usage.complexity_units가 base candidate보다 작습니다.")
+        self.budget.validate_usage(usage)
+        ids = []
+        for skill in self.skills:
+            skill.validate()
+            ids.append(skill.skill_id)
+        if len(set(ids)) != len(ids):
+            raise ValueError("TacticFamily skill_id에 중복이 있습니다.")
+
+    def base_candidate(self) -> TacticCandidate:
+        self.validate()
+        return TacticCandidate(
+            candidate_id=self.base_candidate_id,
+            dsl_code=self.base_dsl,
+            complexity_units=int(self.base_complexity_units),
+            metadata={"family_id": self.family_id, "generation": 0, **dict(self.metadata)},
+        )
+
+    def normalized_base_usage(self) -> dict[str, int]:
+        self.validate()
+        usage = {str(key): int(value) for key, value in dict(self.base_usage).items()}
+        usage.setdefault("skills", 0)
+        usage.setdefault("complexity_units", int(self.base_complexity_units))
+        return usage
+
+    def skill(self, skill_id: str) -> SkillSpec:
+        self.validate()
+        target = str(skill_id or "").strip()
+        for skill in self.skills:
+            if skill.skill_id == target:
+                return skill
+        raise KeyError(f"TacticFamily skill not found: {target}")
+
+    def legal_skills(
+        self,
+        *,
+        generation: EvolutionGeneration,
+        failure_report: Mapping[str, Any],
+    ) -> tuple[SkillSpec, ...]:
+        self.validate()
+        if generation.family_id != self.family_id:
+            raise ValueError("generation family_id가 TacticFamily와 다릅니다.")
+        if str(failure_report.get("schema") or "") != "tactical_failure/v1":
+            raise ValueError("failure_report는 tactical_failure/v1이어야 합니다.")
+        if str(failure_report.get("profile_run_hash") or "") != generation.profile_run_hash:
+            raise ValueError("failure_report가 현재 generation profile에서 생성되지 않았습니다.")
+        observed = {
+            str(cluster.get("failure_tag") or "")
+            for cluster in (failure_report.get("clusters") or [])
+            if str(cluster.get("failure_tag") or "")
+        }
+        acquired = set(generation.acquired_skills)
+        legal = []
+        for skill in self.skills:
+            if skill.skill_id in acquired:
+                continue
+            if not observed.intersection(set(skill.addresses_failure_tags)):
+                continue
+            usage = dict(generation.capability_usage)
+            usage["skills"] = int(usage.get("skills", len(acquired))) + 1
+            for key, value in skill.cost.items():
+                usage[key] = int(usage.get(key, 0)) + int(value)
+            try:
+                self.budget.validate_usage(usage)
+            except ValueError:
+                continue
+            legal.append(skill)
+        return tuple(legal)
+
+
+class TacticFamilyRegistry:
+    def __init__(self, families: Sequence[TacticFamilySpec] = ()):
+        self._families: dict[str, TacticFamilySpec] = {}
+        for family in families:
+            self.register(family)
+
+    def register(self, family: TacticFamilySpec) -> None:
+        family.validate()
+        if family.family_id in self._families:
+            raise ValueError(f"TacticFamily already registered: {family.family_id}")
+        self._families[family.family_id] = family
+
+    def get(self, family_id: str) -> TacticFamilySpec:
+        key = str(family_id or "").strip()
+        if key not in self._families:
+            raise KeyError(f"TacticFamily not found: {key}")
+        return self._families[key]
+
+    def list_ids(self) -> tuple[str, ...]:
+        return tuple(self._families)
