@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **E5_BOUNDED_STRUCTURAL_SKILL_GENERATOR_IMPLEMENTED_AWAITING_TRUSTED_FULL_VALIDATION / REMEDIATION_REQUIRED**  
+Status: **E6_VALIDATION_HARSH_ARENA_IMPLEMENTED_AWAITING_TRUSTED_FULL_VALIDATION / REMEDIATION_REQUIRED**  
 Updated: 2026-08-27 KST
 
 ## Authority
@@ -16,14 +16,15 @@ Read in this order:
 7. `MULTI_LAYER_DSL_ARCHITECTURE.md` — final macro-to-micro runtime/deployment architecture.
 8. `E3_MULTI_BATTLE_PARAMETER_SEEKER_IMPLEMENTATION.md` — trusted E3 executable contract.
 9. `E4_CAUSAL_FAILURE_OPPORTUNITY_CHARACTERIZER_IMPLEMENTATION.md` — trusted E4 executable contract.
-10. `E5_BOUNDED_STRUCTURAL_SKILL_GENERATOR_IMPLEMENTATION.md` — current E5 executable contract/checkpoint.
-11. `MICRO_TACTICAL_DISCOVERY_IMPLEMENTATION.md` — discovery/competition checkpoint.
-12. `P1_TACTICAL_DATA_IMPLEMENTATION.md` — P1 data/provider/UI/verification boundary.
-13. `PRODUCT_IMPLEMENTATION_PLAN.md` — original roadmap and Stage 1 kernel plan.
-14. `STAGE1_EXECUTION_POLICY.md` — implementation/verification policy.
-15. `QUANT_DSL_PLAYBOOK.md` — generated-DSL language contract.
-16. `DSL_ENGINE_AUDIT.md` — engine trust-boundary criteria.
-17. `PROGRESS_CHECKPOINT_2026-08-26.md` — exact trusted Full checkpoints.
+10. `E5_BOUNDED_STRUCTURAL_SKILL_GENERATOR_IMPLEMENTATION.md` — trusted E5 executable contract.
+11. `E6_VALIDATION_HARSH_ARENA_IMPLEMENTATION.md` — current E6 executable contract/checkpoint.
+12. `MICRO_TACTICAL_DISCOVERY_IMPLEMENTATION.md` — discovery/competition checkpoint.
+13. `P1_TACTICAL_DATA_IMPLEMENTATION.md` — P1 data/provider/UI/verification boundary.
+14. `PRODUCT_IMPLEMENTATION_PLAN.md` — original roadmap and Stage 1 kernel plan.
+15. `STAGE1_EXECUTION_POLICY.md` — implementation/verification policy.
+16. `QUANT_DSL_PLAYBOOK.md` — generated-DSL language contract.
+17. `DSL_ENGINE_AUDIT.md` — engine trust-boundary criteria.
+18. `PROGRESS_CHECKPOINT_2026-08-26.md` — exact trusted Full checkpoints.
 
 ## Product direction
 
@@ -50,7 +51,7 @@ minimal tactic family
  -> causal failure/opportunity characterization
  -> one legal structural skill child
  -> Multi-Battle numeric Parameter Seeker where parameters exist
- -> replay / Validation / OOS / harsh cases
+ -> Train / Validation / OOS / harsh replay
  -> ACCEPT / REJECT / REVIEW
  -> immutable generation memory
  -> repeat
@@ -172,68 +173,117 @@ Chart SSOT:
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-Therefore **E4 is trusted Full-green at `560526b7f5af19462a57fd1e5b433bcbe5596500`**, with the verified Chart SSOT dependency above.
+Therefore **E4 is trusted Full-green at `560526b7f5af19462a57fd1e5b433bcbe5596500`** with the verified Chart dependency above.
 
-## E5 current executable tranche: Bounded Structural Skill Generator
+### E5 Bounded Structural Skill Generator
 
-`core/tactical_skill_generator.py` implements proposal-only one-skill structural generation.
+`core/tactical_skill_generator.py` creates proposal-only one-skill structural children from the registered legal skill tree. Failure relevance, prerequisites/exclusions and CapabilityBudget remain authoritative. The renderer cannot invent DSL capabilities, and E5 cannot rank/promote a child.
 
-Input authority:
-
-```text
-trusted parent EvolutionGeneration
- + exact parent TacticCandidate
- + matching tactical_failure/v1
- + matching tactical_characterization/v1
- + TacticFamily legal skill tree / CapabilityBudget
-```
-
-Output:
+Trusted Full checkpoint:
 
 ```text
-currently legal registered skill(s)
- -> explicit family renderer
- -> one-skill child DSL proposal
- -> declared parameter_manifest
- -> proposal_hash / generator_hash
+c1351152d58e4219b9998f0b35b7636f340dc986
+[PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-E5 first supports only `JMA_TREND_CROSS_RESUME_V1`; another family requires a separately validated renderer.
+Therefore **E5 is trusted Full-green at `c1351152d58e4219b9998f0b35b7636f340dc986`.**
 
-Important restrictions:
+## E6 current executable tranche: Validation / Harsh Arena
 
-- `TacticFamilySpec.legal_skills(...)` remains the sole legal-skill authority;
-- failure relevance, prerequisites/exclusions and CapabilityBudget remain enforced;
-- E4 characterization must match the exact parent generation/profile/case set and attached failure evidence;
-- renderer expected structure/names are strict and fail closed on ambiguity;
-- one child proposal adds exactly one registered skill;
-- existing parent skill structure is preserved when a dependent skill is added;
-- generated numeric parameters come only from the catalog parameter manifest;
-- no hidden skill ranking or universal score;
-- no ACCEPT/REJECT decision;
-- no family-head promotion;
-- no Parser/Semantic/Runtime/Backtest/Broker modifications.
+`core/tactical_validation_arena.py` replays one fixed parent/child pair across explicit frozen partitions.
 
-Current JMA renderer supports the four catalog skills:
+Required partition structure:
 
 ```text
-JMA_RANGE_COOLDOWN
-JMA_ADX_ENTRY_QUALITY
-JMA_CONFIRM_AFTER_RANGE
-JMA_FAST_PROFIT_PROTECTION
+TRAIN        exactly 1
+VALIDATION   exactly 1
+OOS          exactly 1
+HARSH        at least 1
 ```
 
-`JMA_CONFIRM_AFTER_RANGE` remains illegal until `JMA_RANGE_COOLDOWN` has already been acquired. Parameter-bearing children may be handed to E3 for bounded numeric search; parameter-free children proceed directly to replay.
+HARSH partitions must carry explicit `metadata.adverse_reason`. E6 v1 does not guess/synthesize hostile battles and requires partition `case_id` values to be globally disjoint.
 
-`test_stage1_tactical_skill_generator.py` verifies legal-skill-only proposals, absence of ranking/promotion, dependency enforcement, preservation of acquired structure, exact E4 evidence matching, deterministic identities, and generated DSL execution through `BacktestEngine`.
+### Fixed-child provenance
+
+The child must carry E5 one-skill identity:
+
+```text
+family_id
+parent_generation_hash
+proposed_skill_id
+mutation_policy = ONE_REGISTERED_SKILL_ONLY
+failure_hash
+```
+
+This remains compatible with E3 numeric tuning because E3 preserves those metadata fields while changing only declared numeric DSL inputs.
+
+### Exact Train identity
+
+TRAIN parent replay must reproduce the immutable parent generation:
+
+```text
+run_hash == parent_generation.profile_run_hash
+case_set_hash == parent_generation.case_set_hash
+context_policy_hash == parent_generation.context_policy_hash
+```
+
+Mismatch fails closed. Parent failure evidence must also match that exact generation.
+
+### Train adjudication
+
+TRAIN uses the existing `EvolutionArena.evaluate_upgrade(...)` unchanged, preserving one-skill relevance, CapabilityBudget and ACCEPT/REJECT/REVIEW authority.
+
+### Validation / OOS / HARSH adjudication
+
+Non-Train partitions use explicit axis-by-axis `HoldoutContract` tolerances for:
+
+```text
+average_return_pct
+median_return_pct
+profitable_case_rate
+worst_mdd_pct
+worst_case_return_pct
+cost_per_case
+average_mfe_giveback_pct
+top1_positive_return_concentration
+```
+
+No weighted or opaque score exists.
+
+Default contract also prevents a child from manufacturing apparent robustness by never engaging at all:
+
+```text
+parent active_cases > 0
+AND child active_cases == 0
+ -> engagement_collapse
+```
+
+This does not redefine `NO_TRADE` as failure. Partial or justified abstention remains valid. Full-partition abstention can be allowed only through an explicit visible contract change.
+
+### Final decision
+
+```text
+any holdout FAIL -> REJECT
+Train REJECT -> REJECT
+Train REVIEW + all holdouts PASS -> REVIEW
+Train ACCEPT + all holdouts PASS -> ACCEPT
+```
+
+Even final ACCEPT only sets `promotion_eligible=true`; this module does not mutate the family head.
+
+```text
+PARENT_REMAINS_HEAD_UNTIL_EXPLICIT_PROMOTION
+```
+
+`test_stage1_tactical_validation_arena.py` verifies the partition contract, exact Train identity, E5 child provenance, engagement-collapse protection, explicit abstention-policy override, no hidden score, no automatic head mutation, and deterministic worker/order behavior.
 
 Detailed authority:
 
 ```text
-E5_BOUNDED_STRUCTURAL_SKILL_GENERATOR_IMPLEMENTATION.md
+E6_VALIDATION_HARSH_ARENA_IMPLEMENTATION.md
 ```
 
-This E5 executable boundary has **not yet received trusted Full validation**.
+This E6 executable boundary has **not yet received trusted Full validation**.
 
 ## Validation status
 
@@ -244,15 +294,17 @@ May claim:
 - E3A trusted Full PASS at `06b52962a1b9b1212a11202ccef1f27b8d7f40c0`;
 - E3 trusted Full PASS at `cc3096c28ea8b9af718a1784df1b17af62bcde9a`;
 - E4 trusted Full PASS at `560526b7f5af19462a57fd1e5b433bcbe5596500` with Chart SSOT `7a43f0f52928045904d192deb7d8d532cb4c533e`;
-- E5 source/tests are implemented awaiting Full;
+- E5 trusted Full PASS at `c1351152d58e4219b9998f0b35b7636f340dc986`;
+- E6 source/tests are implemented awaiting Full;
 - Core Freeze / parent-context / multi-symbol Add-on design boundaries remain authoritative.
 
 Do **not** claim yet:
 
-- trusted Full PASS for E5;
-- that any generated child is stronger or profitable;
-- automatic skill choice or promotion;
-- completed Train/Validation/OOS/harsh arena;
+- trusted Full PASS for E6;
+- that any real JMA child is stronger, profitable or generalized;
+- automatic family-head promotion;
+- production-quality harsh-case universe construction;
+- E7 Evolution Memory / Evidence UI implementation;
 - TacticalMemory or trained LocalBattlefieldLearner;
 - adaptive 5m/3m/1m/tick deployment;
 - functioning parent-context DSL binding or multi-symbol deployment selector;
@@ -264,15 +316,14 @@ Do **not** claim yet:
 
 ## Next sequence
 
-After E5 is trusted green:
+After E6 is trusted green:
 
-1. **E6 Train / Validation / OOS / Harsh Evolution Arena**;
-2. **E7 Evolution Memory / Evidence UI**;
-3. **E8 Macro Context Attribution / Deployment**.
+1. **E7 Evolution Memory / Evidence UI**;
+2. **E8 Macro Context Attribution / Deployment**.
 
 Optional adaptive learning, Parent Feature Provider/`ctx.*` binding and Multi-Symbol Add-on execution remain deferred until a concrete mainline need exists.
 
-Do not begin E6 executable work before the E5 Full boundary is trusted green.
+Do not begin E7 executable work before the E6 Full boundary is trusted green.
 
 ## Next automated boundary
 
