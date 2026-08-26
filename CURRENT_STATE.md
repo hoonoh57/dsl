@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **E3_MULTI_BATTLE_PARAMETER_SEEKER_TRUSTED_FULL_PASS / E4_CAUSAL_CHARACTERIZER_NEXT / REMEDIATION_REQUIRED**  
+Status: **E4_CAUSAL_FAILURE_OPPORTUNITY_CHARACTERIZER_IMPLEMENTED_AWAITING_TRUSTED_FULL_VALIDATION / REMEDIATION_REQUIRED**  
 Updated: 2026-08-27 KST
 
 ## Authority
@@ -15,13 +15,14 @@ Read in this order:
 6. `MICRO_FIRST_MACRO_READY_ARCHITECTURE.md` — micro-first research order and macro-ready seam.
 7. `MULTI_LAYER_DSL_ARCHITECTURE.md` — final macro-to-micro runtime/deployment architecture.
 8. `E3_MULTI_BATTLE_PARAMETER_SEEKER_IMPLEMENTATION.md` — trusted E3 executable contract/checkpoint.
-9. `MICRO_TACTICAL_DISCOVERY_IMPLEMENTATION.md` — discovery/competition checkpoint.
-10. `P1_TACTICAL_DATA_IMPLEMENTATION.md` — P1 data/provider/UI/verification boundary.
-11. `PRODUCT_IMPLEMENTATION_PLAN.md` — original roadmap and Stage 1 kernel plan.
-12. `STAGE1_EXECUTION_POLICY.md` — implementation/verification policy.
-13. `QUANT_DSL_PLAYBOOK.md` — generated-DSL language contract.
-14. `DSL_ENGINE_AUDIT.md` — engine trust-boundary criteria.
-15. `PROGRESS_CHECKPOINT_2026-08-26.md` — trusted Full PASS checkpoints.
+9. `E4_CAUSAL_FAILURE_OPPORTUNITY_CHARACTERIZER_IMPLEMENTATION.md` — current E4 executable contract/checkpoint.
+10. `MICRO_TACTICAL_DISCOVERY_IMPLEMENTATION.md` — discovery/competition checkpoint.
+11. `P1_TACTICAL_DATA_IMPLEMENTATION.md` — P1 data/provider/UI/verification boundary.
+12. `PRODUCT_IMPLEMENTATION_PLAN.md` — original roadmap and Stage 1 kernel plan.
+13. `STAGE1_EXECUTION_POLICY.md` — implementation/verification policy.
+14. `QUANT_DSL_PLAYBOOK.md` — generated-DSL language contract.
+15. `DSL_ENGINE_AUDIT.md` — engine trust-boundary criteria.
+16. `PROGRESS_CHECKPOINT_2026-08-26.md` — trusted Full PASS checkpoints.
 
 ## Product direction
 
@@ -184,7 +185,7 @@ Restrictions:
 - no automatic family-head promotion;
 - worker count may not alter seek identity or comparison evidence.
 
-The operator reported Full PASS and exact local checkout:
+Trusted Full checkpoint:
 
 ```text
 cc3096c28ea8b9af718a1784df1b17af62bcde9a
@@ -193,30 +194,56 @@ cc3096c28ea8b9af718a1784df1b17af62bcde9a
 
 Therefore **E3 is trusted Full-green at `cc3096c28ea8b9af718a1784df1b17af62bcde9a`.**
 
-## E4 next executable tranche: causal Failure / Opportunity Characterizer
+## E4 current executable tranche: causal Failure / Opportunity Characterizer
 
-E4 may now begin.
+`core/tactical_characterization.py` now joins actual closed-trade `signal_time` evidence to causal `TacticalObservation` and attaches later realized trade outcomes as separate labels.
 
-The first E4 tranche must remain descriptive and evidence-only. The intended join is:
+The boundary is:
 
 ```text
 actual trade signal_time
- -> causal TacticalObservation built only from information known at that timestamp
- -> future realized outcome stored separately as label/evidence
- -> deterministic strata showing where failures/opportunities repeat
+ -> causal TacticalObservation
+ -> compact causal_features
+
+future realized return / MFE / MAE / giveback / exit
+ -> future_outcome labels only
 ```
 
-Required boundary:
+The two domains have separate hashes:
 
 ```text
-causal_features
-!=
-future_outcome_labels
+causal_dataset_hash
+labeled_dataset_hash
 ```
 
-Future return/MFE/MAE/giveback/exit outcome may be used only after the event as a research label. They must never appear inside the causal feature map or be used to reconstruct the earlier observation.
+Changing only future outcome labels must not change `causal_dataset_hash`.
 
-Initial E4 should prefer a compact, explicit feature set covering time position, trend/range geometry, volatility, volume/liquidity proxy, overextension and primitive structure. It must not create a learner, hidden score, live gate or new skill automatically.
+Initial compact characterization axes:
+
+```text
+minutes_from_open
+jma_spread_atr
+sma60_slope_pct
+price_to_sma60_atr
+atr_pct
+volume_ratio
+higher_high_ratio
+higher_low_ratio
+```
+
+E4 creates deterministic value-only quantile strata and reports support, profitable rate, average return/MFE/MAE/giveback and outcome-tag counts. There is no hidden universal score, learner, live gate or automatic skill generation.
+
+The supplied BattleCases must exactly match profile `case_id` and `case_hash`; mismatch fails closed. Existing case-level `TacticalFailureAnalyzer` evidence remains attached alongside trade-level characterization.
+
+`test_stage1_tactical_characterization.py` verifies causal/label separation, label-mutation isolation of `causal_dataset_hash`, exact BattleCase identity, deterministic hashes/strata and absence of a hidden score.
+
+Detailed authority:
+
+```text
+E4_CAUSAL_FAILURE_OPPORTUNITY_CHARACTERIZER_IMPLEMENTATION.md
+```
+
+This E4 executable boundary has **not yet received trusted Full validation**.
 
 ## Validation status
 
@@ -226,11 +253,12 @@ May claim:
 - E2 trusted Full PASS at `620f741730b0ae821fc48affd22b5420f38a6cac`;
 - E3A trusted Full PASS at `06b52962a1b9b1212a11202ccef1f27b8d7f40c0`;
 - E3 trusted Full PASS at `cc3096c28ea8b9af718a1784df1b17af62bcde9a`;
+- E4 source/tests are implemented awaiting Full;
 - Core Freeze / parent-context / multi-symbol Add-on design boundaries are authoritative.
 
 Do **not** claim yet:
 
-- E4 implementation or trusted Full PASS;
+- trusted Full PASS for E4;
 - strongest/profitable parameter set or generalization;
 - automatic parameter/skill promotion;
 - TacticalMemory or trained LocalBattlefieldLearner;
@@ -244,10 +272,33 @@ Do **not** claim yet:
 
 ## Next sequence
 
-1. **E4 Causal Failure / Opportunity Characterizer**;
-2. **E5 Bounded Structural Skill Generator**;
-3. **E6 Train / Validation / OOS / Harsh Evolution Arena**;
-4. **E7 Evolution Memory / Evidence UI**;
-5. **E8 Macro Context Attribution / Deployment**.
+After E4 is trusted green:
+
+1. **E5 Bounded Structural Skill Generator**;
+2. **E6 Train / Validation / OOS / Harsh Evolution Arena**;
+3. **E7 Evolution Memory / Evidence UI**;
+4. **E8 Macro Context Attribution / Deployment**.
 
 Optional adaptive learning, Parent Feature Provider/`ctx.*` binding and Multi-Symbol Add-on execution remain deferred until a concrete mainline need exists.
+
+Do not begin E5 executable work before the E4 Full boundary is trusted green.
+
+## Next automated boundary
+
+```powershell
+git pull --ff-only origin main
+git rev-parse HEAD
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
+```
+
+If it fails, classify the first executable failure as exactly one of:
+
+```text
+test defect
+product defect
+authority drift
+environment issue
+unknown
+```
+
+before changing code.
