@@ -15,6 +15,7 @@ textarea{width:100%;background:#0e131a;color:#e6ebf2;border:1px solid #303a4b;bo
 #chart{min-height:0;border-bottom:1px solid var(--line)}iframe{width:100%;height:100%;border:0;background:#1e1e1e}.summary{padding:9px}.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px}.metric{background:#171e29;border:1px solid var(--line);padding:7px;border-radius:5px}.metric small{display:block;color:var(--muted)}
 table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:5px 6px;border-bottom:1px solid #273142;text-align:right}th:first-child,td:first-child{text-align:left}
 .badge{padding:5px 8px;border-radius:12px;background:#222b38;color:#b6c0ce}.ok{background:#16392e;color:#7de0b8}.fail{background:#402321;color:#ff9c98}
+.evolution{margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}.evo-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}.evo-title{font-size:14px;font-weight:800}.hash{font-family:Consolas,monospace;color:#9eb8ff}.tree-note{font-size:11px;color:var(--muted);margin:4px 0 8px}.attempts{margin-top:12px}
 @media(max-width:1050px){.grid{grid-template-columns:1fr}.left{border-right:0}.right{grid-template-rows:320px auto}}
 </style>
 </head>
@@ -53,6 +54,10 @@ table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:5px 6px;b
     on(long_exit) { order.close_long() }
 }</textarea>
 <pre id="cohort" style="white-space:pre-wrap;color:#aeb9c7"></pre>
+<hr style="border:0;border-top:1px solid #293446;margin:14px 0">
+<div class="field"><label>Evolution family</label><input id="evo-family" class="control" value="JMA_TREND_CROSS_RESUME_V1"></div>
+<div class="row"><button id="evo-load">Evolution lineage 조회</button></div>
+<p class="muted">E7 패널은 append-only evidence의 read-only projection입니다. ACCEPT/promotion-eligible 표시는 자동 head 승격을 의미하지 않습니다.</p>
 </aside>
 <main class="right">
 <div id="chart"></div>
@@ -68,6 +73,21 @@ table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:5px 6px;b
 <thead><tr><th>Symbol</th><th>Name</th><th>Search vol</th><th>Rank score</th><th>Strategy %</th><th>Official max %</th><th>Label10</th><th>MDD %</th></tr></thead>
 <tbody id="rows"></tbody>
 </table>
+<section class="evolution" id="evolution-panel">
+<div class="evo-head"><span class="evo-title">Evolution Skill Tree / Evidence</span><span id="evo-head" class="hash">Head: -</span><span id="evo-lineage" class="hash">Lineage: -</span></div>
+<div class="tree-note">Generation은 accepted lineage, Attempts는 ACCEPT/REJECT/REVIEW 및 Validation/OOS/HARSH evidence를 별도로 표시합니다.</div>
+<table>
+<thead><tr><th>Generation</th><th>Head</th><th>New skill</th><th>Failure tags</th><th>Train</th><th>Validation</th><th>OOS</th><th>Harsh</th><th>Avg %</th><th>Worst MDD %</th></tr></thead>
+<tbody id="evo-nodes"></tbody>
+</table>
+<div class="attempts">
+<div class="evo-title">Attempts</div>
+<table>
+<thead><tr><th>Skill</th><th>Child</th><th>Train</th><th>Final validation</th><th>Holdout failures</th><th>Promoted generation</th></tr></thead>
+<tbody id="evo-attempts"></tbody>
+</table>
+</div>
+</section>
 </section>
 </main>
 </div>
