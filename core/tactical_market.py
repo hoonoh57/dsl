@@ -66,6 +66,15 @@ def _number(value: Any, label: str) -> float:
     return number
 
 
+def _required_source_value(explicit: Optional[str], env_name: str, label: str) -> str:
+    value = str(explicit or os.getenv(env_name, "") or "").strip()
+    if not value:
+        raise ValueError(
+            f"{label}이 필요합니다. 명시적으로 지정하거나 {env_name} 환경변수를 설정하세요."
+        )
+    return value
+
+
 class SessionMarketProvider(Protocol):
     def load_session(
         self,
@@ -83,8 +92,9 @@ class MySQLBarProvider:
     """Schema-adaptive reader for one explicitly configured OHLCV table.
 
     The adapter supports either one datetime-like timestamp column or separate
-    date/time columns. It never generates dummy bars and never substitutes
-    another timeframe/table.
+    date/time columns. It never generates dummy bars, guesses a production
+    database/table, or substitutes another timeframe/table. The concrete
+    source must be supplied by constructor arguments or TACTICAL_MINUTE_* env.
     """
 
     CODE_CANDIDATES = ("code", "stock_code", "symbol", "ticker")
@@ -106,14 +116,14 @@ class MySQLBarProvider:
         table_timeframe: Optional[str] = None,
     ):
         self.executor = executor or MySQLQueryExecutor()
-        self.database = _safe_identifier(
-            database or os.getenv("TACTICAL_MINUTE_DATABASE", "master_db"),
-            "market database",
+        resolved_database = _required_source_value(
+            database, "TACTICAL_MINUTE_DATABASE", "tactical minute database"
         )
-        self.table = _safe_identifier(
-            table or os.getenv("TACTICAL_MINUTE_TABLE", "minute_candles_5m"),
-            "market table",
+        resolved_table = _required_source_value(
+            table, "TACTICAL_MINUTE_TABLE", "tactical minute table"
         )
+        self.database = _safe_identifier(resolved_database, "market database")
+        self.table = _safe_identifier(resolved_table, "market table")
         self.table_timeframe = str(
             table_timeframe or os.getenv("TACTICAL_MINUTE_TIMEFRAME", "5m")
         ).strip()
