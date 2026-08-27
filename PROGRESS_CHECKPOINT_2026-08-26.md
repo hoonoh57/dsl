@@ -1,6 +1,6 @@
 # Quant DSL Progress Checkpoint — through 2026-08-27 KST
 
-Status: **PCTX2C_TRUSTED_FULL_PASS / PCTX2D_DEPENDENCY_DAG_SECTOR_PROVIDER_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / CORE_DSL_FREEZE_ACTIVE**
+Status: **PCTX2D_TRUSTED_FULL_PASS / MSA1_IMMUTABLE_MULTI_SYMBOL_SNAPSHOT_EVIDENCE_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / CORE_DSL_FREEZE_ACTIVE**
 
 ## Trusted exact Full checkpoints
 
@@ -26,59 +26,66 @@ PCTX2B ce18ffc4b9f7758d57117b9b08eaa2d8c1e7aba4
 CTXDSL1 + CTXBT1 99bb2e5f5a248dc61cddb23677b5798b258848f2
 PCTX2A  6f6aef0b09354b1171ce3eccc78d4daa451fe183
 PCTX2C  7aee063932e0d70d38c2e7f876b140d049029771
+PCTX2D  6de666c277d1a6d7ffb47fd9e6093e50b34ebb45
 ```
 
-## PCTX2C trusted checkpoint
+## PCTX2D trusted checkpoint
 
 Operator evidence:
 
 ```text
-7aee063932e0d70d38c2e7f876b140d049029771
-Ran 6 tests in 0.107s
+6de666c277d1a6d7ffb47fd9e6093e50b34ebb45
+Ran 6 tests in 0.174s
 OK
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-Therefore exact root-provider precomputation is trusted Full-green.
+Therefore explicit MARKET -> SECTOR dependency-DAG orchestration and the first descriptive SECTOR provider are trusted Full-green.
 
-## PCTX2D executable boundary
+## Multi-symbol authority correction
+
+The repository already contains the earlier `core/multi_symbol.py` deterministic scenario/cohort vertical slice. The newer authoritative `MULTI_SYMBOL_ADDON_EXTENSION_POLICY.md` additionally requires future cross-symbol intelligence to be expressible as read-only analysis of immutable point-in-time per-instrument snapshots whenever possible.
+
+Therefore GROUP/Leader-Follower work is not being added directly to Instrument DSL or directly coupled to Broker/runtime state.
+
+## MSA1 executable boundary
 
 New files:
 
 ```text
-core/parent_context_dependency_orchestrator.py
-core/sector_parent_feature_provider.py
-test_stage1_parent_context_dependency_orchestrator.py
-PCTX2D_DEPENDENCY_DAG_SECTOR_PROVIDER_IMPLEMENTATION.md
+core/multi_symbol_snapshot.py
+test_stage1_multi_symbol_snapshot.py
+MSA1_IMMUTABLE_MULTI_SYMBOL_SNAPSHOT_EVIDENCE_IMPLEMENTATION.md
 ```
 
-PCTX2D replaces implicit cascading with one explicit provider DAG:
+MSA1 introduces:
 
 ```text
-root MARKET provider result at t
- -> declared dependency edge
- -> SECTOR provider result at t carrying exact parent result_hash
- -> PCTX1 assembly
- -> PCTX2B exact frame
+InstrumentSignalSnapshot
+SnapshotUniverse
+SnapshotComparisonAxis
+SnapshotAnalysisPolicy
+MultiSymbolSnapshotAnalyzer
 ```
 
-Policy:
+Core policies:
 
 ```text
-EXPLICIT_DEPENDENCY_DAG_PRECOMPUTE_EVERY_EXACT_TARGET_BAR
+POINT_IN_TIME_ONLY
+OBSERVATION_ONLY_PER_AXIS_LEADERBOARDS_AND_PARETO_NO_HIDDEN_SCORE_NO_DEPLOYMENT_AUTHORITY
 ```
 
-Unknown/self/duplicate dependencies and cycles fail closed. Caller node order does not define execution; deterministic topological order does. Every child result must carry exactly the hashes of the parent results actually supplied through its declared edges.
+Every snapshot carries exact `as_of == knowledge_cutoff`, candidate/family/generation identity, tactic-trigger state, hard-guard state, local admissibility, finite declared comparison metrics and source/evidence identity.
 
-The first SECTOR provider uses one explicit sector benchmark source and one explicit MARKET dependency. It publishes descriptive sector return/trend/relative-strength/alignment features only. It performs no constituent discovery, leader/follower ranking, entry authorization or allocation.
+The universe is explicit. Missing/extra symbols, timestamp mismatch and missing policy metrics fail closed. The analyzer performs no symbol discovery and no nearest/fill-forward substitution.
 
-## Regression scope
+MSA1 returns deterministic per-axis leaderboards and a Pareto frontier. Local trigger/guard/admissibility only determines comparison eligibility. It returns `operational_authority=false` and has no allowed/blocked symbol list, max slots, allocation, entry gate, DeploymentDecision or Broker action.
 
-`test_stage1_parent_context_dependency_orchestrator.py` covers MARKET -> SECTOR orchestration, SECTOR `ctx.*` through CTXBT1/Broker, node-order invariance, unknown dependency, cycle, exact dependency requirement, dependency hash equality and descriptive-only manifest constraints.
+The module does not import DSLRuntime, BacktestEngine, BrokerEmulator or ParentFeatureProvider.
 
 ## Remote CI environment
 
-Recent parent-context GitHub Actions jobs have repeatedly terminated before executable steps received a usable runner. Those incidents are classified:
+Recent GitHub Actions jobs have repeatedly ended before executable steps obtained a usable runner. Those incidents remain classified:
 
 ```text
 environment issue
@@ -88,11 +95,11 @@ No workflow/test/product guard has been weakened.
 
 ## Current validation status
 
-May claim E0-E8, PCTX1, PCTX2B, CTXDSL1+CTXBT1, PCTX2A and PCTX2C trusted exact Full PASS at the SHAs above.
+May claim E0-E8, PCTX1, PCTX2B, CTXDSL1+CTXBT1, PCTX2A, PCTX2C and PCTX2D trusted exact Full PASS at the SHAs above.
 
-PCTX2D remains untrusted until focused + Full local validation at one exact SHA.
+MSA1 is implemented but remains untrusted until focused + Full local validation at one exact SHA.
 
-Do not claim GROUP/leader-follower intelligence, multi-symbol ranking/allocation, parent-context OOS benefit, automatic macro deployment authority, live readiness or repository-wide compliance PASS.
+Do not claim production GROUP/Leader-Follower intelligence, Add-on-derived parent features, validated cross-symbol selection edge, operational symbol permission/allocation, parent-context OOS benefit, live readiness or repository-wide compliance PASS.
 
 `REMEDIATION_REQUIRED` remains broader repository status.
 
@@ -101,11 +108,11 @@ Do not claim GROUP/leader-follower intelligence, multi-symbol ranking/allocation
 ```powershell
 git pull --ff-only origin main
 git rev-parse HEAD
-python -m unittest -v test_stage1_parent_context_dependency_orchestrator.py
+python -m unittest -v test_stage1_multi_symbol_snapshot.py
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
-If a failure occurs, classify it first as exactly:
+If a failure occurs, classify it before editing as exactly:
 
 ```text
 test defect
