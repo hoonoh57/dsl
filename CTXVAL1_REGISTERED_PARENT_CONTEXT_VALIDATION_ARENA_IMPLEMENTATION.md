@@ -1,6 +1,6 @@
 # CTXVAL1 Registered Parent Context Validation Arena — Implementation Checkpoint
 
-Status: **IMPLEMENTED / AWAITING LOCAL EXECUTABLE VALIDATION / EVIDENCE_ONLY / 2026-08-27 KST**
+Status: **IMPLEMENTED / INITIAL TEST DEFECT FIXED / AWAITING LOCAL REVALIDATION / EVIDENCE_ONLY / 2026-08-28 KST**
 
 ## Trusted predecessor
 
@@ -206,6 +206,45 @@ E8 attribution semantics
 entry_gate
 Chart SSOT
 ```
+
+## Initial local validation incident
+
+The first local CTXVAL1 validation ran at exact checkout:
+
+```text
+d2abaeedc4d464c1c3d27417980d93d202902b72
+```
+
+Result:
+
+```text
+Ran 7 tests in 0.068s
+FAILED (failures=1)
+[FAIL] Tactical P1 Full boundary failed from the same regression
+```
+
+The first failure was classified exactly as:
+
+```text
+test defect
+```
+
+The intended regression expected the CTXVAL1-specific error `exact context.as_of`, but its fixture changed only the `BattlefieldContext.as_of` to `20260801092959` while retaining the GROUP layer at `20260801093000`. The trusted lower-level `BattlefieldContext` causality guard correctly rejected that malformed envelope first because a layer was later than its envelope.
+
+Correction:
+
+- no product module changed;
+- no validation tolerance or authority contract changed;
+- the regression now verifies the malformed envelope guard separately;
+- the exact-time fixture also moves the layer to `20260801092959`, allowing base causality validation to pass so CTXVAL1's stronger `context.as_of == case.knowledge_cutoff` guard is tested directly.
+
+The test-only correction was committed as:
+
+```text
+f09b7fee673940f96c0f176cd048089161154d9a
+```
+
+A new focused + Full local validation at the final post-documentation checkout is required before CTXVAL1 becomes trusted.
 
 ## Nonclaims
 
