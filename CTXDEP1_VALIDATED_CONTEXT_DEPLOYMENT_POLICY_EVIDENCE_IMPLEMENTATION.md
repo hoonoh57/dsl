@@ -1,6 +1,6 @@
 # CTXDEP1 Validated Context Deployment Policy Evidence — Implementation Checkpoint
 
-Status: **IMPLEMENTED / AWAITING LOCAL EXECUTABLE VALIDATION / NON-OPERATIONAL / 2026-08-28 KST**
+Status: **IMPLEMENTED / INITIAL TEST DEFECT FIXED / AWAITING LOCAL REVALIDATION / NON-OPERATIONAL / 2026-08-28 KST**
 
 ## Trusted predecessor
 
@@ -101,18 +101,42 @@ operational_authority = false
 execution_integration = POLICY_EVIDENCE_ONLY_NOT_WIRED_TO_ENTRY_GATE_OR_BROKER
 ```
 
-CTXDEP1 does not call or modify:
-
-```text
-DSLRuntime
-BacktestEngine
-BrokerEmulator
-ParentFeatureProvider calculation
-entry_gate
-symbol selection/allocation
-```
+CTXDEP1 does not call or modify the execution engine, broker, parent-feature calculation, entry gate, symbol selection or allocation.
 
 A validated policy document is not yet an operational gate.
+
+## Initial local validation incident
+
+The first local CTXDEP1 validation ran at exact checkout:
+
+```text
+ec1f5cefaf418b758c12a24fe5b4e471de0c2be1
+```
+
+Result:
+
+```text
+Ran 6 tests in 0.030s
+FAILED (failures=1)
+Full verification failed from the same regression only
+```
+
+The first failure was classified exactly as:
+
+```text
+test defect
+```
+
+The failing guard attempted to prove that the policy-evidence bridge had no execution wiring by searching the entire source text for execution-class names. The module documentation itself explicitly stated that those execution components were **not** called, so the test mistook explanatory text for executable wiring.
+
+Correction:
+
+- no CTXDEP1 product code changed;
+- no policy-promotion rule or safety boundary changed;
+- no test requirement was removed;
+- the regression now parses Python syntax and checks actual imports, referenced executable identifiers and provider-style calls rather than comments/docstrings.
+
+This preserves the intended guard while eliminating the false positive.
 
 ## Regression coverage
 
@@ -124,13 +148,15 @@ The focused regression covers:
 - tampered CTXVAL1 arena evidence rejection;
 - unknown slice and invalid priority fail-close;
 - deterministic policy/evidence identity;
-- absence of execution/provider/selection wiring.
+- absence of actual execution/provider/selection wiring.
 
 The Tactical P1 Full verifier discovers the new `test_stage1_*.py` regression automatically.
 
 ## Mutation boundary
 
 CTXDEP1 adds only a policy-evidence sidecar, focused regression and checkpoint/status documentation. It does not change Parser, Semantic, Runtime, Backtest, Broker, PCTX provider semantics, MSA analysis/publication, CTXVAL1 adjudication or existing E8 decision semantics.
+
+The initial validation correction changed only the focused regression plus this checkpoint record.
 
 ## Nonclaims
 
