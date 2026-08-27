@@ -1,6 +1,6 @@
 # Quant DSL Progress Checkpoint — through 2026-08-27 KST
 
-Status: **MSA2_TRUSTED_FULL_PASS / MSA3_REGISTERED_GROUP_PARENT_FEATURE_PUBLICATION_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / CORE_DSL_FREEZE_ACTIVE**
+Status: **MSA3_TRUSTED_FULL_PASS / CTXVAL1_REGISTERED_PARENT_CONTEXT_VALIDATION_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / CORE_DSL_FREEZE_ACTIVE**
 
 ## Trusted exact Full checkpoints
 
@@ -29,6 +29,7 @@ PCTX2C  7aee063932e0d70d38c2e7f876b140d049029771
 PCTX2D  6de666c277d1a6d7ffb47fd9e6093e50b34ebb45
 MSA1    adaef963dce717b252f2575896a74462c8a277a2
 MSA2    3a5a2ece658ead28a1822ef7482a3d284d12e2d6
+MSA3    02904728cb0a39669e6809ba21c4e2dd8eb947e3
 ```
 
 Recent operator evidence:
@@ -36,65 +37,76 @@ Recent operator evidence:
 ```text
 MSA1: Ran 6 tests in 0.003s / OK
 MSA2: Ran 7 tests in 0.017s / OK
+MSA3: Ran 7 tests in 0.078s / OK
 ```
 
-Both were followed by Full PASS at their exact trusted SHA.
+Each was followed by Full PASS at its exact trusted SHA.
 
-## MSA2 trusted boundary
+## Trusted MSA3 boundary
 
-MSA2 provides bounded static-universe exact-time leader/follower/breadth/persistence observation evidence over immutable MSA1 snapshots.
-
-It remains:
-
-```text
-mode = OBSERVATION_ONLY
-operational_authority = false
-```
-
-No allowed/blocked symbols, allocation, entry gate, DeploymentDecision or Broker action is produced.
-
-## MSA3 executable boundary
-
-New files:
-
-```text
-core/group_evidence_parent_feature_provider.py
-test_stage1_group_evidence_parent_feature_provider.py
-MSA3_REGISTERED_GROUP_PARENT_FEATURE_PUBLICATION_IMPLEMENTATION.md
-```
-
-MSA3 publishes only a five-feature aggregate GROUP manifest from exact precomputed MSA2 evidence:
-
-```text
-comparison eligible rate
-favorable breadth rate
-mean current-leader persistence rate
-leader/follower spread               optional
-follower favorable rate              optional
-```
-
-Peer symbol identities and selection/permission/allocation fields are not published.
-
-The source timeline revalidates each MSA2 `result_hash` and resolves only exact `end_as_of` points. No nearest-time/fill-forward behavior is allowed.
-
-The GROUP provider requires one exact configured SECTOR result and records its `result_hash`, preserving the explicit PCTX2D chain:
-
-```text
-MARKET -> SECTOR -> GROUP
-```
-
-Publication remains:
+MSA3 publishes only bounded aggregate GROUP context from exact trusted MSA2 evidence through PCTX1/PCTX2D. Publication remains:
 
 ```text
 RESEARCH_ONLY
 operational_authority = false
 ```
 
-Regression integration stops at a PCTX2D `OBSERVED` frame plus registered PCTX2B binder resolution. The new GROUP values are not executed through CTXBT1/Backtest in this tranche.
+The trusted causal publication chain is:
+
+```text
+MSA1 snapshots
+ -> MSA2 observation-only group evidence
+ -> MSA3 registered aggregate GROUP ParentFeatureProviderResult
+ -> PCTX1 assembly / PCTX2D OBSERVED frame
+```
+
+No peer symbol identities, allowed/blocked symbols, allocation, entry gate or Broker authority are published.
+
+## CTXVAL1 executable boundary
+
+New files:
+
+```text
+core/tactical_context_validation.py
+test_stage1_tactical_context_validation.py
+CTXVAL1_REGISTERED_PARENT_CONTEXT_VALIDATION_ARENA_IMPLEMENTATION.md
+```
+
+CTXVAL1 reuses E8 attribution over explicit registered PCTX1 OBSERVED context and adds partitioned evidence gates:
+
+```text
+TRAIN
+VALIDATION
+OOS
+HARSH (>=1, explicit adverse_reason)
+```
+
+Every partition must use a frozen NEUTRAL `tactical_discovery/v1` profile, exact case-aligned PCTX1 contexts, globally disjoint case IDs and one stable candidate hash.
+
+`RegisteredContextSlice` pins an E8 rule to one `feature_id` and exact PCTX1 `required_manifest_hash`. Every context must carry that manifest identity; semantically different/unregistered context cannot borrow the slice evidence.
+
+The declared validation contract checks retained case/activity and independent return, drawdown, profitable-rate, cost and MFE-giveback axes with no hidden universal score. TRAIN can require material improvement. Validation/OOS/HARSH must survive declared regression tolerances.
+
+A TRAIN-positive slice that regresses on OOS is rejected.
+
+A passing slice receives its own:
+
+```text
+validation_evidence_hash
+evidence_status = VALIDATED
+deployment_policy_evidence_eligible = true
+```
+
+but CTXVAL1 remains:
+
+```text
+operational_authority = false
+execution_integration = EVIDENCE_ONLY_NOT_WIRED_TO_ENTRY_GATE_OR_BROKER
+```
 
 ## Remote CI environment
 
-Recent GitHub Actions runs continue to terminate before executable steps receive a runner (`runner_id=0`, empty steps). Classification remains:
+Recent GitHub Actions jobs have repeatedly terminated before executable steps receive a runner. Those failures are classified:
 
 ```text
 environment issue
@@ -104,11 +116,11 @@ No workflow/test/product guard has been weakened.
 
 ## Current validation status
 
-May claim E0-E8, PCTX1, PCTX2B, CTXDSL1+CTXBT1, PCTX2A-PCTX2D, MSA1 and MSA2 trusted exact Full PASS at the SHAs above.
+May claim E0-E8, PCTX1, PCTX2B, CTXDSL1+CTXBT1, PCTX2A-PCTX2D and MSA1-MSA3 trusted exact Full PASS at the SHAs above.
 
-MSA3 remains untrusted until focused + Full local validation at one exact SHA.
+CTXVAL1 remains untrusted until focused + Full local validation at one exact SHA.
 
-Do not claim GROUP-feature OOS benefit, GROUP DEPLOYMENT eligibility, cross-symbol operational selection, portfolio allocation, live readiness or repository-wide compliance PASS.
+Do not claim empirical OOS benefit from real GROUP context, production GROUP deployment eligibility, cross-symbol operational selection/allocation, operational macro gate, live readiness or repository-wide compliance PASS.
 
 `REMEDIATION_REQUIRED` remains broader repository status.
 
@@ -117,7 +129,7 @@ Do not claim GROUP-feature OOS benefit, GROUP DEPLOYMENT eligibility, cross-symb
 ```powershell
 git pull --ff-only origin main
 git rev-parse HEAD
-python -m unittest -v test_stage1_group_evidence_parent_feature_provider.py
+python -m unittest -v test_stage1_tactical_context_validation.py
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
