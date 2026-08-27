@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import ast
 import re
-from typing import Dict, Iterable
+from typing import Dict, Iterable, Mapping
 
 import numpy as np
 
@@ -14,9 +14,26 @@ class BarRuntimeError(ValueError):
     pass
 
 
+def _attribute_parts(node):
+    if isinstance(node, ast.Name):
+        return [node.id]
+    if isinstance(node, ast.Attribute):
+        return _attribute_parts(node.value) + [node.attr]
+    return []
+
+
 class BarExpression(ast.NodeVisitor):
-    def __init__(self, values: Dict[str, object], state: Dict[str, object], index: int):
-        self.values, self.state, self.index = values, state, index
+    def __init__(
+        self,
+        values: Dict[str, object],
+        state: Dict[str, object],
+        index: int,
+        context_values: Mapping[str, object] | None = None,
+    ):
+        self.values = values
+        self.state = state
+        self.index = index
+        self.context_values = dict(context_values or {})
 
     def evaluate(self, text: str):
         text = re.sub(r"\btrue\b", "True", text, flags=re.I)
@@ -30,9 +47,24 @@ class BarExpression(ast.NodeVisitor):
             return value[self.index] if isinstance(value, np.ndarray) else value
         if node.id == "True": return True
         if node.id == "False": return False
+        if node.id == "ctx": raise BarRuntimeError("ctx는 ctx.<layer>.<feature> 형식으로만 사용할 수 있습니다.")
         raise BarRuntimeError(f"정의되지 않은 변수: {node.id}")
 
     def visit_Constant(self, node): return node.value
+
+    def visit_Attribute(self, node):
+        parts = _attribute_parts(node)
+        if parts and parts[0] == "ctx":
+            if len(parts) < 3:
+                raise BarRuntimeError("parent context는 ctx.<layer>.<feature> 형식이어야 합니다.")
+            key = ".".join(parts)
+            if key not in self.context_values:
+                raise BarRuntimeError(f"실행 바인딩되지 않은 parent feature: {'.'.join(parts[1:])}")
+            value = self.context_values[key]
+            if not isinstance(value, np.ndarray) or len(value) <= self.index:
+                raise BarRuntimeError(f"parent context series가 현재 bar와 정렬되지 않았습니다: {key}")
+            return value[self.index]
+        raise BarRuntimeError("on_bar에서 허용되지 않는 속성 접근입니다.")
 
     def visit_Subscript(self, node):
         if not isinstance(node.value, ast.Name): raise BarRuntimeError("봉 참조 대상은 변수여야 합니다.")
@@ -77,9 +109,15 @@ class BarExpression(ast.NodeVisitor):
     def generic_visit(self, node): raise BarRuntimeError(f"on_bar에서 허용되지 않는 문법: {type(node).__name__}")
 
 
-def execute_on_bar(values: Dict[str, object], states, statements: Iterable, size: int):
+def execute_on_bar(
+    values: Dict[str, object],
+    states,
+    statements: Iterable,
+    size: int,
+    context_values: Mapping[str, object] | None = None,
+):
     persistent: Dict[str, object] = {}
-    initializer = BarExpression(values, persistent, 0)
+    initializer = BarExpression(values, persistent, 0, context_values=context_values)
     for item in states: persistent[item.name] = initializer.evaluate(item.expression)
     outputs: Dict[str, np.ndarray] = {item.name: np.full(size, np.nan, dtype=object) for item in states}
 
@@ -94,7 +132,7 @@ def execute_on_bar(values: Dict[str, object], states, statements: Iterable, size
 
     for index in range(size):
         for name, value in persistent.items(): outputs[name][index] = value
-        run(statements, BarExpression(values, persistent, index))
+        run(statements, BarExpression(values, persistent, index, context_values=context_values))
         for name, value in persistent.items(): outputs[name][index] = value
     for name, value in outputs.items():
         if all(isinstance(item, (bool, np.bool_)) for item in value): outputs[name] = value.astype(bool)
