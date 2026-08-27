@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **MSA2_TRUSTED_FULL_PASS / MSA3_REGISTERED_GROUP_PARENT_FEATURE_PUBLICATION_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / REMEDIATION_REQUIRED**  
+Status: **MSA3_TRUSTED_FULL_PASS / CTXVAL1_REGISTERED_PARENT_CONTEXT_VALIDATION_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / REMEDIATION_REQUIRED**  
 Updated: 2026-08-27 KST
 
 ## Authority order
@@ -23,12 +23,13 @@ Updated: 2026-08-27 KST
 16. `MSA1_IMMUTABLE_MULTI_SYMBOL_SNAPSHOT_EVIDENCE_IMPLEMENTATION.md`
 17. `MSA2_BOUNDED_GROUP_LEADER_FOLLOWER_BREADTH_EVIDENCE_IMPLEMENTATION.md`
 18. `MSA3_REGISTERED_GROUP_PARENT_FEATURE_PUBLICATION_IMPLEMENTATION.md`
-19. earlier product/execution/playbook/audit checkpoints
-20. `PROGRESS_CHECKPOINT_2026-08-26.md`
+19. `CTXVAL1_REGISTERED_PARENT_CONTEXT_VALIDATION_ARENA_IMPLEMENTATION.md`
+20. earlier product/execution/playbook/audit checkpoints
+21. `PROGRESS_CHECKPOINT_2026-08-26.md`
 
 ## Trusted exact Full checkpoints
 
-Every exact checkout below received:
+Every checkout below received:
 
 ```text
 [PASS] Tactical P1 verification completed: mode=Full.
@@ -53,6 +54,7 @@ PCTX2C  7aee063932e0d70d38c2e7f876b140d049029771
 PCTX2D  6de666c277d1a6d7ffb47fd9e6093e50b34ebb45
 MSA1    adaef963dce717b252f2575896a74462c8a277a2
 MSA2    3a5a2ece658ead28a1822ef7482a3d284d12e2d6
+MSA3    02904728cb0a39669e6809ba21c4e2dd8eb947e3
 ```
 
 Recent focused evidence:
@@ -61,9 +63,10 @@ Recent focused evidence:
 PCTX2D: Ran 6 tests in 0.174s / OK
 MSA1:   Ran 6 tests in 0.003s / OK
 MSA2:   Ran 7 tests in 0.017s / OK
+MSA3:   Ran 7 tests in 0.078s / OK
 ```
 
-Each was followed by the consolidated Full PASS at the exact SHA above.
+Each was followed by Full PASS at the exact SHA shown above.
 
 ## Governing architecture
 
@@ -78,13 +81,14 @@ PCTX1 typed/versioned provider contract
  -> BrokerEmulator
 ```
 
-Trusted parent calculation/precompute path:
+Trusted parent calculation/publication path:
 
 ```text
 PCTX2A deterministic MARKET provider
  -> PCTX2C exact root precomputation
  -> PCTX2D explicit dependency DAG
  -> descriptive SECTOR provider
+ -> MSA3 research-only GROUP provider publication
 ```
 
 Trusted multi-symbol evidence path:
@@ -94,111 +98,100 @@ single-instrument causal state @ exact t
  -> MSA1 immutable InstrumentSignalSnapshot
  -> explicit SnapshotUniverse
  -> MSA2 bounded exact chronological GROUP evidence
+ -> MSA3 bounded registered aggregate GROUP features
 ```
 
 Provider calculation/I/O, universe discovery, peer ranking, allocation and adaptive learning remain outside Instrument DSL execution.
 
-## MSA2 trusted state
+## MSA3 trusted state
 
 Trusted exact checkpoint:
 
 ```text
-3a5a2ece658ead28a1822ef7482a3d284d12e2d6
-Ran 7 tests in 0.017s
+02904728cb0a39669e6809ba21c4e2dd8eb947e3
+Ran 7 tests in 0.078s
 OK
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-MSA2 is still observation-only. Leader/follower/breadth/persistence evidence is descriptive and has no operational authority.
+MSA3 publishes only five aggregate GROUP features, with follower-dependent values optional/absent rather than defaulted. Publication remains `RESEARCH_ONLY`, `operational_authority=false`.
 
-## MSA3 current executable tranche
+## CTXVAL1 current executable tranche
 
 New module:
 
 ```text
-core/group_evidence_parent_feature_provider.py
+core/tactical_context_validation.py
 ```
 
 New regression:
 
 ```text
-test_stage1_group_evidence_parent_feature_provider.py
+test_stage1_tactical_context_validation.py
 ```
 
 Detailed checkpoint:
 
 ```text
-MSA3_REGISTERED_GROUP_PARENT_FEATURE_PUBLICATION_IMPLEMENTATION.md
+CTXVAL1_REGISTERED_PARENT_CONTEXT_VALIDATION_ARENA_IMPLEMENTATION.md
 ```
 
-MSA3 does not run MSA1/MSA2 analysis. It reads only an exact immutable timeline of already-computed `multi_symbol_group_evidence/v1` results and verifies each MSA2 `result_hash` against its payload.
-
-Resolution policy:
+Schemas/policies:
 
 ```text
-EXACT_PRECOMPUTED_MSA2_EVIDENCE_NO_NEAREST_NO_FILL_FORWARD
+tactical_context_validation_arena/v1
+tactical_context_validation_contract/v1
+registered_context_validation_slice/v1
+PARTITIONED_E8_ATTRIBUTION_TRAIN_VALIDATION_OOS_HARSH_DECLARED_AXES_NO_HIDDEN_SCORE
+EXACT_REGISTERED_PCTX1_OBSERVED_CONTEXT_ONLY
 ```
 
-Publication policy:
+### Exact registered context requirement
+
+Every validation case uses a frozen NEUTRAL `tactical_discovery/v1` result and an exact OBSERVED PCTX1 assembly context:
 
 ```text
-EXACT_PRECOMPUTED_MSA2_EVIDENCE_PLUS_EXPLICIT_SECTOR_DEPENDENCY_NO_PEER_RUNTIME_READ_NO_DEPLOYMENT_AUTHORITY
-publication_state = RESEARCH_ONLY
+context.as_of == case.knowledge_cutoff
+parent_feature_contract == parent_context_assembly/v1
+exact parent_feature_knowledge_cutoff
+non-empty immutable manifest/result hashes
+required registered manifest hash present
+```
+
+There is no provider call, nearest/fill-forward, tactic replay, Backtest mutation or Broker wiring in CTXVAL1.
+
+### Partition evidence
+
+CTXVAL1 requires exactly one TRAIN, VALIDATION and OOS partition plus at least one HARSH partition. HARSH requires `adverse_reason`; case IDs are globally disjoint; all partitions use the same candidate hash.
+
+E8 `TacticalContextAttributor` is run independently per partition. Each registered slice is judged against explicit no-score retained-case, return, drawdown, profitable-rate, cost and MFE-giveback tolerances.
+
+A slice must survive all holdouts. TRAIN-positive but OOS-regressing evidence fails.
+
+### Output authority
+
+Passing slices receive a slice-specific `validation_evidence_hash` and may become *evidence-eligible* for a separately declared E8 deployment policy. CTXVAL1 itself remains:
+
+```text
 operational_authority = false
+execution_integration = EVIDENCE_ONLY_NOT_WIRED_TO_ENTRY_GATE_OR_BROKER
 ```
 
-### Registered GROUP features
-
-For namespace `semiconductor`, the manifest is deliberately restricted to five aggregate values:
-
-```text
-group.semiconductor_comparison_eligible_rate
-group.semiconductor_favorable_breadth_rate
-group.semiconductor_leader_persistence_rate
-group.semiconductor_leader_follower_spread       optional
-group.semiconductor_follower_favorable_rate      optional
-```
-
-No leader/follower symbol identity, rank list, allowed/blocked symbol list, slot/allocation, gate or order authority is published.
-
-When follower evidence is absent, the two follower-dependent values remain `OPTIONAL_ABSENT`; they are not defaulted to zero.
-
-### PCTX2D dependency seam
-
-The GROUP provider requires exactly one configured exact-time SECTOR result. The GROUP `ParentFeatureProviderResult` carries that SECTOR `result_hash` in `dependency_result_hashes`, preserving:
-
-```text
-MARKET -> SECTOR -> GROUP
-```
-
-MSA3 regression uses only an `OBSERVED` PCTX2D frame plus the generic registered binder. It does not execute the new GROUP feature through CTXBT1/Backtest in this tranche.
-
-Registered publication is not deployment validation.
-
-## Existing multi-symbol vertical slice
-
-`core/multi_symbol.py` remains the earlier deterministic scenario/cohort orchestration engine and is not modified by MSA1-MSA3. New peer/group research uses immutable snapshots/evidence rather than cross-symbol Instrument DSL syntax.
+It does not create allowed/blocked symbols, allocation, entry gates, DeploymentDecision or Broker orders.
 
 ## Remote CI environment
 
-Recent GitHub Actions jobs have repeatedly terminated before executable steps with no assigned runner (`runner_id=0`). These incidents are classified:
-
-```text
-environment issue
-```
-
-No workflow/test/product guard has been weakened.
+Recent GitHub Actions runs repeatedly failed before executable steps obtained a runner. These are `environment issue`; workflow/test guards have not been weakened.
 
 ## Still not implemented / nonclaims
 
 Do not claim yet:
 
-- trusted Full PASS for MSA3;
-- validated OOS benefit from GROUP context;
-- GROUP feature DEPLOYMENT eligibility;
-- automatic cross-symbol selection/permission;
-- portfolio slot/allocation authority;
-- operational macro gate;
+- trusted Full PASS for CTXVAL1;
+- empirical OOS benefit from real GROUP context;
+- production GROUP deployment policy;
+- automatic cross-symbol selection or portfolio allocation;
+- operational parent-context entry gate;
 - live-trading readiness;
 - repository-wide Chart/overall compliance PASS.
 
@@ -206,12 +199,12 @@ Do not claim yet:
 
 ## Immediate validation boundary
 
-Validate MSA3 before any GROUP DEPLOYMENT use or selection-policy work:
+Validate CTXVAL1 before any GROUP DEPLOYMENT use or selection-policy work:
 
 ```powershell
 git pull --ff-only origin main
 git rev-parse HEAD
-python -m unittest -v test_stage1_group_evidence_parent_feature_provider.py
+python -m unittest -v test_stage1_tactical_context_validation.py
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
