@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **PCTX2B_PARENT_CONTEXT_FRAME_BINDER_IMPLEMENTED_AWAITING_TRUSTED_FULL_VALIDATION / REMEDIATION_REQUIRED**  
+Status: **CTXDSL1_GENERIC_PARENT_CONTEXT_REFERENCE_IMPLEMENTED_AWAITING_TRUSTED_LOCAL_VALIDATION / REMEDIATION_REQUIRED**  
 Updated: 2026-08-27 KST
 
 ## Authority order
@@ -12,67 +12,16 @@ Updated: 2026-08-27 KST
 5. `ADAPTIVE_MICRO_WARRIOR_LEARNING_ARCHITECTURE.md`
 6. `MICRO_FIRST_MACRO_READY_ARCHITECTURE.md`
 7. `MULTI_LAYER_DSL_ARCHITECTURE.md`
-8. `E3_MULTI_BATTLE_PARAMETER_SEEKER_IMPLEMENTATION.md`
-9. `E4_CAUSAL_FAILURE_OPPORTUNITY_CHARACTERIZER_IMPLEMENTATION.md`
-10. `E5_BOUNDED_STRUCTURAL_SKILL_GENERATOR_IMPLEMENTATION.md`
-11. `E6_VALIDATION_HARSH_ARENA_IMPLEMENTATION.md`
-12. `E7_EVOLUTION_MEMORY_EVIDENCE_UI_IMPLEMENTATION.md`
-13. `E8_MACRO_CONTEXT_ATTRIBUTION_DEPLOYMENT_IMPLEMENTATION.md`
-14. `PCTX1_PARENT_FEATURE_PROVIDER_IMPLEMENTATION.md`
-15. `PCTX2B_PARENT_CONTEXT_FRAME_BINDER_IMPLEMENTATION.md`
-16. `MICRO_TACTICAL_DISCOVERY_IMPLEMENTATION.md`
-17. `P1_TACTICAL_DATA_IMPLEMENTATION.md`
-18. `PRODUCT_IMPLEMENTATION_PLAN.md`
-19. `STAGE1_EXECUTION_POLICY.md`
-20. `QUANT_DSL_PLAYBOOK.md`
-21. `DSL_ENGINE_AUDIT.md`
-22. `PROGRESS_CHECKPOINT_2026-08-26.md`
-
-## Governing architecture
-
-Research remains micro-first while target deployment remains layered.
-
-```text
-minimal tactic family
- -> frozen BattleCases
- -> deterministic failure evidence
- -> causal characterization
- -> one legal structural skill
- -> bounded numeric seeking
- -> Train / Validation / OOS / Harsh
- -> ACCEPT / REJECT / REVIEW
- -> append-only generation memory
- -> lineage/evidence UI
- -> parent/macro context attribution
- -> separately validated deployment evidence
-```
-
-Target deployment:
-
-```text
-Parent Feature Providers
- -> immutable point-in-time context
- -> Market / Sector / Group intelligence
- -> eligible Tactical Unit
- -> optional multi-symbol selection/ranking Add-on
- -> validated micro tactic
- -> common execution policy
- -> BrokerEmulator
-```
-
-Macro intelligence remains an amplifier, not life support for a weak micro tactic.
-
-## Core DSL freeze
-
-Core remains responsible for deterministic local scalar/series/state/indicator calculation, causal tactic signals, supported completed MTF, explicit order intent and reproducible Backtest/Broker semantics.
-
-Core still does **not** own provider calculation/I/O, arbitrary peer-symbol reads, universe/ranking/allocation, sector/leader discovery, online learning, external DB/network calls during tactic evaluation, or operational macro command wiring.
-
-Only a future generic read-only context-reference mechanism may be promoted into Core, after repeated tactic-family need and the promotion criteria in `CORE_DSL_FREEZE_ADAPTIVE_SIDECAR_POLICY.md` are satisfied.
+8. E3-E8 implementation checkpoints
+9. `PCTX1_PARENT_FEATURE_PROVIDER_IMPLEMENTATION.md`
+10. `PCTX2B_PARENT_CONTEXT_FRAME_BINDER_IMPLEMENTATION.md`
+11. `CTXDSL1_GENERIC_PARENT_CONTEXT_REFERENCE_IMPLEMENTATION.md`
+12. earlier product/execution/playbook/audit checkpoints
+13. `PROGRESS_CHECKPOINT_2026-08-26.md`
 
 ## Trusted Full checkpoints
 
-Every exact checkout below received:
+Every exact checkout below received operator:
 
 ```text
 [PASS] Tactical P1 verification completed: mode=Full.
@@ -90,158 +39,147 @@ E6    ad87a68a1f8d0595f51a3c02bde022a63ea22cc6
 E7    dc420d7f7961a4f0517b00c059d159b8face706c
 E8    3256f1de6b9bb7e8b79342ea037edcd51125bcda
 PCTX1 866bf0a5a25bf6759d1b264d62efcf9f1f277446
+PCTX2B ce18ffc4b9f7758d57117b9b08eaa2d8c1e7aba4
 ```
 
-E4's first Full failure was an `environment issue`: the external Chart SSOT local checkout was stale. After fast-forwarding Chart SSOT to `7a43f0f52928045904d192deb7d8d532cb4c533e`, the same E4 DSL SHA passed without weakening E4 product/tests.
+E4's first Full failure was an `environment issue` caused by a stale external Chart SSOT checkout; the same DSL SHA passed after the Chart dependency was fast-forwarded without weakening product/tests.
 
-## PCTX1 trusted state
+## Core / parent-context architecture
 
-`core/parent_feature_provider.py` is now the trusted provider/manifest production contract.
+Core remains single-instrument and deterministic. Provider calculation/I/O, peer-symbol discovery/ranking, universe/allocation, adaptive learning and external DB/network behavior remain outside Instrument DSL evaluation.
 
-It defines:
+Trusted parent-context production/transport is now:
 
 ```text
-ParentFeatureSpec
-ParentFeatureManifest
-ParentFeatureRegistry
-ParentFeatureProviderResult
-ParentFeatureProvider Protocol
-ParentContextAssembly
-ParentContextAssembler
+PCTX1 registered typed Provider Result
+ -> immutable ParentContextAssembly
+ -> PCTX2B exact DEPLOYMENT/OBSERVED ParentContextFrame
+ -> exact-time read-only binding
 ```
 
-Provider-specific calculation stays outside Instrument DSL and publishes immutable typed results. PCTX1 fails closed on future/stale results, required-feature absence, undeclared features, type mismatch, missing source and malformed dependencies.
-
-Trusted PCTX1 checkpoint:
+PCTX2B policy remains:
 
 ```text
-866bf0a5a25bf6759d1b264d62efcf9f1f277446
-[PASS] Tactical P1 verification completed: mode=Full.
+EXACT_PRECOMPUTED_POINT_ONLY_NO_NEAREST_NO_FILL_FORWARD
+REGISTERED_READ_ONLY_EXACT_TIME_NO_PROVIDER_CALL
 ```
 
-## PCTX2B current executable tranche
+## CTXDSL1 current Core-facing tranche
 
-PCTX2B was selected before PCTX2A concrete providers because intraday semantics require an exact decision-time context transport contract before production calculations are coupled to it.
+CTXDSL1 validates the one generic context-reference seam reserved by the Core Freeze policy.
 
 New executable:
 
 ```text
-core/parent_context_frame.py
+core/dsl_context.py
 ```
 
-New regression:
+Core files changed:
 
 ```text
-test_stage1_parent_context_frame.py
+core/dsl_parser.py
+core/dsl_semantic.py
+core/dsl_runtime.py
+core/bar_runtime.py
 ```
 
-Detailed checkpoint:
+Regression:
 
 ```text
-PCTX2B_PARENT_CONTEXT_FRAME_BINDER_IMPLEMENTATION.md
+test_stage1_dsl_parent_context.py
 ```
 
-Schemas:
+Syntax is generic and feature-registry driven:
+
+```dsl
+market_ok = ctx.market.kospi_slope > 0
+regime_ok = ctx.market.regime_state == "RISK_ON"
+permission = ctx.market.entry_permitted
+```
+
+No feature-specific parser/runtime function is added. `ctx` is a reserved read-only namespace.
+
+### Executable binding contract
+
+Schema/policy:
 
 ```text
-parent_context_frame/v1
-parent_context_binding/v1
+dsl_parent_context_series/v1
+REGISTERED_REQUIRED_EXACT_TIME_DEPLOYMENT_ONLY_NO_PROVIDER_CALL
 ```
 
-### Exact causal timeline
+Executable binding requires:
 
-A `ParentContextFrame` contains precomputed PCTX1 assemblies for one target instrument.
+- PCTX2B `DEPLOYMENT` frame only;
+- matching PCTX1 registry;
+- exact target timestamp for every bar;
+- stable manifest topology;
+- registered `required=true` feature;
+- typed NUMBER/BOOLEAN/STRING value.
 
-Every point requires:
+Optional-absent features are not silently defaulted into executable DSL. Unknown/unbound features fail semantic analysis.
+
+Direct `ctx.*[n]` history is rejected in v1 so the language does not invent a second hidden parent-context resampling/history policy.
+
+`on_bar` may read the exact current-bar frozen value, but cannot mutate `ctx`.
+
+### Existing behavior and boundaries
+
+DSLs with no `ctx.*` binding retain the existing compile path. A DSL that references `ctx.*` without an exact binding fails closed.
+
+CTXDSL1 has **not** changed:
 
 ```text
-target_time
- == assembly.knowledge_cutoff
- == assembly.context.as_of
+BacktestEngine
+BrokerEmulator
+TA/indicator calculations
+provider calculation/I/O
+entry_gate/common execution policy
+Chart SSOT
 ```
 
-Resolution policy:
+Backtest context-frame integration is a separate future executable boundary.
+
+## Remote CI status
+
+GitHub Actions for executable head `97f9d37b811cb0e70174cb4990d658a2be32478e` did not execute tests. Both workflows terminated before any step received a runner (`runner_id=0`, empty step list).
+
+Classification:
 
 ```text
-EXACT_PRECOMPUTED_POINT_ONLY_NO_NEAREST_NO_FILL_FORWARD
+environment issue
 ```
 
-There is no nearest-time substitution, interpolation, hidden carry-forward or provider call during lookup.
+No test/workflow/product guard was weakened. Therefore CTXDSL1 is **not trusted yet** and needs local execution evidence.
 
-### Fixed semantic topology
+## Current nonclaims
 
-Every point in one frame must carry the same manifest-hash topology. Provider/version drift inside a frame fails closed.
+Do not claim yet:
 
-The frame records the PCTX1 `registry_hash`; changing provider semantics/result/context at any point changes deterministic frame identity.
-
-### Generic read-only sidecar binder
-
-`ParentContextBinder` resolves explicit registered feature IDs against one exact-time frozen context.
-
-Policy:
-
-```text
-REGISTERED_READ_ONLY_EXACT_TIME_NO_PROVIDER_CALL
-```
-
-It re-checks public type semantics and preserves optional absence explicitly as:
-
-```text
-present = false
-value = null
-```
-
-This binder is **not** the Instrument DSL Runtime Context Binder. Parser/Semantic/Runtime still have no executable `ctx.*` capability.
-
-### Still not implemented
-
-- PCTX2A production KOSPI/KOSDAQ Market Parent Feature Provider;
-- production Sector/Group/Leader-Follower Provider;
-- source acquisition adapters standardized for parent context;
-- Instrument DSL `ctx.*` syntax/type binding;
-- Parser/Semantic/Runtime context-reference support;
-- operational deployment entry-gate/Broker integration;
-- production multi-symbol deployment selector.
-
-PCTX2B changes none of Parser/Semantic/Runtime/Backtest/Broker/Chart authority.
-
-## Validation status / nonclaims
-
-May claim E0-E8 and PCTX1 trusted Full PASS at the exact SHAs above. PCTX2B source/tests are implemented awaiting Full.
-
-Do **not** claim yet:
-
-- trusted Full PASS for PCTX2B;
-- a production parent-feature calculation;
-- a real profitable/generalizing macro slice;
-- executable DSL parent-context consumption;
-- operational deployment authorization;
-- autonomous portfolio allocation;
-- trained adaptive learner;
-- adaptive lower-timeframe/tick deployment;
+- trusted Full PASS for CTXDSL1;
+- production KOSPI/KOSDAQ/Sector/Group parent providers;
+- profitable/generalizing parent-context strategy rules;
+- Backtest/Broker operational context authority;
+- automatic macro gating or allocation;
+- arbitrary peer-symbol access from DSL;
 - live-trading readiness;
-- repository-wide Chart or overall compliance PASS.
+- repository-wide Chart/overall compliance PASS.
 
 `REMEDIATION_REQUIRED` remains authoritative for broader repository compliance.
 
-## Immediate boundary
+## Immediate validation boundary
 
-Do not begin PCTX2A concrete Market Provider work, Core-facing `ctx.*` binding, or deployment gate wiring before PCTX2B receives trusted Full validation at an exact repository SHA.
+First run the focused new regression at the exact current checkout:
 
 ```powershell
-git pull --ff-only origin main
+python -m unittest -v test_stage1_dsl_parent_context.py
+```
+
+If focused regression passes, run:
+
+```powershell
 git rev-parse HEAD
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
-If Full fails, classify the first executable failure exactly as one of:
-
-```text
-test defect
-product defect
-authority drift
-environment issue
-unknown
-```
-
-before changing code.
+If any executable test fails, classify first as exactly `test defect`, `product defect`, `authority drift`, `environment issue`, or `unknown` before changing code.
