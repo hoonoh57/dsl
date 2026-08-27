@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **CTXDSL1_GENERIC_PARENT_CONTEXT_REFERENCE_IMPLEMENTED_AWAITING_TRUSTED_LOCAL_VALIDATION / REMEDIATION_REQUIRED**  
+Status: **CTXBT1_EXACT_PARENT_CONTEXT_BACKTEST_IMPLEMENTED_AWAITING_LOCAL_EXECUTABLE_VALIDATION / REMEDIATION_REQUIRED**  
 Updated: 2026-08-27 KST
 
 ## Authority order
@@ -16,10 +16,11 @@ Updated: 2026-08-27 KST
 9. `PCTX1_PARENT_FEATURE_PROVIDER_IMPLEMENTATION.md`
 10. `PCTX2B_PARENT_CONTEXT_FRAME_BINDER_IMPLEMENTATION.md`
 11. `CTXDSL1_GENERIC_PARENT_CONTEXT_REFERENCE_IMPLEMENTATION.md`
-12. earlier product/execution/playbook/audit checkpoints
-13. `PROGRESS_CHECKPOINT_2026-08-26.md`
+12. `CTXBT1_EXACT_PARENT_CONTEXT_BACKTEST_INTEGRATION.md`
+13. earlier product/execution/playbook/audit checkpoints
+14. `PROGRESS_CHECKPOINT_2026-08-26.md`
 
-## Trusted Full checkpoints
+## Trusted exact Full checkpoints
 
 Every exact checkout below received operator:
 
@@ -28,68 +29,60 @@ Every exact checkout below received operator:
 ```
 
 ```text
-E0    ac01525223f897f155de63f02529b0a6429a0882
-E1    6e9b2f357080eff904ddd2d5d369c0a9a2d3b14b
-E2    620f741730b0ae821fc48affd22b5420f38a6cac
-E3A   06b52962a1b9b1212a11202ccef1f27b8d7f40c0
-E3    cc3096c28ea8b9af718a1784df1b17af62bcde9a
-E4    560526b7f5af19462a57fd1e5b433bcbe5596500
-E5    c1351152d58e4219b9998f0b35b7636f340dc986
-E6    ad87a68a1f8d0595f51a3c02bde022a63ea22cc6
-E7    dc420d7f7961a4f0517b00c059d159b8face706c
-E8    3256f1de6b9bb7e8b79342ea037edcd51125bcda
-PCTX1 866bf0a5a25bf6759d1b264d62efcf9f1f277446
+E0     ac01525223f897f155de63f02529b0a6429a0882
+E1     6e9b2f357080eff904ddd2d5d369c0a9a2d3b14b
+E2     620f741730b0ae821fc48affd22b5420f38a6cac
+E3A    06b52962a1b9b1212a11202ccef1f27b8d7f40c0
+E3     cc3096c28ea8b9af718a1784df1b17af62bcde9a
+E4     560526b7f5af19462a57fd1e5b433bcbe5596500
+E5     c1351152d58e4219b9998f0b35b7636f340dc986
+E6     ad87a68a1f8d0595f51a3c02bde022a63ea22cc6
+E7     dc420d7f7961a4f0517b00c059d159b8face706c
+E8     3256f1de6b9bb7e8b79342ea037edcd51125bcda
+PCTX1  866bf0a5a25bf6759d1b264d62efcf9f1f277446
 PCTX2B ce18ffc4b9f7758d57117b9b08eaa2d8c1e7aba4
 ```
 
 E4's first Full failure was an `environment issue` caused by a stale external Chart SSOT checkout; the same DSL SHA passed after the Chart dependency was fast-forwarded without weakening product/tests.
 
-## Core / parent-context architecture
+## Parent-context architecture
 
 Core remains single-instrument and deterministic. Provider calculation/I/O, peer-symbol discovery/ranking, universe/allocation, adaptive learning and external DB/network behavior remain outside Instrument DSL evaluation.
 
-Trusted parent-context production/transport is now:
+The current parent-context path is:
 
 ```text
 PCTX1 registered typed Provider Result
  -> immutable ParentContextAssembly
- -> PCTX2B exact DEPLOYMENT/OBSERVED ParentContextFrame
- -> exact-time read-only binding
+ -> PCTX2B exact DEPLOYMENT ParentContextFrame
+ -> CTXDSL1 immutable DSLContextSeriesBinding
+ -> generic read-only ctx.* expression
+ -> CTXBT1 Backtest compile integration
+ -> existing execution policy
+ -> BrokerEmulator
 ```
 
-PCTX2B policy remains:
+No provider is called from Parser/Semantic/Runtime/Backtest/Broker.
+
+## PCTX2B trusted transport
+
+PCTX2B remains exact-time and fail-closed:
 
 ```text
 EXACT_PRECOMPUTED_POINT_ONLY_NO_NEAREST_NO_FILL_FORWARD
 REGISTERED_READ_ONLY_EXACT_TIME_NO_PROVIDER_CALL
 ```
 
-## CTXDSL1 current Core-facing tranche
-
-CTXDSL1 validates the one generic context-reference seam reserved by the Core Freeze policy.
-
-New executable:
+Trusted exact checkpoint:
 
 ```text
-core/dsl_context.py
+ce18ffc4b9f7758d57117b9b08eaa2d8c1e7aba4
+[PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-Core files changed:
+## CTXDSL1 language/runtime evidence
 
-```text
-core/dsl_parser.py
-core/dsl_semantic.py
-core/dsl_runtime.py
-core/bar_runtime.py
-```
-
-Regression:
-
-```text
-test_stage1_dsl_parent_context.py
-```
-
-Syntax is generic and feature-registry driven:
+CTXDSL1 introduced generic registry-driven syntax such as:
 
 ```dsl
 market_ok = ctx.market.kospi_slope > 0
@@ -97,52 +90,89 @@ regime_ok = ctx.market.regime_state == "RISK_ON"
 permission = ctx.market.entry_permitted
 ```
 
-No feature-specific parser/runtime function is added. `ctx` is a reserved read-only namespace.
-
-### Executable binding contract
-
-Schema/policy:
+Binding policy:
 
 ```text
-dsl_parent_context_series/v1
 REGISTERED_REQUIRED_EXACT_TIME_DEPLOYMENT_ONLY_NO_PROVIDER_CALL
 ```
 
-Executable binding requires:
-
-- PCTX2B `DEPLOYMENT` frame only;
-- matching PCTX1 registry;
-- exact target timestamp for every bar;
-- stable manifest topology;
-- registered `required=true` feature;
-- typed NUMBER/BOOLEAN/STRING value.
-
-Optional-absent features are not silently defaulted into executable DSL. Unknown/unbound features fail semantic analysis.
-
-Direct `ctx.*[n]` history is rejected in v1 so the language does not invent a second hidden parent-context resampling/history policy.
-
-`on_bar` may read the exact current-bar frozen value, but cannot mutate `ctx`.
-
-### Existing behavior and boundaries
-
-DSLs with no `ctx.*` binding retain the existing compile path. A DSL that references `ctx.*` without an exact binding fails closed.
-
-CTXDSL1 has **not** changed:
+The operator reported:
 
 ```text
-BacktestEngine
-BrokerEmulator
-TA/indicator calculations
-provider calculation/I/O
-entry_gate/common execution policy
-Chart SSOT
+Ran 6 tests in 0.162s
+OK
+[PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-Backtest context-frame integration is a separate future executable boundary.
+for the requested CTXDSL1 local validation. The pasted result did not echo the local `git rev-parse HEAD`, so a standalone exact-SHA CTXDSL1 checkpoint is intentionally not claimed. The next exact CTXBT1 Full checkpoint will cover CTXDSL1 and CTXBT1 together.
+
+## CTXBT1 current executable tranche
+
+New adapter:
+
+```text
+core/backtest_parent_context.py
+```
+
+Changed execution boundary:
+
+```text
+core/backtest.py
+```
+
+Regression:
+
+```text
+test_stage1_backtest_parent_context.py
+```
+
+Detailed checkpoint:
+
+```text
+CTXBT1_EXACT_PARENT_CONTEXT_BACKTEST_INTEGRATION.md
+```
+
+`BacktestEngine.run(...)` now optionally accepts:
+
+```text
+parent_context_frame
+parent_feature_registry
+```
+
+Both or neither must be supplied.
+
+When supplied, CTXBT1 requires:
+
+- a PCTX2B `DEPLOYMENT` frame;
+- a matching PCTX1 registry;
+- market `_meta.instrument` exactly matching `frame.target_symbol`;
+- exact market bar timestamps for the complete binding timeline;
+- required typed registered features only;
+- no provider call, nearest lookup, fill-forward or default substitution.
+
+The adapter passes one immutable context binding into `DSLRuntime.compile(...)` using the market's exact `time[]`.
+
+### No implicit context gate
+
+Supplying parent context does not automatically block or permit entries.
+
+If a DSL does not reference `ctx.*`, the context frame must not alter tactic signals, trades or accounting. If the DSL does reference `ctx.*`, the resulting tactic signal remains subject to the existing external `entry_gate` and common execution policy.
+
+Broker authority remains:
+
+```text
+BrokerEmulator
+```
+
+CTXBT1 does not calculate parent features or issue Broker orders independently.
+
+### Provenance
+
+Backtest diagnostics now expose a `parent_context` provenance section including frame/registry/binding hashes, target symbol, bar count, feature IDs and policy. It does not expose provider source logic or create operational authority.
 
 ## Remote CI status
 
-GitHub Actions for executable head `97f9d37b811cb0e70174cb4990d658a2be32478e` did not execute tests. Both workflows terminated before any step received a runner (`runner_id=0`, empty step list).
+GitHub Actions for CTXDSL1 and CTXBT1 commits repeatedly ended before any workflow step executed. Jobs did not receive a usable runner and returned an empty step list.
 
 Classification:
 
@@ -150,18 +180,20 @@ Classification:
 environment issue
 ```
 
-No test/workflow/product guard was weakened. Therefore CTXDSL1 is **not trusted yet** and needs local execution evidence.
+No workflow, test or product guard was weakened.
 
-## Current nonclaims
+## Still not implemented / nonclaims
 
 Do not claim yet:
 
-- trusted Full PASS for CTXDSL1;
-- production KOSPI/KOSDAQ/Sector/Group parent providers;
-- profitable/generalizing parent-context strategy rules;
-- Backtest/Broker operational context authority;
-- automatic macro gating or allocation;
-- arbitrary peer-symbol access from DSL;
+- trusted exact Full PASS for CTXBT1;
+- a production KOSPI/KOSDAQ parent-feature calculator;
+- production Sector/Group/Leader-Follower providers;
+- evidence that a parent-context rule improves OOS profitability;
+- automatic deployment authorization;
+- Broker-side context calculation;
+- arbitrary peer-symbol access from Instrument DSL;
+- autonomous allocation;
 - live-trading readiness;
 - repository-wide Chart/overall compliance PASS.
 
@@ -169,17 +201,20 @@ Do not claim yet:
 
 ## Immediate validation boundary
 
-First run the focused new regression at the exact current checkout:
+Run the focused CTXBT1 regression at the exact current checkout:
 
 ```powershell
-python -m unittest -v test_stage1_dsl_parent_context.py
+git pull --ff-only origin main
+git rev-parse HEAD
+python -m unittest -v test_stage1_backtest_parent_context.py
 ```
 
-If focused regression passes, run:
+If focused regression passes, run at the same SHA:
 
 ```powershell
-git rev-parse HEAD
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
-If any executable test fails, classify first as exactly `test defect`, `product defect`, `authority drift`, `environment issue`, or `unknown` before changing code.
+If any executable test fails, classify the first failure exactly as `test defect`, `product defect`, `authority drift`, `environment issue`, or `unknown` before changing code.
+
+Do not begin PCTX2A concrete provider implementation or operational deployment/Broker wiring before CTXBT1 is green.
