@@ -1,6 +1,6 @@
 # PCTX1 Parent Feature Provider / Feature Manifest — Implementation Checkpoint
 
-Status: **IMPLEMENTED / AWAITING TRUSTED FULL VALIDATION / 2026-08-27 KST**
+Status: **TRUSTED FULL PASS / 2026-08-27 KST**
 
 ## 1. Trusted predecessor
 
@@ -250,7 +250,23 @@ Coverage includes:
 
 The Tactical P1 Full verifier discovers this regression through `test_stage1_*.py`.
 
-## 12. Mutation boundary
+## 12. Trusted Full validation
+
+The operator confirmed exact local checkout:
+
+```text
+866bf0a5a25bf6759d1b264d62efcf9f1f277446
+```
+
+and ran:
+
+```text
+[PASS] Tactical P1 verification completed: mode=Full.
+```
+
+Therefore **PCTX1 is trusted Full-green at `866bf0a5a25bf6759d1b264d62efcf9f1f277446`.**
+
+## 13. Mutation boundary
 
 PCTX1 adds no changes to:
 
@@ -268,15 +284,15 @@ Chart SSOT
 
 It is parent-context production infrastructure only.
 
-## 13. Next boundary
+## 14. Next boundary chosen after PCTX1
 
-Do not implement the Core-facing DSL `ctx.*` binding or operational deployment gate before this exact PCTX1 boundary receives trusted Full validation.
-
-If PCTX1 becomes trusted, the next design decision is intentionally split:
+The post-PCTX1 design split was:
 
 ```text
 PCTX2A concrete deterministic Parent Feature Provider(s)
 PCTX2B causal context timeline/frame + read-only binder contract
 ```
 
-Only after repeated tactic-family need and promotion criteria are proven should a generic read-only context reference be promoted into Core DSL grammar/runtime.
+PCTX2B is intentionally proceeding first because intraday backtest/live parity requires exact decision-time context semantics before a production provider is coupled to the transport layer.
+
+Core-facing DSL `ctx.*` grammar/runtime binding and operational deployment wiring remain separately gated after PCTX2B and concrete-provider evidence.
