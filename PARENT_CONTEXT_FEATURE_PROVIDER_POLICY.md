@@ -1,14 +1,14 @@
 # Parent Context Feature Provider / Read-Only DSL Binding Policy
 
-Status: **AUTHORITATIVE CONTEXT-INHERITANCE POLICY / PCTX1-PCTX2D TRUSTED / MSA3 GROUP PUBLICATION ACTIVE / 2026-08-27 KST**
+Status: **AUTHORITATIVE CONTEXT-INHERITANCE POLICY / PCTX1-PCTX2D + MSA3 TRUSTED / CTXVAL1 ACTIVE / 2026-08-27 KST**
 
 ## Governing rule
 
-> **Parent features are computed outside Instrument DSL, frozen as point-in-time context evidence, and consumed inside DSL only through a narrow registered read-only binding contract.**
+> **Parent features are computed outside Instrument DSL, frozen as point-in-time context evidence, consumed only through registered read-only binding, and validated out-of-sample before deployment authority is considered.**
 
-Instrument DSL remains deterministic and single-instrument. It may know stable registered `feature_id` values; it must not know provider algorithms, perform provider I/O, discover peers/universes or rank symbols.
+Instrument DSL remains deterministic and single-instrument. It may know stable registered `feature_id` values; it must not know provider algorithms, perform provider I/O, discover peers/universes, rank symbols or allocate capital.
 
-## Trusted chain
+## Trusted execution/binding chain
 
 ```text
 PCTX1 typed/versioned Parent Feature Provider contract
@@ -19,7 +19,7 @@ PCTX1 typed/versioned Parent Feature Provider contract
  -> BrokerEmulator
 ```
 
-Trusted exact checkpoints include:
+Trusted exact checkpoints:
 
 ```text
 PCTX1  866bf0a5a25bf6759d1b264d62efcf9f1f277446
@@ -30,110 +30,51 @@ PCTX2C  7aee063932e0d70d38c2e7f876b140d049029771
 PCTX2D  6de666c277d1a6d7ffb47fd9e6093e50b34ebb45
 MSA1    adaef963dce717b252f2575896a74462c8a277a2
 MSA2    3a5a2ece658ead28a1822ef7482a3d284d12e2d6
+MSA3    02904728cb0a39669e6809ba21c4e2dd8eb947e3
 ```
 
-Every listed executable checkpoint received Tactical P1 Full PASS at the exact SHA.
+Every listed executable checkpoint received Tactical P1 Full PASS at that exact SHA.
 
-## PCTX1 typed contract
+## PCTX1 typed evidence contract
 
 `ParentFeatureSpec`, `ParentFeatureManifest`, `ParentFeatureRegistry`, `ParentFeatureProviderResult`, `ParentContextAssembly` and `ParentContextAssembler` define immutable typed evidence.
 
-Required behavior is fail-closed for future/stale data, missing required values, undeclared values, incompatible types, missing source authority and invalid dependency hashes. Optional values are explicitly absent rather than silently defaulted.
+Future/stale data, missing required values, undeclared values, incompatible types, missing source authority and invalid dependency hashes fail closed. Optional values remain explicitly absent rather than silently defaulted. Provider/feature semantic changes require versioned identity changes.
 
-Provider/feature semantic changes require versioned identity changes.
+## Exact context transport
 
-## Exact frame / binding policy
-
-Frame points require:
+Frame and binder resolution remain exact:
 
 ```text
 target_time == assembly.knowledge_cutoff == assembly.context.as_of
-```
-
-Resolution/binding remains exact:
-
-```text
 EXACT_PRECOMPUTED_POINT_ONLY_NO_NEAREST_NO_FILL_FORWARD
 REGISTERED_READ_ONLY_EXACT_TIME_NO_PROVIDER_CALL
 ```
 
-No Parser/Semantic/Runtime/Backtest/Broker path calls a provider. Supplying context does not itself authorize an entry.
+No Parser/Semantic/Runtime/Backtest/Broker path calls a provider. Supplying a context does not itself authorize entry.
 
-## Trusted MARKET / SECTOR provider path
+## Trusted parent calculation/publication path
 
 ```text
-explicit benchmark source
- -> PCTX2A deterministic MARKET result
+PCTX2A deterministic MARKET provider
  -> PCTX2C exact root precomputation
  -> PCTX2D explicit dependency DAG
- -> descriptive SECTOR result
+ -> descriptive SECTOR provider
+ -> MSA3 registered aggregate GROUP publication
 ```
 
-PCTX2D requires explicit provider dependencies, deterministic topological order, exact-time child/parent results and equality between declared parent result hashes and each child `dependency_result_hashes`.
+PCTX2D enforces explicit provider dependencies, deterministic topological order and exact parent `result_hash` evidence.
 
-Trusted PCTX2D checkpoint:
+MSA3 is trusted at:
 
 ```text
-6de666c277d1a6d7ffb47fd9e6093e50b34ebb45
-Ran 6 tests in 0.174s
+02904728cb0a39669e6809ba21c4e2dd8eb947e3
+Ran 7 tests in 0.078s
 OK
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-MARKET and SECTOR features remain descriptive; they do not perform universe discovery, peer ranking, selection, allocation or Broker actions.
-
-## Multi-symbol evidence before GROUP publication
-
-Cross-symbol/group intelligence belongs to the optional Add-on sidecar.
-
-Trusted sequence:
-
-```text
-MSA1 immutable per-symbol exact snapshots
- -> MSA2 bounded exact chronological group evidence
-```
-
-MSA2 is trusted at:
-
-```text
-3a5a2ece658ead28a1822ef7482a3d284d12e2d6
-Ran 7 tests in 0.017s
-OK
-[PASS] Tactical P1 verification completed: mode=Full.
-```
-
-MSA1/MSA2 remain `OBSERVATION_ONLY` with `operational_authority=false`.
-
-## MSA3 registered GROUP publication — active validation tranche
-
-MSA3 is the allowed bridge from already-computed Add-on evidence into PCTX1/PCTX2D.
-
-```text
-exact immutable MSA2 result @ t
- + exact SECTOR ParentFeatureProviderResult @ t
- -> registered GROUP ParentFeatureProviderResult
- -> PCTX1 assembly
- -> PCTX2D OBSERVED frame
- -> generic read-only binder
-```
-
-Module:
-
-```text
-core/group_evidence_parent_feature_provider.py
-```
-
-Publication policy:
-
-```text
-EXACT_PRECOMPUTED_MSA2_EVIDENCE_PLUS_EXPLICIT_SECTOR_DEPENDENCY_NO_PEER_RUNTIME_READ_NO_DEPLOYMENT_AUTHORITY
-publication_state = RESEARCH_ONLY
-operational_authority = false
-```
-
-The evidence timeline accepts only exact `multi_symbol_group_evidence/v1` payloads, verifies their `result_hash`, and forbids nearest-time/fill-forward substitution.
-
-The first bounded GROUP manifest publishes only aggregate numeric context:
+MSA3 publishes only bounded aggregate GROUP values:
 
 ```text
 group.<namespace>_comparison_eligible_rate
@@ -143,52 +84,84 @@ group.<namespace>_leader_follower_spread       optional
 group.<namespace>_follower_favorable_rate      optional
 ```
 
-It does not publish peer symbol identities, rank lists, allowed/blocked symbols, allocation, entry-gate fields or Broker instructions.
+Publication remains `RESEARCH_ONLY` and `operational_authority=false`. Peer symbol identities, rank lists, allowed/blocked symbols, allocation, entry-gate fields and Broker instructions are not published.
 
-Follower-dependent aggregates remain `OPTIONAL_ABSENT` when no follower evidence exists.
+## CTXVAL1 registered context validation — active gate
 
-The GROUP result must depend on exactly one configured SECTOR result at the same exact timestamp and carry that SECTOR `result_hash` in `dependency_result_hashes`.
+Technical publication is not deployment evidence. CTXVAL1 introduces the required registered-context holdout gate:
 
-## Research publication is not deployment authority
+```text
+trusted NEUTRAL tactical profile
+ + exact PCTX1 OBSERVED context per case
+ + registered feature_id + required manifest_hash
+ + E8 ContextSliceRule
+ -> TRAIN attribution
+ -> VALIDATION attribution
+ -> OOS attribution
+ -> HARSH attribution
+ -> slice-specific validation_evidence_hash
+```
 
-Required progression remains:
+Module:
+
+```text
+core/tactical_context_validation.py
+```
+
+Policies:
+
+```text
+PARTITIONED_E8_ATTRIBUTION_TRAIN_VALIDATION_OOS_HARSH_DECLARED_AXES_NO_HIDDEN_SCORE
+EXACT_REGISTERED_PCTX1_OBSERVED_CONTEXT_ONLY
+```
+
+Every case context must be exact to its neutral-profile knowledge cutoff and carry the PCTX1 assembly contract, provider result hashes and provider manifest hashes. A `RegisteredContextSlice` additionally pins the E8 rule to one public `feature_id` and exact manifest hash.
+
+CTXVAL1 requires exactly one TRAIN, VALIDATION and OOS partition and at least one HARSH partition with `adverse_reason`. Case IDs are globally disjoint and the same tactic candidate is evaluated across all partitions.
+
+The validation contract exposes independent retained-case, return, drawdown, profitable-rate, cost and MFE-giveback tolerances. There is no hidden universal score. TRAIN may require material improvement; Validation/OOS/HARSH must survive declared regression limits.
+
+A passing slice may produce:
+
+```text
+evidence_status = VALIDATED
+validation_evidence_hash = <slice-specific hash>
+deployment_policy_evidence_eligible = true
+```
+
+but CTXVAL1 itself remains:
+
+```text
+operational_authority = false
+execution_integration = EVIDENCE_ONLY_NOT_WIRED_TO_ENTRY_GATE_OR_BROKER
+```
+
+## Required progression before operational authority
 
 ```text
 NEUTRAL micro baseline
- -> OBSERVED parent context
+ -> OBSERVED registered parent context
  -> E8 attribution
- -> Validation/OOS evidence
- -> explicit DEPLOYMENT policy evidence
+ -> CTXVAL1 TRAIN / VALIDATION / OOS / HARSH evidence
+ -> separately declared E8 DEPLOYMENT policy evidence
  -> separately validated operational integration
 ```
 
-MSA3 regression intentionally stops at an OBSERVED PCTX2D frame and read-only binder. A registered GROUP feature does not become CTXBT1/Backtest deployment input merely because publication is technically possible.
-
-Macro/group context must amplify a valid micro tactic rather than become life support for one.
+A context slice must never become life support for a weak micro tactic. Parent allow is permission only, never forced entry.
 
 ## Prohibited boundaries
 
-Instrument DSL must not directly implement:
+Instrument DSL must not directly implement provider/network/database calls, universe discovery, peer-symbol reads, cross-sectional ranking, leader/follower selection, portfolio allocation or arbitrary dynamic context discovery.
 
-```text
-provider/network/database calls
-universe discovery
-peer-symbol reads
-cross-sectional ranking
-leader/follower selection
-portfolio allocation
-arbitrary dynamic context discovery
-```
-
-Cross-symbol conclusions must remain Add-on evidence or bounded registered parent features.
+Cross-symbol conclusions remain Add-on evidence or bounded registered parent features.
 
 ## Current nonclaims
 
 Do not claim yet:
 
-- trusted Full PASS for MSA3;
-- validated GROUP-feature OOS benefit;
-- GROUP feature DEPLOYMENT eligibility;
+- trusted Full PASS for CTXVAL1;
+- empirical OOS benefit from real GROUP context;
+- production GROUP deployment eligibility;
 - automatic macro/group entry authority;
 - cross-symbol allocation deployment;
 - live-trading readiness;
@@ -198,4 +171,4 @@ Do not claim yet:
 
 ## Immediate gate
 
-Validate MSA3 focused regression and Tactical P1 Full at one exact checkout before any GROUP DEPLOYMENT use or operational selection work. Any failure must first be classified exactly as `test defect`, `product defect`, `authority drift`, `environment issue`, or `unknown`.
+Validate `test_stage1_tactical_context_validation.py` and Tactical P1 Full at one exact CTXVAL1 checkout before any GROUP DEPLOYMENT use or operational selection work. Any failure must first be classified exactly as `test defect`, `product defect`, `authority drift`, `environment issue`, or `unknown`.
