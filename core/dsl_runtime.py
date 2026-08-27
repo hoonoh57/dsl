@@ -4,13 +4,14 @@ from __future__ import annotations
 import ast
 import re
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Mapping, Sequence
 
 import numpy as np
 
 from core.indicators import CoreTALib
 from core.dsl_parser import DSLParseError, DSLParser
 from core.dsl_semantic import DSLSemanticAnalyzer, DSLSemanticError
+from core.dsl_context import DSLContextSeriesBinding
 from core.assignment_flow import partition_assignments
 from core.state import CoreStateLib
 from core.bar_runtime import BarRuntimeError, execute_on_bar
@@ -24,6 +25,14 @@ class DSLRuntimeError(ValueError):
 def _series(value, size: int):
     if isinstance(value, np.ndarray): return value
     return np.full(size, value)
+
+
+def _attribute_parts(node):
+    if isinstance(node, ast.Name):
+        return [node.id]
+    if isinstance(node, ast.Attribute):
+        return _attribute_parts(node.value) + [node.attr]
+    return []
 
 
 def _finite_scalar(value, label: str) -> float:
@@ -83,8 +92,14 @@ def _regime_initial(value) -> int:
 
 
 class ExpressionEvaluator(ast.NodeVisitor):
-    def __init__(self, values: Dict[str, object], size: int):
+    def __init__(
+        self,
+        values: Dict[str, object],
+        size: int,
+        context_values: Mapping[str, object] | None = None,
+    ):
         self.values, self.size = values, size
+        self.context_values = dict(context_values or {})
 
         def session_current(field, operation):
             source, dates = np.asarray(values[field], float), np.asarray(values["date"])
@@ -297,17 +312,30 @@ class ExpressionEvaluator(ast.NodeVisitor):
         if node.id in self.values: return self.values[node.id]
         if node.id == "True": return True
         if node.id == "False": return False
+        if node.id == "ctx": raise DSLRuntimeError("ctx는 ctx.<layer>.<feature> 형식으로만 사용할 수 있습니다.")
         raise DSLRuntimeError(f"정의되지 않은 변수: {node.id}")
 
     def visit_Constant(self, node): return node.value
 
     def visit_Attribute(self, node):
-        if isinstance(node.value, ast.Name): return f"{node.value.id}.{node.attr}"
+        parts = _attribute_parts(node)
+        if parts and parts[0] == "ctx":
+            if len(parts) < 3:
+                raise DSLRuntimeError("parent context는 ctx.<layer>.<feature> 형식이어야 합니다.")
+            key = ".".join(parts)
+            if key not in self.context_values:
+                raise DSLRuntimeError(f"실행 바인딩되지 않은 parent feature: {'.'.join(parts[1:])}")
+            value = self.context_values[key]
+            if not isinstance(value, np.ndarray) or len(value) != self.size:
+                raise DSLRuntimeError(f"parent context series 길이가 compile 대상과 다릅니다: {key}")
+            return value
+        if len(parts) == 2:
+            return f"{parts[0]}.{parts[1]}"
         raise DSLRuntimeError("허용되지 않은 속성 접근입니다.")
 
     def visit_Call(self, node):
         name = self.visit(node.func)
-        if name not in self.functions: raise DSLRuntimeError(f"지원하지 않는 함수: {name}")
+        if not isinstance(name, str) or name not in self.functions: raise DSLRuntimeError(f"지원하지 않는 함수: {name}")
         args = [self.visit(arg) for arg in node.args]
         kwargs = {item.arg: self.visit(item.value) for item in node.keywords}
         return self.functions[name](*args, **kwargs)
@@ -376,28 +404,55 @@ class CompiledStrategy:
     timeframe: str
     values: Dict[str, object]
     events: tuple[CompiledEvent, ...] = ()
+    context_binding_hash: str = ""
 
     def signal(self, name: str, size: int) -> np.ndarray:
         return np.asarray(_series(self.values.get(name, False), size), dtype=bool)
 
 
 class DSLRuntime:
-    RESERVED = {"timeframe"}
+    RESERVED = {"timeframe", "ctx"}
 
     @staticmethod
-    def compile(code: str, market: Dict[str, np.ndarray]) -> CompiledStrategy:
+    def compile(
+        code: str,
+        market: Dict[str, np.ndarray],
+        *,
+        context_binding: DSLContextSeriesBinding | None = None,
+        target_times: Sequence[str] | None = None,
+    ) -> CompiledStrategy:
+        size = len(market["close"])
+        context_values: dict[str, np.ndarray] = {}
+        context_feature_types: dict[str, str] = {}
+        context_binding_hash = ""
+        if context_binding is not None:
+            if not isinstance(context_binding, DSLContextSeriesBinding):
+                raise DSLRuntimeError("context_binding은 DSLContextSeriesBinding이어야 합니다.")
+            if target_times is None:
+                raise DSLRuntimeError("ctx.* compile에는 exact target_times가 필요합니다.")
+            try:
+                context_binding.validate_target_times(target_times)
+                if len(context_binding.target_times) != size:
+                    raise ValueError("context binding bar 수가 market bar 수와 다릅니다.")
+                context_values = context_binding.runtime_values()
+                context_feature_types = context_binding.semantic_types()
+                context_binding_hash = context_binding.binding_hash
+            except (TypeError, ValueError) as exc:
+                raise DSLRuntimeError(f"parent context compile binding 오류: {exc}") from exc
+        elif target_times is not None:
+            raise DSLRuntimeError("target_times는 context_binding과 함께 제공해야 합니다.")
+
         try:
             document = DSLParser.parse(code)
-            DSLSemanticAnalyzer.analyze(document)
+            DSLSemanticAnalyzer.analyze(document, context_feature_types=context_feature_types)
         except (DSLParseError, DSLSemanticError) as exc:
             raise DSLRuntimeError(str(exc)) from exc
-        size = len(market["close"])
         values: Dict[str, object] = dict(market)
         values.setdefault("amount", values["close"] * values["volume"])
         values.setdefault("open_interest", np.zeros(size))
         values.setdefault("date", np.arange(size, dtype=float))
         values.setdefault("time", np.arange(size, dtype=float))
-        evaluator = ExpressionEvaluator(values, size)
+        evaluator = ExpressionEvaluator(values, size, context_values=context_values)
         before_bar, after_bar = partition_assignments(document)
 
         def evaluate_assignment(assignment):
@@ -413,7 +468,13 @@ class DSLRuntime:
 
         if document.states or document.on_bar:
             try:
-                execute_on_bar(values, document.states, document.on_bar, size)
+                execute_on_bar(
+                    values,
+                    document.states,
+                    document.on_bar,
+                    size,
+                    context_values=context_values,
+                )
             except (BarRuntimeError, ArithmeticError, ValueError) as exc:
                 raise DSLRuntimeError(f"on_bar 실행 실패: {exc}") from exc
 
@@ -438,4 +499,10 @@ class DSLRuntime:
                 arguments={item.arg:evaluator.visit(item.value) for item in call.keywords}
                 compiled_orders.append(CompiledOrder(order.command,arguments))
             events.append(CompiledEvent(condition, tuple(compiled_orders), event.line))
-        return CompiledStrategy(document.name, document.timeframe, values, tuple(events))
+        return CompiledStrategy(
+            document.name,
+            document.timeframe,
+            values,
+            tuple(events),
+            context_binding_hash=context_binding_hash,
+        )
