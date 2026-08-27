@@ -56,8 +56,8 @@ class FixtureSessionMarketProvider:
             future = next((row for row in self.rows if row["time"] > cutoff), None)
             if future is not None:
                 selected = selected[1:] + [future]
-        elif self.mode == "stale" and len(selected) > 1:
-            selected = selected[:-1]
+        elif self.mode == "stale":
+            selected = [row for row in self.rows if row["time"] < cutoff][-required_bars:]
         market = {key: [row[key] for row in selected] for key in ("time", "open", "high", "low", "close", "volume")}
         market["_meta"] = {
             "source": self.source,
