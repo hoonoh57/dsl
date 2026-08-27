@@ -1,190 +1,78 @@
 # Parent Context Feature Provider / Read-Only DSL Binding Policy
 
-Status: **AUTHORITATIVE CONTEXT-INHERITANCE POLICY / PCTX1-PCTX2A TRUSTED / PCTX2C ACTIVE / 2026-08-27 KST**
+Status: **AUTHORITATIVE CONTEXT-INHERITANCE POLICY / PCTX1-PCTX2C + CTXDSL1-CTXBT1 TRUSTED / PCTX2D ACTIVE / 2026-08-27 KST**
 
-## 1. Governing rule
+## Governing rule
 
-The Instrument DSL remains a deterministic single-instrument tactical language while being able to inherit verified parent-layer battlefield intelligence.
+> **Parent features are computed outside Instrument DSL, frozen as point-in-time context evidence, and consumed inside DSL only through a narrow registered read-only binding contract.**
 
-> **Parent features are computed outside Instrument DSL, frozen as point-in-time context evidence, and consumed inside DSL only through a narrow read-only binding contract.**
+Instrument DSL remains deterministic and single-instrument. It may know stable `feature_id` values; it must not know provider algorithms, perform provider I/O, discover peers/universes or rank symbols.
 
-The DSL may know a stable `feature_id`; it must not know or execute the algorithm that produced the value.
-
-## 2. Responsibility split
+## Trusted chain
 
 ```text
-source adapter / provider-specific calculator
- -> Parent Feature Provider
- -> ParentFeatureProviderResult
- -> ParentContextAssembly
- -> exact causal ParentContextFrame
- -> generic read-only ctx.* binding
- -> Instrument DSL local tactic
- -> existing Backtest/common execution policy
+PCTX1 typed/versioned Parent Feature Provider contract
+ -> PCTX2B exact ParentContextFrame
+ -> CTXDSL1 generic read-only ctx.*
+ -> CTXBT1 exact Backtest binding
+ -> existing execution policy
  -> BrokerEmulator
 ```
 
-Providers may use authoritative market/index/sector/group data and already-frozen parent results. They do not emit Broker orders or mutate DSL runtime state.
-
-## 3. No provider calls from DSL/Backtest execution
-
-Prohibited inside Parser/Runtime/Backtest evaluation:
+Trusted exact checkpoints:
 
 ```text
-market.get_kospi_slope()
-sector.find_current_leader()
-request_symbol(...)
-rank_symbols(...)
-network/database discovery
-peer-symbol scans
-provider.build(...)
+PCTX1  866bf0a5a25bf6759d1b264d62efcf9f1f277446
+PCTX2B ce18ffc4b9f7758d57117b9b08eaa2d8c1e7aba4
+CTXDSL1 + CTXBT1 99bb2e5f5a248dc61cddb23677b5798b258848f2
+PCTX2A  6f6aef0b09354b1171ce3eccc78d4daa451fe183
+PCTX2C  7aee063932e0d70d38c2e7f876b140d049029771
 ```
 
-Executable tactic evaluation receives precomputed immutable context only. No on-demand external behavior is permitted during tactic execution.
-
-## 4. PCTX1 provider/manifest contract — trusted
-
-`core/parent_feature_provider.py` defines:
+Every listed exact checkout received:
 
 ```text
-ParentFeatureSpec
-ParentFeatureManifest
-ParentFeatureRegistry
-ParentFeatureProviderResult
-ParentFeatureProvider Protocol
-ParentContextAssembly
-ParentContextAssembler
-```
-
-Trusted checkpoint:
-
-```text
-866bf0a5a25bf6759d1b264d62efcf9f1f277446
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-Public feature semantics are explicit and versioned:
+PCTX2A additionally received seven focused provider tests; PCTX2C received six focused orchestration tests.
 
-```text
-feature_id
-feature_key
-value_type = NUMBER | STRING | BOOLEAN
-semantic_version
-causality_policy = CONFIRMED_ONLY
-required
-missing_policy = FAIL_CLOSED | OPTIONAL_ABSENT
-```
+## PCTX1 contract
 
-Semantic changes require manifest/version identity changes.
+`ParentFeatureSpec`, `ParentFeatureManifest`, `ParentFeatureRegistry`, `ParentFeatureProviderResult`, `ParentContextAssembly` and `ParentContextAssembler` define immutable typed evidence.
 
-## 5. Missing / stale / future behavior
+Required behavior remains fail-closed for future data, stale data beyond manifest limit, missing required feature, undeclared feature, incompatible type, missing source and missing/future dependency evidence. Optional values remain explicitly absent rather than silently defaulted.
 
-No context value may be guessed.
+Every semantic change requires provider/manifest version identity change.
 
-- future `as_of` -> fail closed;
-- manifest staleness exceeded -> fail closed;
-- missing required feature -> fail closed;
-- undeclared feature -> fail closed;
-- incompatible type -> fail closed;
-- missing source -> fail closed;
-- optional feature -> explicitly absent, never silently zero/false;
-- missing dependency -> fail closed.
+## PCTX2B / CTXDSL1 / CTXBT1 exact binding
 
-## 6. PCTX2B exact-time transport — trusted
-
-`core/parent_context_frame.py` defines exact causal transport.
-
-Trusted checkpoint:
-
-```text
-ce18ffc4b9f7758d57117b9b08eaa2d8c1e7aba4
-[PASS] Tactical P1 verification completed: mode=Full.
-```
-
-Every frame point requires:
+Frame points require:
 
 ```text
 target_time == assembly.knowledge_cutoff == assembly.context.as_of
 ```
 
-Resolution remains:
+Resolution/binding policies remain:
 
 ```text
 EXACT_PRECOMPUTED_POINT_ONLY_NO_NEAREST_NO_FILL_FORWARD
 REGISTERED_READ_ONLY_EXACT_TIME_NO_PROVIDER_CALL
-```
-
-No nearest lookup, interpolation, hidden carry-forward or provider invocation is permitted during binding.
-
-## 7. Generic Core-facing `ctx.*` and Backtest binding — trusted
-
-CTXDSL1 + CTXBT1 are trusted together at:
-
-```text
-99bb2e5f5a248dc61cddb23677b5798b258848f2
-[PASS] Tactical P1 verification completed: mode=Full.
-```
-
-Registered required features may be read generically:
-
-```dsl
-ctx.market.kospi_sma_slope_pct
-ctx.market.kospi_regime_state
-```
-
-Binding policy:
-
-```text
 REGISTERED_REQUIRED_EXACT_TIME_DEPLOYMENT_ONLY_NO_PROVIDER_CALL
-```
-
-Backtest policy:
-
-```text
 EXACT_MARKET_BAR_TIMES_DEPLOYMENT_FRAME_NO_PROVIDER_CALL
 ```
 
-Supplying context is not an implicit entry gate. Context affects tactic signals only when the DSL explicitly references `ctx.*`; the separate external `entry_gate` and common execution policy remain authoritative restrictions.
+Supplying context does not itself authorize an entry. Context affects tactic logic only through an explicit registered `ctx.*` expression; existing `entry_gate` and Broker execution policy remain separate restrictions.
 
-## 8. PCTX2A concrete MARKET provider — trusted
+## PCTX2A MARKET provider — trusted
 
-`core/market_parent_feature_provider.py` is the first concrete deterministic parent calculator.
+`KrxBenchmarkMarketParentFeatureProvider` consumes an explicit `SessionMarketProvider`, benchmark symbol, namespace and source authority. It requires exact causal source prefixes ending at `as_of == knowledge_cutoff` and publishes descriptive return/trend/ATR/volume/regime features only.
 
-Trusted checkpoint:
+No ALLOW/BLOCK/PERMIT/GATE/order/allocation feature is produced.
 
-```text
-6f6aef0b09354b1171ce3eccc78d4daa451fe183
-Ran 7 tests in 0.013s
-OK
-[PASS] Tactical P1 verification completed: mode=Full.
-```
+## PCTX2C root orchestration — trusted
 
-Construction requires explicit:
-
-```text
-SessionMarketProvider
-benchmark_symbol
-feature_namespace
-source_authority
-```
-
-No source/table/benchmark/universe is guessed.
-
-PCTX2A requires exact causal source evidence:
-
-```text
-as_of == knowledge_cutoff
-last source bar == as_of
-no future source bar
-strict unique increasing timestamps
-matching source instrument/timeframe
-```
-
-For a `kospi` namespace it publishes descriptive return, SMA slope, price-to-SMA, ATR, volume-ratio and three-state regime features. It publishes no ALLOW/BLOCK/PERMIT/GATE/allocation/order feature.
-
-## 9. PCTX2C exact root-provider orchestration — current tranche
-
-`core/parent_context_orchestrator.py` precomputes root provider results before tactic execution.
+`RootParentContextFrameBuilder` precomputes independent root provider results for every exact target bar before tactic execution.
 
 Policy:
 
@@ -192,129 +80,111 @@ Policy:
 PRECOMPUTE_ROOT_PROVIDERS_FOR_EVERY_EXACT_TARGET_BAR_NO_FILL_FORWARD
 ```
 
-Input target timeline must explicitly identify:
+It remains root-only. Provider caller order is normalized by manifest identity. No provider call occurs from Parser/Semantic/Runtime/Backtest/Broker.
+
+Trusted exact PCTX2C checkpoint:
 
 ```text
-_meta.instrument
-_meta.timeframe
-_meta.source
-strict exact YYYYMMDDHHMMSS time[]
+7aee063932e0d70d38c2e7f876b140d049029771
+Ran 6 tests in 0.107s
+OK
+[PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-For each target time `t`, every root provider is invoked before Backtest with:
+## PCTX2D explicit dependency DAG — active
+
+New orchestration:
 
 ```text
-as_of=t
-knowledge_cutoff=t
-dependencies=None
+core/parent_context_dependency_orchestrator.py
 ```
 
-Returned results must match exact time, declared manifest and root-only dependency semantics. The builder then creates PCTX1 assemblies and one PCTX2B frame covering every exact target bar.
-
-Caller provider order must not change registry/frame/build identity.
-
-PCTX2C can create OBSERVED or DEPLOYMENT frames. OBSERVED is evidence-only; DEPLOYMENT is executable-binding eligible but still not an automatic gate.
-
-## 10. Root versus cascading providers
-
-PCTX2C v1 is deliberately root-only.
-
-Allowed now:
+Policy:
 
 ```text
-independent MARKET provider(s)
- -> exact precomputed frame
+EXPLICIT_DEPENDENCY_DAG_PRECOMPUTE_EVERY_EXACT_TARGET_BAR
 ```
 
-Not yet implemented:
+Every provider node explicitly declares parent `provider_id` dependencies. Unknown/self/duplicate dependencies and cycles fail closed. Execution uses deterministic topological order.
+
+At exact target `t`, each child provider receives only its declared already-built parent results for `t`. Its returned `dependency_result_hashes` must exactly equal the supplied parent result hashes. No implicit dependency discovery is allowed.
+
+## First SECTOR provider — active PCTX2D component
 
 ```text
-MARKET result
- -> SECTOR provider dependency
- -> GROUP provider dependency
- -> exact dependency DAG orchestration
+core/sector_parent_feature_provider.py
+KrxSectorBenchmarkParentFeatureProvider
 ```
 
-A child provider may not be silently discovered or smuggled into root orchestration. Cascading provider dependencies require an explicit later tranche with stable dependency identity, topology, point-in-time ordering and regression coverage.
+Construction requires explicit sector benchmark source/symbol/namespace/source authority plus explicit MARKET dependency provider ID and public MARKET return/regime feature IDs.
 
-## 11. Evidence before gate
+It can publish descriptive SECTOR values such as:
+
+```text
+sector.<namespace>_return_short_pct
+sector.<namespace>_return_long_pct
+sector.<namespace>_sma_slope_pct
+sector.<namespace>_price_to_sma_pct
+sector.<namespace>_relative_strength_long_pct
+sector.<namespace>_regime_state
+sector.<namespace>_market_alignment
+```
+
+This provider does not discover sector constituents, scan peer symbols, rank leaders/followers or emit execution authority.
+
+## Cascading architecture
+
+The intended causal chain is now explicit:
+
+```text
+raw benchmark data
+ -> MARKET result
+ -> declared result-hash dependency
+ -> SECTOR result
+ -> later declared dependency
+ -> future GROUP result
+ -> PCTX1 assembly
+ -> exact PCTX2B frame
+```
+
+A future GROUP/Leader-Follower provider must use the same explicit DAG/result-hash discipline. It may not create arbitrary peer-symbol reads inside Instrument DSL.
+
+## Evidence before operational gate
 
 The required progression remains:
 
 ```text
 NEUTRAL micro baseline
  -> OBSERVED parent context
- -> E8 context attribution
- -> separate Validation/OOS evidence
+ -> E8 attribution
+ -> Validation/OOS evidence
  -> explicit DEPLOYMENT policy evidence
  -> separately validated operational integration
 ```
 
-Context correlation is not entry authority. Macro intelligence remains an amplifier rather than life support for a weak micro tactic.
+Descriptive MARKET/SECTOR context is not entry authority. Macro context must amplify a valid micro tactic rather than become life support for one.
 
-## 12. Interaction with Multi-Symbol Add-on
+## Multi-symbol boundary
 
-A future Multi-Symbol Add-on may implement Parent Feature Providers for registered outputs such as sector breadth, leader strength, follower alignment or cross-sectional relative strength.
+Sector membership discovery, leader/follower analysis, cross-sectional ranking, universe construction and allocation remain in a future optional Multi-Symbol Add-on/orchestration layer. Such a layer may publish bounded registered provider outputs, but Instrument DSL still consumes only immutable registered context values.
 
-This does not grant Instrument DSL arbitrary peer-symbol reads. Selection/ranking remains outside Instrument DSL and logically distinct from parent-context inheritance.
+## Current nonclaims
 
-## 13. Backtest / live parity
+Do not claim yet:
 
-Historical path:
-
-```text
-source data known by t
- -> provider calculation before tactic execution
- -> immutable result/context at t
- -> exact frame point t
- -> DSL evaluation t
-```
-
-Live target path:
-
-```text
-new confirmed source data
- -> provider calculation
- -> immutable current context
- -> exact current binding evidence
- -> next tactic evaluation
-```
-
-Provider operational mechanisms may differ, but feature semantics, versions, cutoffs, staleness and missing behavior must match.
-
-## 14. Core promotion boundary
-
-Only the generic read-only context reference mechanism belongs in Core. Calculation logic, source I/O, sector membership discovery, leader/follower detection, peer comparison, ranking, universe construction, allocation and model inference remain outside Core.
-
-New Core context capabilities require deterministic causal semantics, exact Backtest/live behavior and repository-level regression coverage.
-
-## 15. Current status / nonclaims
-
-Trusted:
-
-- immutable BattlefieldContext / ContextLayerSnapshot;
-- PCTX1 manifest/registry/result/assembly;
-- PCTX2B exact-time frame and binder;
-- CTXDSL1 generic read-only `ctx.*`;
-- CTXBT1 exact Backtest binding;
-- PCTX2A concrete deterministic MARKET provider.
-
-Implemented, awaiting validation:
-
-- PCTX2C exact root-provider frame orchestration.
-
-Still not implemented/validated:
-
-- Sector/Group/Leader-Follower dependency DAG providers;
-- validated macro OOS profitability benefit;
-- automatic operational deployment authorization;
+- PCTX2D trusted Full PASS;
+- GROUP/leader-follower provider intelligence;
+- sector constituent discovery/ranking;
+- MARKET/SECTOR OOS profitability benefit;
+- automatic macro deployment authorization;
 - arbitrary peer-symbol DSL reads;
-- cross-symbol ranking/allocation deployment;
-- Broker-side parent calculation;
-- live-trading readiness.
+- cross-symbol allocation deployment;
+- Broker-side provider calculation;
+- live-trading readiness;
+- repository-wide compliance PASS.
 
-`REMEDIATION_REQUIRED` remains the broader repository status.
+`REMEDIATION_REQUIRED` remains broader repository status.
 
-## 16. Immediate gate
+## Immediate gate
 
-Before dependency-DAG parent layers or operational deployment wiring, validate PCTX2C at an exact repository SHA with its focused regression and Tactical P1 Full verifier.
+Validate `test_stage1_parent_context_dependency_orchestrator.py` and Tactical P1 Full at one exact PCTX2D checkout before GROUP/leader-follower or operational deployment wiring. Any failure must first be classified exactly as `test defect`, `product defect`, `authority drift`, `environment issue`, or `unknown`.
