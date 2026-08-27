@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **MSA1_TRUSTED_FULL_PASS / MSA2_BOUNDED_GROUP_EVIDENCE_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / REMEDIATION_REQUIRED**  
+Status: **MSA2_TRUSTED_FULL_PASS / MSA3_REGISTERED_GROUP_PARENT_FEATURE_PUBLICATION_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / REMEDIATION_REQUIRED**  
 Updated: 2026-08-27 KST
 
 ## Authority order
@@ -22,8 +22,9 @@ Updated: 2026-08-27 KST
 15. `PCTX2D_DEPENDENCY_DAG_SECTOR_PROVIDER_IMPLEMENTATION.md`
 16. `MSA1_IMMUTABLE_MULTI_SYMBOL_SNAPSHOT_EVIDENCE_IMPLEMENTATION.md`
 17. `MSA2_BOUNDED_GROUP_LEADER_FOLLOWER_BREADTH_EVIDENCE_IMPLEMENTATION.md`
-18. earlier product/execution/playbook/audit checkpoints
-19. `PROGRESS_CHECKPOINT_2026-08-26.md`
+18. `MSA3_REGISTERED_GROUP_PARENT_FEATURE_PUBLICATION_IMPLEMENTATION.md`
+19. earlier product/execution/playbook/audit checkpoints
+20. `PROGRESS_CHECKPOINT_2026-08-26.md`
 
 ## Trusted exact Full checkpoints
 
@@ -51,6 +52,7 @@ PCTX2A  6f6aef0b09354b1171ce3eccc78d4daa451fe183
 PCTX2C  7aee063932e0d70d38c2e7f876b140d049029771
 PCTX2D  6de666c277d1a6d7ffb47fd9e6093e50b34ebb45
 MSA1    adaef963dce717b252f2575896a74462c8a277a2
+MSA2    3a5a2ece658ead28a1822ef7482a3d284d12e2d6
 ```
 
 Recent focused evidence:
@@ -58,9 +60,10 @@ Recent focused evidence:
 ```text
 PCTX2D: Ran 6 tests in 0.174s / OK
 MSA1:   Ran 6 tests in 0.003s / OK
+MSA2:   Ran 7 tests in 0.017s / OK
 ```
 
-Both were followed by Full PASS at their exact trusted SHA.
+Each was followed by the consolidated Full PASS at the exact SHA above.
 
 ## Governing architecture
 
@@ -84,94 +87,101 @@ PCTX2A deterministic MARKET provider
  -> descriptive SECTOR provider
 ```
 
-Trusted multi-symbol evidence seam:
+Trusted multi-symbol evidence path:
 
 ```text
 single-instrument causal state @ exact t
- -> MSA1 InstrumentSignalSnapshot
+ -> MSA1 immutable InstrumentSignalSnapshot
  -> explicit SnapshotUniverse
- -> observation-only leaderboards / Pareto
+ -> MSA2 bounded exact chronological GROUP evidence
 ```
 
 Provider calculation/I/O, universe discovery, peer ranking, allocation and adaptive learning remain outside Instrument DSL execution.
 
-## MSA1 trusted state
+## MSA2 trusted state
 
 Trusted exact checkpoint:
 
 ```text
-adaef963dce717b252f2575896a74462c8a277a2
-Ran 6 tests in 0.003s
+3a5a2ece658ead28a1822ef7482a3d284d12e2d6
+Ran 7 tests in 0.017s
 OK
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-MSA1 is immutable point-in-time evidence only. It exposes no deployment authority and does not call DSLRuntime, BacktestEngine, BrokerEmulator or ParentFeatureProvider.
+MSA2 is still observation-only. Leader/follower/breadth/persistence evidence is descriptive and has no operational authority.
 
-## MSA2 current executable tranche
+## MSA3 current executable tranche
 
 New module:
 
 ```text
-core/multi_symbol_group_evidence.py
+core/group_evidence_parent_feature_provider.py
 ```
 
 New regression:
 
 ```text
-test_stage1_multi_symbol_group_evidence.py
+test_stage1_group_evidence_parent_feature_provider.py
 ```
 
 Detailed checkpoint:
 
 ```text
-MSA2_BOUNDED_GROUP_LEADER_FOLLOWER_BREADTH_EVIDENCE_IMPLEMENTATION.md
+MSA3_REGISTERED_GROUP_PARENT_FEATURE_PUBLICATION_IMPLEMENTATION.md
 ```
 
-Schema/policies:
+MSA3 does not run MSA1/MSA2 analysis. It reads only an exact immutable timeline of already-computed `multi_symbol_group_evidence/v1` results and verifies each MSA2 `result_hash` against its payload.
+
+Resolution policy:
 
 ```text
-multi_symbol_group_evidence/v1
-multi_symbol_group_evidence_policy/v1
-STATIC_EXPLICIT_UNIVERSE_EXACT_CHRONOLOGICAL_POINTS
-OBSERVATION_ONLY_BOUNDED_STATIC_UNIVERSE_LEADER_FOLLOWER_BREADTH_NO_HIDDEN_SCORE_NO_DEPLOYMENT_AUTHORITY
+EXACT_PRECOMPUTED_MSA2_EVIDENCE_NO_NEAREST_NO_FILL_FORWARD
 ```
 
-MSA2 consumes a bounded chronological sequence of exact MSA1 points. v1 requires one stable universe ID, ordered symbol topology, source authority and stable candidate/family/generation identity per symbol across the frame.
-
-An explicit `GroupEvidencePolicy` declares one comparison metric, MAX/MIN direction, favorable threshold, leader count, lookback points and hard `max_symbols`/`max_points` bounds.
-
-It computes descriptive:
+Publication policy:
 
 ```text
-comparison eligible breadth
-favorable breadth
-current leader/follower sets
-leader/follower metric means and direction-normalized spread
-follower favorable rate
-current leader persistence over bounded lookback
-```
-
-No hidden score is used. `leader_symbols` is observation evidence, not permission or selection authority.
-
-MSA2 always returns:
-
-```text
-mode = OBSERVATION_ONLY
+EXACT_PRECOMPUTED_MSA2_EVIDENCE_PLUS_EXPLICIT_SECTOR_DEPENDENCY_NO_PEER_RUNTIME_READ_NO_DEPLOYMENT_AUTHORITY
+publication_state = RESEARCH_ONLY
 operational_authority = false
 ```
 
-and does not emit allowed/blocked symbols, allocation, entry gate, DeploymentDecision or Broker orders.
+### Registered GROUP features
 
-If comparison eligibility collapses so no follower remains, follower aggregates are explicit null values rather than fabricated zeroes.
+For namespace `semiconductor`, the manifest is deliberately restricted to five aggregate values:
+
+```text
+group.semiconductor_comparison_eligible_rate
+group.semiconductor_favorable_breadth_rate
+group.semiconductor_leader_persistence_rate
+group.semiconductor_leader_follower_spread       optional
+group.semiconductor_follower_favorable_rate      optional
+```
+
+No leader/follower symbol identity, rank list, allowed/blocked symbol list, slot/allocation, gate or order authority is published.
+
+When follower evidence is absent, the two follower-dependent values remain `OPTIONAL_ABSENT`; they are not defaulted to zero.
+
+### PCTX2D dependency seam
+
+The GROUP provider requires exactly one configured exact-time SECTOR result. The GROUP `ParentFeatureProviderResult` carries that SECTOR `result_hash` in `dependency_result_hashes`, preserving:
+
+```text
+MARKET -> SECTOR -> GROUP
+```
+
+MSA3 regression uses only an `OBSERVED` PCTX2D frame plus the generic registered binder. It does not execute the new GROUP feature through CTXBT1/Backtest in this tranche.
+
+Registered publication is not deployment validation.
 
 ## Existing multi-symbol vertical slice
 
-`core/multi_symbol.py` remains the earlier deterministic scenario/cohort orchestration engine and is not modified by MSA1/MSA2. New peer/group research should use immutable snapshots rather than add cross-symbol syntax to Instrument DSL.
+`core/multi_symbol.py` remains the earlier deterministic scenario/cohort orchestration engine and is not modified by MSA1-MSA3. New peer/group research uses immutable snapshots/evidence rather than cross-symbol Instrument DSL syntax.
 
 ## Remote CI environment
 
-Recent GitHub Actions jobs for these parent/add-on tranches have repeatedly terminated with no executable steps and no assigned runner (`runner_id=0`). Those incidents are classified:
+Recent GitHub Actions jobs have repeatedly terminated before executable steps with no assigned runner (`runner_id=0`). These incidents are classified:
 
 ```text
 environment issue
@@ -183,13 +193,12 @@ No workflow/test/product guard has been weakened.
 
 Do not claim yet:
 
-- trusted Full PASS for MSA2;
-- production GROUP/leader-follower/breadth edge;
-- MSA2-derived registered GROUP parent features;
-- validated cross-symbol selection edge;
-- automatic symbol permission or portfolio allocation;
-- evidence that MARKET/SECTOR/GROUP context improves OOS profitability;
-- operational macro deployment authority;
+- trusted Full PASS for MSA3;
+- validated OOS benefit from GROUP context;
+- GROUP feature DEPLOYMENT eligibility;
+- automatic cross-symbol selection/permission;
+- portfolio slot/allocation authority;
+- operational macro gate;
 - live-trading readiness;
 - repository-wide Chart/overall compliance PASS.
 
@@ -197,12 +206,12 @@ Do not claim yet:
 
 ## Immediate validation boundary
 
-Validate MSA2 before publishing any MSA2-derived GROUP feature or adding deployment selection:
+Validate MSA3 before any GROUP DEPLOYMENT use or selection-policy work:
 
 ```powershell
 git pull --ff-only origin main
 git rev-parse HEAD
-python -m unittest -v test_stage1_multi_symbol_group_evidence.py
+python -m unittest -v test_stage1_group_evidence_parent_feature_provider.py
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
