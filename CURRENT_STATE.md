@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **PCTX2A_MARKET_PARENT_FEATURE_PROVIDER_IMPLEMENTED_AWAITING_LOCAL_EXECUTABLE_VALIDATION / REMEDIATION_REQUIRED**  
+Status: **PCTX2A_TRUSTED_FULL_PASS / PCTX2C_EXACT_ROOT_PROVIDER_FRAME_ORCHESTRATION_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / REMEDIATION_REQUIRED**  
 Updated: 2026-08-27 KST
 
 ## Authority order
@@ -18,8 +18,9 @@ Updated: 2026-08-27 KST
 11. `CTXDSL1_GENERIC_PARENT_CONTEXT_REFERENCE_IMPLEMENTATION.md`
 12. `CTXBT1_EXACT_PARENT_CONTEXT_BACKTEST_INTEGRATION.md`
 13. `PCTX2A_MARKET_PARENT_FEATURE_PROVIDER_IMPLEMENTATION.md`
-14. earlier product/execution/playbook/audit checkpoints
-15. `PROGRESS_CHECKPOINT_2026-08-26.md`
+14. `PCTX2C_EXACT_ROOT_PROVIDER_FRAME_ORCHESTRATION.md`
+15. earlier product/execution/playbook/audit checkpoints
+16. `PROGRESS_CHECKPOINT_2026-08-26.md`
 
 ## Trusted exact Full checkpoints
 
@@ -43,169 +44,161 @@ E8     3256f1de6b9bb7e8b79342ea037edcd51125bcda
 PCTX1  866bf0a5a25bf6759d1b264d62efcf9f1f277446
 PCTX2B ce18ffc4b9f7758d57117b9b08eaa2d8c1e7aba4
 CTXDSL1 + CTXBT1 99bb2e5f5a248dc61cddb23677b5798b258848f2
+PCTX2A  6f6aef0b09354b1171ce3eccc78d4daa451fe183
 ```
 
-The combined CTXDSL1 + CTXBT1 checkpoint additionally received focused CTXBT1 regression:
+PCTX2A additionally received focused regression:
+
+```text
+Ran 7 tests in 0.013s
+OK
+```
+
+CTXDSL1 + CTXBT1 additionally received focused CTXBT1 regression:
 
 ```text
 Ran 5 tests in 0.064s
 OK
 ```
 
-CTXDSL1 had earlier also received its own focused six-test PASS; the exact later combined checkpoint is the trusted SHA recorded above.
-
-E4's first Full failure was an `environment issue` caused by a stale external Chart SSOT checkout. CTXDSL1/CTXBT1 remote GitHub Actions also encountered an `environment issue`: jobs ended without executable steps or a usable runner. No product/test/workflow guard was weakened for either incident.
+E4's first Full failure was an `environment issue` caused by a stale external Chart SSOT checkout. Recent GitHub Actions for parent-context work also ended without executable steps or a usable runner; those incidents remain classified `environment issue`. No test/workflow/product guard was weakened.
 
 ## Governing architecture
 
-Core remains deterministic and single-instrument. Parent calculation, source I/O, peer-symbol discovery/ranking, universe/allocation and adaptive learning remain outside Instrument DSL evaluation.
+Core remains deterministic and single-instrument. Provider calculation/I/O, peer-symbol discovery/ranking, universe/allocation, adaptive learning and parent dependency discovery remain outside Instrument DSL execution.
 
-The validated parent-context path is now:
+Trusted executable path:
 
 ```text
 PCTX1 typed provider contract
- -> immutable ParentContextAssembly
- -> PCTX2B exact DEPLOYMENT ParentContextFrame
- -> CTXDSL1 generic read-only ctx.* binding
- -> CTXBT1 Backtest compile integration
+ -> PCTX2B exact frozen frame
+ -> CTXDSL1 generic read-only ctx.*
+ -> CTXBT1 Backtest exact binding
  -> existing common execution policy
  -> BrokerEmulator
 ```
 
-PCTX2A adds the first concrete MARKET calculator before that path:
+Trusted concrete MARKET calculation:
 
 ```text
 explicit SessionMarketProvider
- + explicit benchmark symbol / namespace / source authority
+ + benchmark symbol / namespace / source authority
  -> PCTX2A deterministic MARKET features
- -> PCTX1 result/context contracts
+ -> PCTX1 result
+```
+
+PCTX2C now precomputes that provider evidence for each exact target tactical bar before Backtest:
+
+```text
+target instrument exact timeline
+ + root provider(s)
+ -> PCTX2C precomputation
+ -> PCTX1 assembly at each t
+ -> PCTX2B frame
+ -> optional CTXDSL1 / CTXBT1 use
 ```
 
 No provider is called from Parser/Semantic/Runtime/Backtest/Broker.
 
-## CTXDSL1 + CTXBT1 trusted state
+## PCTX2A trusted state
 
-Generic parent-context DSL references are registry-driven:
-
-```dsl
-ctx.market.<registered_feature>
-```
-
-Executable binding remains:
+Trusted exact checkpoint:
 
 ```text
-REGISTERED_REQUIRED_EXACT_TIME_DEPLOYMENT_ONLY_NO_PROVIDER_CALL
-```
-
-Backtest integration remains:
-
-```text
-EXACT_MARKET_BAR_TIMES_DEPLOYMENT_FRAME_NO_PROVIDER_CALL
-```
-
-Supplying context is not an implicit entry gate. A plain DSL must behave the same with or without a context frame. A DSL that explicitly uses `ctx.*` remains subject to the separate external `entry_gate` and common execution policy. Broker authority remains `BrokerEmulator`.
-
-Trusted combined checkpoint:
-
-```text
-99bb2e5f5a248dc61cddb23677b5798b258848f2
-Ran 5 tests in 0.064s
+6f6aef0b09354b1171ce3eccc78d4daa451fe183
+Ran 7 tests in 0.013s
 OK
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-## PCTX2A current executable tranche
+PCTX2A publishes descriptive benchmark features only:
+
+```text
+market.<namespace>_return_short_pct
+market.<namespace>_return_long_pct
+market.<namespace>_sma_slope_pct
+market.<namespace>_price_to_sma_pct
+market.<namespace>_atr_pct
+market.<namespace>_volume_ratio
+market.<namespace>_regime_state
+```
+
+It requires exact `as_of == knowledge_cutoff`, exact last source bar, no future source bar, explicit source/benchmark/timeframe authority and sufficient valid history. It publishes no ALLOW/BLOCK/PERMIT/GATE/allocation/order feature.
+
+## PCTX2C current executable tranche
 
 New module:
 
 ```text
-core/market_parent_feature_provider.py
+core/parent_context_orchestrator.py
 ```
 
 New regression:
 
 ```text
-test_stage1_market_parent_feature_provider.py
+test_stage1_parent_context_orchestrator.py
 ```
 
 Detailed checkpoint:
 
 ```text
-PCTX2A_MARKET_PARENT_FEATURE_PROVIDER_IMPLEMENTATION.md
+PCTX2C_EXACT_ROOT_PROVIDER_FRAME_ORCHESTRATION.md
+```
+
+Schema/policy:
+
+```text
+parent_context_frame_build/v1
+PRECOMPUTE_ROOT_PROVIDERS_FOR_EVERY_EXACT_TARGET_BAR_NO_FILL_FORWARD
 ```
 
 Primary contracts:
 
 ```text
-MarketParentFeatureConfig
-KrxBenchmarkMarketParentFeatureProvider
+ParentContextFrameBuild
+RootParentContextFrameBuilder
 ```
 
-The provider requires explicit:
+### Exact orchestration contract
+
+Target market must explicitly provide:
 
 ```text
-SessionMarketProvider
-benchmark_symbol
-feature_namespace
-source_authority
+_meta.instrument
+_meta.timeframe
+_meta.source
+time[] as unique strictly increasing YYYYMMDDHHMMSS
 ```
 
-It never guesses a table, source, benchmark, universe or target instrument.
-
-### Exact causal calculation
-
-PCTX2A v1 requires:
+For each target time `t`, every configured root provider is invoked before tactic execution with:
 
 ```text
-as_of == knowledge_cutoff
-last source bar == as_of
-no source bar > as_of
-strict unique increasing source times
+as_of=t
+knowledge_cutoff=t
+dependencies=None
 ```
 
-Stale/future/malformed source data, source identity mismatch, insufficient history or invalid OHLCV fail closed.
+Returned result must have exact `as_of`, exact cutoff, the declared manifest and no dependency hashes.
 
-The result records `source_prefix_hash` over the exact source prefix used in calculation.
+The resulting PCTX1 assembly and PCTX2B frame contain one exact point for every target bar. There is no nearest lookup, fill-forward, interpolation or provider call from Backtest.
 
-### Default descriptive feature set
+### Root-only scope
 
-For namespace `kospi`:
+PCTX2C v1 supports independent root providers only, such as separately configured MARKET benchmark providers. Provider order is normalized by manifest identity, so caller order must not change `registry_hash`, `frame_hash` or `build_hash`.
 
-```text
-market.kospi_return_short_pct
-market.kospi_return_long_pct
-market.kospi_sma_slope_pct
-market.kospi_price_to_sma_pct
-market.kospi_atr_pct
-market.kospi_volume_ratio
-market.kospi_regime_state
-```
+Sector/Group/Leader-Follower cascading providers require a later explicit dependency-DAG tranche. They are not inferred or smuggled through PCTX2C.
 
-Default calculation config:
+### Execution separation
 
-```text
-timeframe = 5m
-short_return_bars = 3
-long_return_bars = 12
-sma_period = 20
-slope_bars = 3
-atr_period = 14
-volume_period = 20
-```
-
-`regime_state` is only `UPTREND / DOWNTREND / MIXED` descriptive evidence. PCTX2A publishes no ALLOW/BLOCK/PERMIT/GATE/allocation/order feature.
-
-### Integration boundary
-
-PCTX2A output is a normal PCTX1 `ParentFeatureProviderResult` and can flow through PCTX1 assembly and PCTX2B exact frames. It does not change PCTX2B/CTXDSL1/CTXBT1/Broker semantics.
+PCTX2C can build OBSERVED or DEPLOYMENT frames. OBSERVED remains evidence-only and CTXBT1 rejects it for executable `ctx.*` use. DEPLOYMENT merely makes exact binding possible; it does not create an implicit macro gate or Broker permission.
 
 ## Still not implemented / nonclaims
 
 Do not claim yet:
 
-- trusted Full PASS for PCTX2A;
-- evidence that PCTX2A market features improve OOS profitability;
-- production Sector/Group/Leader-Follower providers;
+- trusted Full PASS for PCTX2C;
+- Sector/Group/Leader-Follower dependency orchestration;
+- evidence that parent context improves OOS profitability;
 - validated automatic macro entry authority;
 - arbitrary peer-symbol reads from Instrument DSL;
 - multi-symbol ranking/allocation deployment;
@@ -217,12 +210,12 @@ Do not claim yet:
 
 ## Immediate validation boundary
 
-Validate the exact PCTX2A checkout before beginning later parent layers or deployment-policy wiring:
+Validate PCTX2C before beginning dependency-DAG parent layers or operational deployment-policy wiring:
 
 ```powershell
 git pull --ff-only origin main
 git rev-parse HEAD
-python -m unittest -v test_stage1_market_parent_feature_provider.py
+python -m unittest -v test_stage1_parent_context_orchestrator.py
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
