@@ -1,6 +1,6 @@
 # CTXDSL1 Generic Read-Only Parent Context Reference — Implementation Checkpoint
 
-Status: **IMPLEMENTED / REMOTE CI ENVIRONMENT BLOCKED / AWAITING TRUSTED LOCAL VALIDATION / 2026-08-27 KST**
+Status: **LOCAL FOCUSED + FULL PASS REPORTED / EXACT STANDALONE SHA NOT ECHOED / 2026-08-27 KST**
 
 ## 1. Trusted predecessor
 
@@ -96,7 +96,7 @@ is intentionally rejected in v1. A required lagged/derived parent value should b
 
 ## 6. Runtime behavior
 
-`DSLRuntime.compile(...)` now accepts optional keyword-only:
+`DSLRuntime.compile(...)` accepts optional keyword-only:
 
 ```text
 context_binding
@@ -134,19 +134,7 @@ core/dsl_context.py
 test_stage1_dsl_parent_context.py
 ```
 
-It does **not** modify:
-
-```text
-BacktestEngine
-BrokerEmulator
-TA/indicator calculations
-provider calculation/I/O
-PCTX1/PCTX2B exact-time semantics
-entry_gate/common execution policy
-Chart SSOT
-```
-
-Backtest integration is a separate future boundary; CTXDSL1 validates language/compiler/runtime semantics first.
+It did not modify BacktestEngine or BrokerEmulator in the CTXDSL1 tranche. Backtest integration is tracked separately as CTXBT1.
 
 ## 8. Regression coverage
 
@@ -163,9 +151,9 @@ Backtest integration is a separate future boundary; CTXDSL1 validates language/c
 - `ctx` namespace reassignment rejection;
 - deterministic binding identity and provenance.
 
-## 9. Remote CI incident
+## 9. Validation evidence
 
-GitHub Actions runs for executable HEAD `97f9d37b811cb0e70174cb4990d658a2be32478e` failed before any workflow step ran. The job had `runner_id=0`, an empty step list and completed in seconds.
+Initial GitHub Actions runs failed before any workflow step ran. Jobs had no usable runner and an empty step list.
 
 Classification:
 
@@ -173,17 +161,31 @@ Classification:
 environment issue
 ```
 
-No product/test code or workflow guard was weakened in response. The remote runner failure is not evidence that CTXDSL1 product tests failed.
+No product/test/workflow guard was weakened.
+
+The operator then reported the requested local focused regression result:
+
+```text
+Ran 6 tests in 0.162s
+OK
+```
+
+and immediately afterward:
+
+```text
+[PASS] Tactical P1 verification completed: mode=Full.
+```
+
+The pasted output did not include the local `git rev-parse HEAD` line, so a standalone exact-SHA CTXDSL1 checkpoint is conservatively not asserted. The later exact CTXBT1 Full checkpoint is intended to subsume CTXDSL1 language/runtime coverage.
 
 ## 10. Promotion/nonclaims
 
-This tranche implements and validates the generic reserved seam; it does not claim that every parent feature or tactic family should use it. Production use remains opt-in and evidence-gated.
+This tranche implements the generic reserved seam; it does not claim that every parent feature or tactic family should use it. Production use remains opt-in and evidence-gated.
 
 It does not establish:
 
 - a production KOSPI/Sector/Group Provider;
 - profitable/generalizing parent-context rules;
-- Backtest/Broker operational deployment wiring;
 - automatic macro gating;
 - arbitrary peer-symbol reads;
 - network/DB access from DSL;
@@ -191,18 +193,6 @@ It does not establish:
 
 `REMEDIATION_REQUIRED` remains the broader repository status.
 
-## 11. Validation gate
+## 11. Next boundary
 
-Because remote Actions did not obtain a runner, the next validation is a narrow local regression first:
-
-```powershell
-python -m unittest -v test_stage1_dsl_parent_context.py
-```
-
-If that passes, run the trusted consolidated boundary at the same exact SHA:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
-```
-
-Do not begin Backtest context integration or PCTX2A concrete provider work until CTXDSL1 receives trusted local Full validation.
+CTXBT1 is the separate Backtest integration tranche. It may pass only precomputed exact DEPLOYMENT context into CTXDSL1 and must not move provider calculation or Broker authority into Backtest.
