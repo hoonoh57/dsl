@@ -1,3 +1,4 @@
+import ast
 from copy import deepcopy
 from pathlib import Path
 import unittest
@@ -143,6 +144,15 @@ def arena(*, bad_oos=False):
     )
 
 
+def _dotted_name(node):
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        base = _dotted_name(node.value)
+        return f"{base}.{node.attr}" if base else node.attr
+    return ""
+
+
 class TacticalContextDeploymentEvidenceTests(unittest.TestCase):
     def test_validated_slice_becomes_non_operational_e8_policy_evidence(self):
         validation = arena()
@@ -230,17 +240,45 @@ class TacticalContextDeploymentEvidenceTests(unittest.TestCase):
 
     def test_bridge_has_no_execution_provider_or_selection_wiring(self):
         source = Path("core/tactical_context_deployment_evidence.py").read_text(encoding="utf-8")
-        for forbidden in (
+        tree = ast.parse(source)
+
+        imported_modules = set()
+        imported_names = set()
+        referenced_identifiers = set()
+        calls = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported_modules.update(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom):
+                imported_modules.add(node.module or "")
+                imported_names.update(alias.name for alias in node.names)
+            elif isinstance(node, ast.Name):
+                referenced_identifiers.add(node.id)
+            elif isinstance(node, ast.Attribute):
+                referenced_identifiers.add(node.attr)
+            elif isinstance(node, ast.Call):
+                calls.add(_dotted_name(node.func))
+
+        forbidden_runtime_names = {
             "BacktestEngine",
             "BrokerEmulator",
             "DSLRuntime",
-            "provider.build(",
             "entry_gate",
             "allowed_symbols",
             "blocked_symbols",
             "allocation",
-        ):
-            self.assertNotIn(forbidden, source)
+        }
+        self.assertTrue(forbidden_runtime_names.isdisjoint(imported_names))
+        self.assertTrue(forbidden_runtime_names.isdisjoint(referenced_identifiers))
+        self.assertFalse(
+            any(
+                module.startswith(("core.backtest", "core.dsl_runtime", "core.broker"))
+                for module in imported_modules
+            )
+        )
+        self.assertFalse(
+            any("provider" in call.lower() and call.endswith(".build") for call in calls)
+        )
 
 
 if __name__ == "__main__":
