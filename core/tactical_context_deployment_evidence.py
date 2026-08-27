@@ -179,9 +179,7 @@ class ValidatedContextDeploymentPolicyEvidence:
         if str(self.policy.evidence_status).strip().upper() != "VALIDATED":
             raise ValueError("deployment policy evidence는 VALIDATED policy만 허용합니다.")
         feature_id = _text(self.feature_id, "deployment evidence feature_id")
-        required_manifest_hash = _text(
-            self.required_manifest_hash, "deployment evidence required_manifest_hash"
-        )
+        _text(self.required_manifest_hash, "deployment evidence required_manifest_hash")
         _text(self.validation_arena_hash, "deployment evidence validation_arena_hash")
         validation_evidence_hash = _text(
             self.validation_evidence_hash, "deployment evidence validation_evidence_hash"
@@ -192,8 +190,6 @@ class ValidatedContextDeploymentPolicyEvidence:
         layer_prefix = str(self.policy.rule.layer).strip().lower() + "."
         if not feature_id.lower().startswith(layer_prefix):
             raise ValueError("deployment evidence feature_id가 policy rule layer와 다릅니다.")
-        if not required_manifest_hash:
-            raise ValueError("deployment evidence required_manifest_hash가 필요합니다.")
         if not self.partition_attribution_hashes:
             raise ValueError("deployment evidence partition attribution이 비어 있습니다.")
         ids = []
@@ -202,13 +198,6 @@ class ValidatedContextDeploymentPolicyEvidence:
             _text(attribution_hash, "deployment evidence attribution_hash")
         if len(set(ids)) != len(ids):
             raise ValueError("deployment evidence partition_id에 중복이 있습니다.")
-        train_hashes = [
-            attribution_hash
-            for partition_id, attribution_hash in self.partition_attribution_hashes
-            if str(partition_id).strip().upper().startswith("TRAIN")
-        ]
-        # Partition IDs are caller-defined, so policy.attribution_hash is checked
-        # against the selected TRAIN role at creation time rather than inferred here.
         _json_safe(self.public_dict(include_hash=False))
 
     def public_dict(self, *, include_hash: bool = True) -> dict[str, Any]:
@@ -252,7 +241,11 @@ class ValidatedContextDeploymentPolicyFactory:
     ) -> ValidatedContextDeploymentPolicyEvidence:
         arena = _validate_arena(validation_arena)
         wanted_slice_id = _text(slice_id, "deployment evidence slice_id")
-        matches = [item for item in arena["slices"] if str(item.get("slice_id") or "").strip() == wanted_slice_id]
+        matches = [
+            item
+            for item in arena["slices"]
+            if str(item.get("slice_id") or "").strip() == wanted_slice_id
+        ]
         if len(matches) != 1:
             raise ValueError("요청한 CTXVAL1 slice를 정확히 하나 찾을 수 없습니다.")
         selected = dict(matches[0])
@@ -281,12 +274,49 @@ class ValidatedContextDeploymentPolicyFactory:
         partition_evidence = tuple(selected.get("partition_evidence") or ())
         if not partition_evidence:
             raise ValueError("CTXVAL1 selected partition evidence가 비어 있습니다.")
+        if any(not isinstance(item, Mapping) for item in partition_evidence):
+            raise ValueError("CTXVAL1 selected partition evidence 타입이 올바르지 않습니다.")
         if any(item.get("status") != "PASS" for item in partition_evidence):
             raise ValueError("CTXVAL1 selected slice의 모든 partition이 PASS여야 합니다.")
-        role_rows = {str(item.get("role") or "").strip().upper(): item for item in partition_evidence}
+
+        arena_partitions = {
+            str(item["partition_id"]).strip(): {
+                "role": str(item["role"]).strip().upper(),
+                "attribution_hash": str(item["attribution_hash"]).strip(),
+            }
+            for item in arena["partitions"]
+        }
+        selected_partition_ids = [
+            _text(item.get("partition_id"), "CTXVAL1 selected partition_id")
+            for item in partition_evidence
+        ]
+        if len(set(selected_partition_ids)) != len(selected_partition_ids):
+            raise ValueError("CTXVAL1 selected partition evidence에 중복 partition_id가 있습니다.")
+        if set(selected_partition_ids) != set(arena_partitions):
+            raise ValueError("CTXVAL1 selected partition coverage가 arena partitions와 다릅니다.")
+        for item in partition_evidence:
+            partition_id = str(item["partition_id"]).strip()
+            role = str(item.get("role") or "").strip().upper()
+            attribution_hash = _text(
+                item.get("attribution_hash"), "CTXVAL1 selected attribution_hash"
+            )
+            expected = arena_partitions[partition_id]
+            if role != expected["role"] or attribution_hash != expected["attribution_hash"]:
+                raise ValueError("CTXVAL1 selected partition evidence가 arena attribution과 다릅니다.")
+
+        role_rows = {}
+        harsh_count = 0
+        for item in partition_evidence:
+            role = str(item.get("role") or "").strip().upper()
+            if role == "HARSH":
+                harsh_count += 1
+            elif role in role_rows:
+                raise ValueError(f"CTXVAL1 selected slice에 중복 role evidence가 있습니다: {role}")
+            else:
+                role_rows[role] = item
         if set(("TRAIN", "VALIDATION", "OOS")) - set(role_rows):
             raise ValueError("CTXVAL1 selected slice의 TRAIN/VALIDATION/OOS evidence가 완전하지 않습니다.")
-        if "HARSH" not in role_rows:
+        if harsh_count < 1:
             raise ValueError("CTXVAL1 selected slice의 HARSH evidence가 필요합니다.")
         train_attribution_hash = _text(
             role_rows["TRAIN"].get("attribution_hash"), "CTXVAL1 TRAIN attribution_hash"
