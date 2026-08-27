@@ -66,11 +66,15 @@ def prepare_backtest_parent_context(
     if not target_times:
         raise ValueError("parent context backtest market time 배열이 비어 있습니다.")
 
-    binding = DSLContextSeriesBinding.from_frame(
-        frame=frame,
-        registry=registry,
-        target_times=target_times,
-    )
+    try:
+        binding = DSLContextSeriesBinding.from_frame(
+            frame=frame,
+            registry=registry,
+            target_times=target_times,
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(f"parent context backtest exact binding 오류: {exc}") from exc
+
     return binding, {
         "supplied": True,
         "policy": BACKTEST_CONTEXT_POLICY,
