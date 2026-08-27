@@ -1,7 +1,7 @@
 # Quant DSL Current State
 
-Status: **MSA3_TRUSTED_FULL_PASS / CTXVAL1_REGISTERED_PARENT_CONTEXT_VALIDATION_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / REMEDIATION_REQUIRED**  
-Updated: 2026-08-27 KST
+Status: **CTXVAL1_TRUSTED_FULL_PASS / CTXDEP1_VALIDATED_CONTEXT_DEPLOYMENT_POLICY_EVIDENCE_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / REMEDIATION_REQUIRED**  
+Updated: 2026-08-28 KST
 
 ## Authority order
 
@@ -13,27 +13,17 @@ Updated: 2026-08-27 KST
 6. `MICRO_FIRST_MACRO_READY_ARCHITECTURE.md`
 7. `MULTI_LAYER_DSL_ARCHITECTURE.md`
 8. E3-E8 implementation checkpoints
-9. `PCTX1_PARENT_FEATURE_PROVIDER_IMPLEMENTATION.md`
-10. `PCTX2B_PARENT_CONTEXT_FRAME_BINDER_IMPLEMENTATION.md`
-11. `CTXDSL1_GENERIC_PARENT_CONTEXT_REFERENCE_IMPLEMENTATION.md`
-12. `CTXBT1_EXACT_PARENT_CONTEXT_BACKTEST_INTEGRATION.md`
-13. `PCTX2A_MARKET_PARENT_FEATURE_PROVIDER_IMPLEMENTATION.md`
-14. `PCTX2C_EXACT_ROOT_PROVIDER_FRAME_ORCHESTRATION.md`
-15. `PCTX2D_DEPENDENCY_DAG_SECTOR_PROVIDER_IMPLEMENTATION.md`
-16. `MSA1_IMMUTABLE_MULTI_SYMBOL_SNAPSHOT_EVIDENCE_IMPLEMENTATION.md`
-17. `MSA2_BOUNDED_GROUP_LEADER_FOLLOWER_BREADTH_EVIDENCE_IMPLEMENTATION.md`
-18. `MSA3_REGISTERED_GROUP_PARENT_FEATURE_PUBLICATION_IMPLEMENTATION.md`
-19. `CTXVAL1_REGISTERED_PARENT_CONTEXT_VALIDATION_ARENA_IMPLEMENTATION.md`
-20. earlier product/execution/playbook/audit checkpoints
-21. `PROGRESS_CHECKPOINT_2026-08-26.md`
+9. PCTX1/PCTX2B/CTXDSL1/CTXBT1 checkpoints
+10. PCTX2A/PCTX2C/PCTX2D checkpoints
+11. MSA1/MSA2/MSA3 checkpoints
+12. `CTXVAL1_REGISTERED_PARENT_CONTEXT_VALIDATION_ARENA_IMPLEMENTATION.md`
+13. `CTXDEP1_VALIDATED_CONTEXT_DEPLOYMENT_POLICY_EVIDENCE_IMPLEMENTATION.md`
+14. earlier product/execution/playbook/audit checkpoints
+15. `PROGRESS_CHECKPOINT_2026-08-26.md`
 
 ## Trusted exact Full checkpoints
 
-Every checkout below received:
-
-```text
-[PASS] Tactical P1 verification completed: mode=Full.
-```
+Every checkout below received Tactical P1 Full PASS at the exact SHA:
 
 ```text
 E0     ac01525223f897f155de63f02529b0a6429a0882
@@ -55,143 +45,103 @@ PCTX2D  6de666c277d1a6d7ffb47fd9e6093e50b34ebb45
 MSA1    adaef963dce717b252f2575896a74462c8a277a2
 MSA2    3a5a2ece658ead28a1822ef7482a3d284d12e2d6
 MSA3    02904728cb0a39669e6809ba21c4e2dd8eb947e3
+CTXVAL1 db9d9ddeeec55f2774d7a2d873ec2f19d77726b4
 ```
 
 Recent focused evidence:
 
 ```text
-PCTX2D: Ran 6 tests in 0.174s / OK
-MSA1:   Ran 6 tests in 0.003s / OK
-MSA2:   Ran 7 tests in 0.017s / OK
 MSA3:   Ran 7 tests in 0.078s / OK
+CTXVAL1: Ran 7 tests in 0.073s / OK
 ```
 
-Each was followed by Full PASS at the exact SHA shown above.
+Both were followed by Full PASS at their exact trusted SHA.
 
 ## Governing architecture
 
 Core remains deterministic and single-instrument.
 
 ```text
-PCTX1 typed/versioned provider contract
- -> PCTX2B exact frozen frame
- -> CTXDSL1 generic read-only ctx.*
- -> CTXBT1 Backtest exact binding
+PCTX provider calculation/precompute outside DSL
+ -> exact frozen parent context
+ -> read-only registered ctx.*
+ -> Backtest exact binding
  -> existing execution policy
  -> BrokerEmulator
 ```
 
-Trusted parent calculation/publication path:
+Cross-symbol research remains outside Instrument DSL:
 
 ```text
-PCTX2A deterministic MARKET provider
- -> PCTX2C exact root precomputation
- -> PCTX2D explicit dependency DAG
- -> descriptive SECTOR provider
- -> MSA3 research-only GROUP provider publication
+MSA1 immutable per-symbol snapshots
+ -> MSA2 bounded group evidence
+ -> MSA3 research-only aggregate GROUP publication
+ -> CTXVAL1 Train/Validation/OOS/Harsh evidence
+ -> CTXDEP1 explicit validated deployment-policy evidence
 ```
 
-Trusted multi-symbol evidence path:
+No peer-symbol runtime reads, universe discovery, ranking, allocation or provider calls are added to Instrument DSL.
+
+## CTXVAL1 trusted state
+
+Exact trusted checkpoint:
 
 ```text
-single-instrument causal state @ exact t
- -> MSA1 immutable InstrumentSignalSnapshot
- -> explicit SnapshotUniverse
- -> MSA2 bounded exact chronological GROUP evidence
- -> MSA3 bounded registered aggregate GROUP features
-```
-
-Provider calculation/I/O, universe discovery, peer ranking, allocation and adaptive learning remain outside Instrument DSL execution.
-
-## MSA3 trusted state
-
-Trusted exact checkpoint:
-
-```text
-02904728cb0a39669e6809ba21c4e2dd8eb947e3
-Ran 7 tests in 0.078s
+db9d9ddeeec55f2774d7a2d873ec2f19d77726b4
+Ran 7 tests in 0.073s
 OK
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-MSA3 publishes only five aggregate GROUP features, with follower-dependent values optional/absent rather than defaulted. Publication remains `RESEARCH_ONLY`, `operational_authority=false`.
+CTXVAL1 proves the registered-context validation machinery is executable across explicit TRAIN, VALIDATION, OOS and HARSH partitions. It produces slice-specific validation evidence only and remains non-operational.
 
-## CTXVAL1 current executable tranche
+The initial failure at `d2abaeed...` was classified `test defect`; only the malformed regression fixture was corrected before the final trusted PASS.
 
-New module:
+## CTXDEP1 current executable tranche
 
-```text
-core/tactical_context_validation.py
-```
-
-New regression:
+New module/regression:
 
 ```text
-test_stage1_tactical_context_validation.py
+core/tactical_context_deployment_evidence.py
+test_stage1_tactical_context_deployment_evidence.py
 ```
 
 Detailed checkpoint:
 
 ```text
-CTXVAL1_REGISTERED_PARENT_CONTEXT_VALIDATION_ARENA_IMPLEMENTATION.md
+CTXDEP1_VALIDATED_CONTEXT_DEPLOYMENT_POLICY_EVIDENCE_IMPLEMENTATION.md
 ```
 
-Schemas/policies:
+CTXDEP1 accepts only an intact CTXVAL1 arena and one independently validated PASS slice. It verifies arena identity, slice status, registered feature/manifest identity and partition attribution consistency, then creates an E8 `ContextDeploymentPolicy` anchored to the exact CTXVAL1 `validation_evidence_hash`.
+
+Output remains:
 
 ```text
-tactical_context_validation_arena/v1
-tactical_context_validation_contract/v1
-registered_context_validation_slice/v1
-PARTITIONED_E8_ATTRIBUTION_TRAIN_VALIDATION_OOS_HARSH_DECLARED_AXES_NO_HIDDEN_SCORE
-EXACT_REGISTERED_PCTX1_OBSERVED_CONTEXT_ONLY
-```
-
-### Exact registered context requirement
-
-Every validation case uses a frozen NEUTRAL `tactical_discovery/v1` result and an exact OBSERVED PCTX1 assembly context:
-
-```text
-context.as_of == case.knowledge_cutoff
-parent_feature_contract == parent_context_assembly/v1
-exact parent_feature_knowledge_cutoff
-non-empty immutable manifest/result hashes
-required registered manifest hash present
-```
-
-There is no provider call, nearest/fill-forward, tactic replay, Backtest mutation or Broker wiring in CTXVAL1.
-
-### Partition evidence
-
-CTXVAL1 requires exactly one TRAIN, VALIDATION and OOS partition plus at least one HARSH partition. HARSH requires `adverse_reason`; case IDs are globally disjoint; all partitions use the same candidate hash.
-
-E8 `TacticalContextAttributor` is run independently per partition. Each registered slice is judged against explicit no-score retained-case, return, drawdown, profitable-rate, cost and MFE-giveback tolerances.
-
-A slice must survive all holdouts. TRAIN-positive but OOS-regressing evidence fails.
-
-### Output authority
-
-Passing slices receive a slice-specific `validation_evidence_hash` and may become *evidence-eligible* for a separately declared E8 deployment policy. CTXVAL1 itself remains:
-
-```text
+policy_evidence_validated = true
 operational_authority = false
-execution_integration = EVIDENCE_ONLY_NOT_WIRED_TO_ENTRY_GATE_OR_BROKER
+execution_integration = POLICY_EVIDENCE_ONLY_NOT_WIRED_TO_ENTRY_GATE_OR_BROKER
 ```
 
-It does not create allowed/blocked symbols, allocation, entry gates, DeploymentDecision or Broker orders.
+It does not install an entry gate or call Backtest/Broker.
 
 ## Remote CI environment
 
-Recent GitHub Actions runs repeatedly failed before executable steps obtained a runner. These are `environment issue`; workflow/test guards have not been weakened.
+Recent GitHub Actions runs have repeatedly terminated before executable steps received a runner. Those failures are classified:
+
+```text
+environment issue
+```
+
+No workflow/test/product guard has been weakened.
 
 ## Still not implemented / nonclaims
 
 Do not claim yet:
 
-- trusted Full PASS for CTXVAL1;
-- empirical OOS benefit from real GROUP context;
-- production GROUP deployment policy;
-- automatic cross-symbol selection or portfolio allocation;
+- trusted Full PASS for CTXDEP1;
+- empirical profitability of a real GROUP deployment rule;
 - operational parent-context entry gate;
+- automatic cross-symbol selection/allocation;
 - live-trading readiness;
 - repository-wide Chart/overall compliance PASS.
 
@@ -199,21 +149,11 @@ Do not claim yet:
 
 ## Immediate validation boundary
 
-Validate CTXVAL1 before any GROUP DEPLOYMENT use or selection-policy work:
-
 ```powershell
 git pull --ff-only origin main
 git rev-parse HEAD
-python -m unittest -v test_stage1_tactical_context_validation.py
+python -m unittest -v test_stage1_tactical_context_deployment_evidence.py
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
-If an executable failure occurs, classify the first failure exactly as:
-
-```text
-test defect
-product defect
-authority drift
-environment issue
-unknown
-```
+Any executable failure must first be classified exactly as `test defect`, `product defect`, `authority drift`, `environment issue`, or `unknown`.
