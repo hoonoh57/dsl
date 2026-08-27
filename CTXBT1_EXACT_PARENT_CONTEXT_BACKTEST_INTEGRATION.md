@@ -1,24 +1,30 @@
 # CTXBT1 Exact Parent Context Backtest Integration — Implementation Checkpoint
 
-Status: **IMPLEMENTED / REMOTE CI ENVIRONMENT BLOCKED / AWAITING LOCAL EXECUTABLE VALIDATION / 2026-08-27 KST**
+Status: **TRUSTED FULL PASS / 2026-08-27 KST**
 
-## 1. Predecessor evidence
+## 1. Trusted exact checkpoint
 
-PCTX2B is trusted Full-green at:
+The operator validated CTXDSL1 + CTXBT1 together at exact checkout:
 
 ```text
-ce18ffc4b9f7758d57117b9b08eaa2d8c1e7aba4
+99bb2e5f5a248dc61cddb23677b5798b258848f2
+```
+
+Focused CTXBT1 regression:
+
+```text
+python -m unittest -v test_stage1_backtest_parent_context.py
+Ran 5 tests in 0.064s
+OK
+```
+
+Consolidated boundary:
+
+```text
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-CTXDSL1 then introduced generic read-only `ctx.*` Parser/Semantic/Runtime support. The operator reported:
-
-```text
-Ran 6 tests ... OK
-[PASS] Tactical P1 verification completed: mode=Full.
-```
-
-for the requested CTXDSL1 local validation session. The exact local SHA was not included in that pasted output, so the standalone CTXDSL1 exact-SHA checkpoint remains conservatively unclaimed. CTXBT1 validation at an exact later SHA will cover CTXDSL1 and CTXBT1 together.
+Therefore **CTXBT1 is trusted Full-green at `99bb2e5f5a248dc61cddb23677b5798b258848f2`**. This exact checkpoint also re-validates the CTXDSL1 grammar/semantic/runtime path included in the same checkout.
 
 ## 2. Objective
 
@@ -34,11 +40,9 @@ PCTX1 registry/provider results
  -> unchanged BrokerEmulator
 ```
 
-The Backtest does not calculate market regime, sector strength, leader/follower state or any other parent feature.
+## 3. Adapter contract
 
-## 3. New adapter
-
-New module:
+Module:
 
 ```text
 core/backtest_parent_context.py
@@ -50,84 +54,45 @@ Policy:
 EXACT_MARKET_BAR_TIMES_DEPLOYMENT_FRAME_NO_PROVIDER_CALL
 ```
 
-`prepare_backtest_parent_context(...)` requires either both or neither of:
+`BacktestEngine.run(...)` optionally accepts both:
 
 ```text
 parent_context_frame
 parent_feature_registry
 ```
 
-When supplied it requires:
+Both or neither must be supplied.
 
-- `ParentContextFrame` type;
-- matching `ParentFeatureRegistry`;
-- DEPLOYMENT-only executable frame through CTXDSL1 binding;
-- market `_meta.instrument` present;
-- market instrument exactly equal to `frame.target_symbol`;
-- exact market `time[]` for every context point consumed;
-- no nearest lookup, interpolation or fill-forward;
-- no provider call or source acquisition during Backtest.
+When supplied, the adapter requires:
 
-Any exact binding error fails closed as a Backtest boundary error.
+- `DEPLOYMENT` ParentContextFrame;
+- matching ParentFeatureRegistry;
+- market `_meta.instrument` exactly matching frame target symbol;
+- exact market timestamp coverage for every compiled bar;
+- registered required typed features only;
+- no nearest lookup, fill-forward, interpolation or default substitution;
+- no provider/source call from Backtest execution.
 
-## 4. BacktestEngine integration
+## 4. No implicit macro gate
 
-`BacktestEngine.run(...)` adds optional parameters:
-
-```text
-parent_context_frame=None
-parent_feature_registry=None
-```
-
-When absent, the historical Backtest compile/execution path is unchanged.
-
-When present, CTXBT1 builds exactly one immutable `DSLContextSeriesBinding` from the market bar timeline and passes it to:
-
-```text
-DSLRuntime.compile(
-    ...,
-    context_binding=binding,
-    target_times=data["time"],
-)
-```
-
-The existing timeframe check, signal extraction, entry policy, deferred-order handling, accounting and BrokerEmulator execution remain unchanged.
-
-## 5. No implicit macro gate
-
-Supplying a parent-context frame does not automatically block or permit entries.
+Supplying context alone does not permit or block an entry.
 
 ```text
 context supplied + DSL does not reference ctx.*
  -> same tactic signals/execution as context absent
 ```
 
-Parent context affects a tactic only when its DSL explicitly references a registered `ctx.*` feature.
+When the DSL explicitly references `ctx.*`, the resulting tactic signal is still subject to the independent external `entry_gate` and existing common execution policy.
 
-The existing external `entry_gate` remains a separate common execution restriction and can still block an entry even when the DSL's parent-context expression is true.
-
-Therefore:
+Broker execution authority remains:
 
 ```text
-DSL ctx condition
-AND optional external entry_gate
-AND existing execution policy
- -> BrokerEmulator
+BrokerEmulator
 ```
 
-CTXBT1 does not make parent context an implicit Broker authority.
+## 5. Provenance
 
-## 6. Provenance diagnostics
-
-Backtest diagnostics now include a `parent_context` section.
-
-When no context is supplied:
-
-```text
-supplied = false
-```
-
-When supplied it records only provenance, not hidden provider internals:
+Backtest diagnostics expose only parent-context provenance:
 
 ```text
 target_symbol
@@ -140,66 +105,26 @@ policy
 binding_policy
 ```
 
-Execution authority remains:
+This is evidence, not a second execution authority.
 
-```text
-BrokerEmulator
-```
+## 6. Regression boundary
 
-## 7. Regression coverage
+`test_stage1_backtest_parent_context.py` covers:
 
-New regression:
+- end-to-end `ctx.*` signal to Backtest/Broker path;
+- exact timestamp behavior;
+- Broker authority unchanged;
+- external entry-gate independence;
+- no implicit context gate for plain DSL;
+- frame/registry pairing;
+- target-symbol mismatch fail-close;
+- missing exact timestamp fail-close;
+- OBSERVED frame rejection;
+- unbound `ctx.*` fail-close.
 
-```text
-test_stage1_backtest_parent_context.py
-```
+## 7. Remote CI incident
 
-Coverage includes:
-
-- end-to-end Backtest consumption of NUMBER/BOOLEAN/STRING parent context;
-- exact signal-time behavior;
-- unchanged Broker execution authority;
-- external `entry_gate` remains separate and restrictive;
-- supplying context without `ctx.*` does not implicitly gate/alter a tactic;
-- frame/registry pair requirement;
-- market symbol versus frame target-symbol mismatch fail-close;
-- missing exact context timestamp fail-close;
-- OBSERVED frame rejected for executable DSL use;
-- ctx-referencing Backtest without a binding fails closed.
-
-The standard Full verifier discovers this file through `test_stage1_*.py`.
-
-## 8. Mutation boundary
-
-CTXBT1 changes:
-
-```text
-core/backtest.py
-```
-
-and adds:
-
-```text
-core/backtest_parent_context.py
-test_stage1_backtest_parent_context.py
-```
-
-It does not modify:
-
-```text
-BrokerEmulator
-PCTX1 provider calculation semantics
-PCTX2B frame resolution semantics
-CTXDSL1 grammar/type semantics
-TA/indicator authority
-multi-symbol ranking/allocation
-production source acquisition
-Chart SSOT
-```
-
-## 9. Remote CI incident
-
-GitHub Actions for CTXBT1 commits again terminated before any workflow step ran. The jobs had no executable step list and did not obtain a usable runner.
+GitHub Actions around CTXDSL1/CTXBT1 repeatedly ended before executing workflow steps, with no usable runner/step list.
 
 Classification:
 
@@ -207,37 +132,16 @@ Classification:
 environment issue
 ```
 
-No product test, workflow guard or execution rule was weakened in response.
+No test, workflow guard, DSL semantic or execution rule was weakened.
 
-## 10. Nonclaims
+## 8. Next boundary
 
-CTXBT1 does not establish:
+With CTXBT1 trusted, the next allowed mainline tranche is:
 
-- a production KOSPI/KOSDAQ parent-feature calculator;
-- production Sector/Group/Leader-Follower providers;
-- evidence that any macro feature improves profitability;
-- automatic deployment authorization;
-- Broker-side context calculation;
-- arbitrary peer-symbol reads from Instrument DSL;
-- live trading readiness;
-- repo-wide compliance PASS.
-
-`REMEDIATION_REQUIRED` remains the broader repository status.
-
-## 11. Validation gate
-
-Because remote Actions did not execute product tests, run the focused CTXBT1 regression locally first at the exact checkout:
-
-```powershell
-git pull --ff-only origin main
-git rev-parse HEAD
-python -m unittest -v test_stage1_backtest_parent_context.py
+```text
+PCTX2A — concrete deterministic Market Parent Feature Provider
 ```
 
-If it passes, run the consolidated boundary at the same SHA:
+Provider calculation remains outside Parser/Semantic/Runtime/Backtest/Broker. Operational deployment authorization, Sector/Group providers and multi-symbol ranking remain later boundaries.
 
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
-```
-
-Do not begin concrete PCTX2A provider implementation or operational deployment/Broker wiring until CTXBT1 receives trusted executable validation.
+`REMEDIATION_REQUIRED` remains the broader repository-compliance status.
