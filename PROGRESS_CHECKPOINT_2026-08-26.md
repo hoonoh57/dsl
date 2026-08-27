@@ -1,10 +1,10 @@
 # Quant DSL Progress Checkpoint — through 2026-08-27 KST
 
-Status: **PCTX1_TRUSTED_FULL_PASS / PCTX2B_PARENT_CONTEXT_FRAME_BINDER_IMPLEMENTED_AWAITING_TRUSTED_FULL / CORE_DSL_FREEZE_ACTIVE**
+Status: **PCTX2B_TRUSTED_FULL_PASS / CTXDSL1_GENERIC_PARENT_CONTEXT_REFERENCE_AWAITING_TRUSTED_LOCAL_VALIDATION / CORE_DSL_FREEZE_ACTIVE**
 
 ## Trusted Full checkpoints
 
-Every exact checkout below received:
+Each exact checkout below received:
 
 ```text
 [PASS] Tactical P1 verification completed: mode=Full.
@@ -22,202 +22,107 @@ E6    ad87a68a1f8d0595f51a3c02bde022a63ea22cc6
 E7    dc420d7f7961a4f0517b00c059d159b8face706c
 E8    3256f1de6b9bb7e8b79342ea037edcd51125bcda
 PCTX1 866bf0a5a25bf6759d1b264d62efcf9f1f277446
+PCTX2B ce18ffc4b9f7758d57117b9b08eaa2d8c1e7aba4
 ```
 
-E4's first Full failure was classified `environment issue` because the local external Chart SSOT checkout was stale. After fast-forwarding Chart SSOT to `7a43f0f52928045904d192deb7d8d532cb4c533e`, the same E4 DSL SHA passed without changing E4 product/tests.
+## PCTX2B trusted checkpoint
 
-## Stability architecture
-
-Authoritative boundaries remain:
+PCTX2B established exact intraday context transport:
 
 ```text
-CORE_DSL_FREEZE_ADAPTIVE_SIDECAR_POLICY.md
-PARENT_CONTEXT_FEATURE_PROVIDER_POLICY.md
-MULTI_SYMBOL_ADDON_EXTENSION_POLICY.md
-MICRO_FIRST_MACRO_READY_ARCHITECTURE.md
-```
-
-Core stays deterministic and single-instrument. Parent feature calculation, peer-symbol analysis, ranking, provider I/O and adaptive learning stay outside Instrument DSL execution.
-
-## E8 trusted checkpoint
-
-E8 separates neutral micro evidence, observed context attribution, policy validation, deployment-decision evidence and eventual operational execution. E8 remains deliberately non-operational:
-
-```text
-operational_authority = false
-execution_integration = NOT_WIRED_TO_DSL_ENTRY_GATE_OR_BROKER
-```
-
-Trusted checkpoint:
-
-```text
-3256f1de6b9bb7e8b79342ea037edcd51125bcda
-[PASS] Tactical P1 verification completed: mode=Full.
-```
-
-## PCTX1 trusted checkpoint
-
-PCTX1 introduced the generic typed parent-feature production seam:
-
-```text
-ParentFeatureManifest
- -> ParentFeatureProviderResult
- -> ParentContextAssembler
- -> immutable BattlefieldContext
-```
-
-The operator confirmed exact checkout:
-
-```text
-866bf0a5a25bf6759d1b264d62efcf9f1f277446
-```
-
-and ran:
-
-```text
-[PASS] Tactical P1 verification completed: mode=Full.
-```
-
-Therefore **PCTX1 is trusted Full-green at `866bf0a5a25bf6759d1b264d62efcf9f1f277446`.**
-
-Detailed checkpoint:
-
-```text
-PCTX1_PARENT_FEATURE_PROVIDER_IMPLEMENTATION.md
-```
-
-## Post-PCTX1 sequencing decision
-
-PCTX1 explicitly left two next seams:
-
-```text
-PCTX2A concrete deterministic Parent Feature Provider(s)
-PCTX2B causal context timeline/frame + read-only binder contract
-```
-
-PCTX2B is proceeding first.
-
-Reason: before production KOSPI/Sector calculations are coupled to this architecture, intraday research must define exactly which parent context is visible at each tactical decision timestamp. A static case-level snapshot is insufficient for future per-bar consumption semantics.
-
-## PCTX2B executable boundary
-
-New module:
-
-```text
-core/parent_context_frame.py
-```
-
-New regression:
-
-```text
-test_stage1_parent_context_frame.py
-```
-
-Detailed checkpoint:
-
-```text
-PCTX2B_PARENT_CONTEXT_FRAME_BINDER_IMPLEMENTATION.md
-```
-
-Schemas:
-
-```text
-parent_context_frame/v1
-parent_context_binding/v1
-```
-
-### Exact-time context points
-
-A frame is one immutable context timeline for one target instrument. Each point is backed by a precomputed PCTX1 assembly and requires:
-
-```text
-target_time == assembly.knowledge_cutoff == assembly.context.as_of
-```
-
-Resolution policy:
-
-```text
+target_time == knowledge_cutoff == context.as_of
 EXACT_PRECOMPUTED_POINT_ONLY_NO_NEAREST_NO_FILL_FORWARD
+REGISTERED_READ_ONLY_EXACT_TIME_NO_PROVIDER_CALL
 ```
 
-A missing timestamp fails closed. PCTX2B does not choose nearest context, carry older values forward, interpolate values or call a provider during lookup.
+The operator confirmed:
 
-### Fixed frame semantics
+```text
+ce18ffc4b9f7758d57117b9b08eaa2d8c1e7aba4
+[PASS] Tactical P1 verification completed: mode=Full.
+```
 
-Every point must use the same provider/manifest hash topology and registered PCTX1 feature registry. Mid-frame provider/version changes fail closed.
+Therefore **PCTX2B is trusted Full-green** at that SHA.
 
-Caller point ordering is normalized by timestamp, so ordering does not alter deterministic `frame_hash`.
+## CTXDSL1 executable boundary
 
-### Generic read-only binder sidecar
+Following the user's explicit authorization to perform grammar improvements autonomously in the remote repository, the generic Core-facing registered-context seam is now implemented for validation.
 
-`ParentContextBinder` resolves stable registered feature IDs at one exact frame timestamp.
+Files:
+
+```text
+core/dsl_context.py
+core/dsl_parser.py
+core/dsl_semantic.py
+core/dsl_runtime.py
+core/bar_runtime.py
+test_stage1_dsl_parent_context.py
+```
+
+Detailed checkpoint:
+
+```text
+CTXDSL1_GENERIC_PARENT_CONTEXT_REFERENCE_IMPLEMENTATION.md
+```
+
+### Contract
+
+```text
+PCTX1 registry
+ + PCTX2B exact DEPLOYMENT frame
+ -> DSLContextSeriesBinding
+ -> ctx.<registered feature_id>
+ -> Instrument DSL expression
+```
 
 Binding policy:
 
 ```text
-REGISTERED_READ_ONLY_EXACT_TIME_NO_PROVIDER_CALL
+REGISTERED_REQUIRED_EXACT_TIME_DEPLOYMENT_ONLY_NO_PROVIDER_CALL
 ```
 
-It re-validates NUMBER/STRING/BOOLEAN semantics and preserves optional absence explicitly as `present=false`, `value=null` rather than silently defaulting.
+NUMBER/BOOLEAN/STRING required features become typed DSL series. Unknown/unbound/optional executable references fail closed. `ctx` is read-only, direct `ctx.*[n]` history is not supported in v1, and exact target timestamps must match every compile bar.
 
-This is not Parser/Semantic/Runtime integration and not executable DSL `ctx.*` syntax.
+No provider/DB/network call occurs inside Parser/Semantic/Runtime.
 
-### Regression coverage
+### Deliberate scope
 
-`test_stage1_parent_context_frame.py` covers:
+CTXDSL1 does not yet connect context frames through `BacktestEngine` and does not change Broker or entry-gate authority. It validates syntax/type/runtime semantics first.
 
-- caller-order-independent frame identity;
-- exact chronological point semantics;
-- no nearest/fill-forward behavior;
-- exact target/cutoff/context-as-of identity;
-- provider/manifest drift fail-close;
-- registered typed read-only binding;
-- explicit optional absence;
-- feature-order-independent binding identity;
-- unknown feature, registry mismatch and missing point fail-close.
+No `QUANT_DSL_PLAYBOOK.md` update is made before this boundary is trusted, so generators are not instructed to emit untrusted `ctx.*` syntax.
 
-The Tactical P1 Full verifier discovers this regression through `test_stage1_*.py`.
+## Remote CI incident
 
-### Mutation boundary
-
-PCTX2B does not modify:
+Push workflows for executable head:
 
 ```text
-Parser
-Semantic
-Runtime
-Backtest
-BrokerEmulator
-TA/indicator authority
-Chart SSOT
-E3-E8 evidence/adjudication
-PCTX1 provider semantics
+97f9d37b811cb0e70174cb4990d658a2be32478e
 ```
+
+both ended before executing a workflow step. Job evidence showed `runner_id=0` and an empty step list.
+
+Classification:
+
+```text
+environment issue
+```
+
+This is not a product/test failure. No CI/test guard was changed.
 
 ## Current validation status
 
-May claim E0-E8 and PCTX1 trusted Full PASS at the exact SHAs above. PCTX2B source/tests are implemented awaiting Full.
+May claim E0-E8, PCTX1 and PCTX2B trusted Full PASS. CTXDSL1 source/regression are implemented but **not trusted**.
 
-Do not claim PCTX2B trusted, a production parent-feature calculator, DSL context binding, operational macro entry authority, autonomous allocation, live readiness or repository-wide compliance PASS.
+Do not claim production parent providers, operational context gate/Broker authority, profitable macro context, arbitrary peer-symbol DSL reads, live readiness or repository-wide compliance PASS.
 
 `REMEDIATION_REQUIRED` remains broader repository status.
 
-## Immediate boundary
+## Immediate validation
+
+Because remote Actions cannot obtain a runner, use the focused local regression first:
 
 ```powershell
-git pull --ff-only origin main
-git rev-parse HEAD
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
+python -m unittest -v test_stage1_dsl_parent_context.py
 ```
 
-If Full fails, classify the first executable failure exactly as:
-
-```text
-test defect
-product defect
-authority drift
-environment issue
-unknown
-```
-
-before editing. Do not begin PCTX2A, Core `ctx.*` work or deployment gate wiring before PCTX2B is trusted green.
+If it passes, capture exact SHA and run Tactical P1 Full at the same checkout.
