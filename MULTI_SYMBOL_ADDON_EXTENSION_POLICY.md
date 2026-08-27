@@ -1,12 +1,12 @@
 # Multi-Symbol Add-on Extension Policy
 
-Status: **AUTHORITATIVE OPTIONAL EXTENSION POLICY / MSA1 ACTIVE / 2026-08-27 KST**
+Status: **AUTHORITATIVE OPTIONAL EXTENSION POLICY / MSA1 TRUSTED / MSA2 ACTIVE / 2026-08-27 KST**
 
 ## 1. Governing rule
 
 > **Multi-symbol capability is an optional Add-on, not an Instrument DSL responsibility.**
 
-The Instrument DSL remains single-instrument. Multi-symbol chart display does not create peer-symbol execution authority.
+Instrument DSL remains single-instrument. Multi-symbol chart display, cohort analysis or group evidence does not create peer-symbol execution authority.
 
 Instrument DSL must not directly perform:
 
@@ -24,39 +24,34 @@ These remain orchestration/evidence/deployment responsibilities.
 
 ## 2. Existing scenario vertical slice
 
-`core/multi_symbol.py` remains the existing deterministic multi-symbol tactical scenario engine described by `MULTI_LAYER_DSL_ARCHITECTURE.md`.
+`core/multi_symbol.py` remains the earlier deterministic scenario/cohort vertical slice described by `MULTI_LAYER_DSL_ARCHITECTURE.md`.
 
-It runs independent InstrumentTasks through the validated single-instrument Backtest/Broker kernel and provides the earlier P0 scenario/cohort analysis boundary. MSA1 does not rewrite or remove that functionality.
+It runs independent InstrumentTasks through the validated single-instrument Backtest/Broker kernel. MSA1/MSA2 do not rewrite or remove it.
 
-New cross-symbol capabilities added after this policy checkpoint should prefer the immutable snapshot seam below whenever the requirement can be represented as read-only analysis of already-evaluated single-instrument evidence.
+New cross-symbol research should prefer immutable point-in-time snapshot evidence whenever it can be represented without direct peer-symbol access from Instrument DSL.
 
-## 3. MSA1 safe Add-on seam — active validation tranche
+## 3. MSA1 immutable snapshot seam — trusted
 
-New module:
-
-```text
-core/multi_symbol_snapshot.py
-```
-
-Schemas:
+Trusted exact checkpoint:
 
 ```text
-instrument_signal_snapshot/v1
-multi_symbol_snapshot_universe/v1
-multi_symbol_snapshot_policy/v1
-multi_symbol_snapshot_analysis/v1
+adaef963dce717b252f2575896a74462c8a277a2
+Ran 6 tests in 0.003s
+OK
+[PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-Causality/analysis policies:
+MSA1 contracts:
 
 ```text
-POINT_IN_TIME_ONLY
-OBSERVATION_ONLY_PER_AXIS_LEADERBOARDS_AND_PARETO_NO_HIDDEN_SCORE_NO_DEPLOYMENT_AUTHORITY
+InstrumentSignalSnapshot
+SnapshotUniverse
+SnapshotComparisonAxis
+SnapshotAnalysisPolicy
+MultiSymbolSnapshotAnalyzer
 ```
 
-### InstrumentSignalSnapshot
-
-A snapshot is an immutable export from one already-evaluated single-instrument tactic at one exact point in time:
+Every snapshot is exact point-in-time evidence:
 
 ```text
 symbol
@@ -66,162 +61,179 @@ family_id / generation_hash
 tactic_trigger
 hard_guards_pass
 locally_admissible
-declared finite comparison_metrics
+finite declared comparison_metrics
 source / evidence_hash
 snapshot_hash
 ```
 
-Only explicitly exported point-in-time metrics are visible to the Add-on. Full-future Backtest outcomes, later MFE labels, end-of-day winners or revised future information must not be smuggled into a snapshot used at an earlier timestamp.
+The Add-on reads snapshots. It does not call Parser/Runtime private state, Backtest, Broker, providers, DB/network or mutate the originating tactic.
 
-MSA1 does not infer causal metrics from complete Backtest outcomes.
+The universe is explicit and exact. Missing/extra symbols, mismatched times and missing declared metrics fail closed. No nearest-time or fill-forward behavior is permitted.
 
-## 4. Explicit universe and time alignment
+MSA1 comparison is multi-axis and deterministic, with explicit MAX/MIN axes, per-axis leaderboards and Pareto evidence. There is no hidden weighted universal score.
 
-Every snapshot analysis declares:
-
-```text
-universe_id
-ordered symbols[]
-as_of == knowledge_cutoff
-source_authority
-universe_hash
-```
-
-The Add-on must not silently discover or guess the universe.
-
-Snapshot membership must equal the declared universe exactly. Missing/extra symbols, duplicate symbols, mismatched timestamps and missing declared comparison metrics fail closed.
-
-There is no nearest-time substitution, interpolation or fill-forward.
-
-## 5. Deterministic comparison
-
-`SnapshotAnalysisPolicy` declares explicit metric axes:
-
-```text
-metric_id
-direction = MAX | MIN
-```
-
-The same universe, snapshots and policy must always produce the same result.
-
-MSA1 produces:
-
-- one deterministic leaderboard per metric axis;
-- symbol-ascending deterministic tie breaking;
-- a Pareto frontier over all declared axes.
-
-No hidden weighted universal score is used.
-
-Local comparison eligibility may require:
-
-```text
-tactic_trigger
-hard_guards_pass
-locally_admissible
-```
-
-A failed local condition is recorded as evidence such as `TACTIC_NOT_TRIGGERED`, `HARD_GUARD_FAILED` or `LOCAL_NOT_ADMISSIBLE`. These are comparison-status reasons, not Broker/deployment decisions.
-
-## 6. Observation before deployment
-
-MSA1 output is deliberately observation-only:
+MSA1 always remains:
 
 ```text
 mode = OBSERVATION_ONLY
 operational_authority = false
 ```
 
-It may return rows, per-axis leaderboards, Pareto symbols, comparison-eligible symbols and immutable hashes.
+## 4. MSA2 bounded group evidence — active validation tranche
 
-MSA1 does not return or create:
+MSA2 consumes a chronological sequence of exact MSA1 snapshot points under a stable explicit universe.
+
+Module:
+
+```text
+core/multi_symbol_group_evidence.py
+```
+
+Policy:
+
+```text
+STATIC_EXPLICIT_UNIVERSE_EXACT_CHRONOLOGICAL_POINTS
+OBSERVATION_ONLY_BOUNDED_STATIC_UNIVERSE_LEADER_FOLLOWER_BREADTH_NO_HIDDEN_SCORE_NO_DEPLOYMENT_AUTHORITY
+```
+
+MSA2 requires explicit bounds and semantics:
+
+```text
+metric_id
+direction = MAX | MIN
+favorable_threshold
+leader_count
+lookback_points
+max_symbols
+max_points
+```
+
+Across one MSA2 frame, universe ID, ordered symbol topology, source authority and per-symbol candidate/family/generation identity remain stable. Timestamps are exact, unique and strictly increasing.
+
+MSA2 may describe:
+
+```text
+comparison eligible breadth
+favorable breadth
+current leaders/followers
+leader/follower metric spread
+follower favorable rate
+leader persistence
+```
+
+Those values are evidence, not selection authority. A symbol called a `leader` is only descriptively ranked under the declared policy at that exact time.
+
+If comparison eligibility collapses, missing follower aggregate evidence remains explicit null rather than being fabricated as zero.
+
+MSA2 also always remains:
+
+```text
+mode = OBSERVATION_ONLY
+operational_authority = false
+```
+
+## 5. Explicit universe and causality
+
+Every cross-symbol research run must declare its opportunity set and source authority. The Add-on must never silently discover or guess the universe.
+
+All compared evidence must be valid at the declared point in time. Future-close, later winner information, end-of-day labels or revised future data must not become an earlier comparison input.
+
+Missing, stale or mismatched evidence is explicit and fail-closed according to the declared contract; it is never silently substituted.
+
+## 6. Observation is not deployment selection
+
+Observation-only evidence must not be confused with `allowed_symbols` or portfolio selection.
+
+Neither MSA1 nor MSA2 may emit:
 
 ```text
 allowed_symbols
 blocked_symbols
 max_slots
-portfolio allocation
+capital allocation
 entry_gate
 DeploymentDecision
-Broker orders
+Broker order
 ```
 
-Cross-symbol selection or permission requires a later separately validated policy/evidence tranche.
+A later deployment-selection tranche requires separate causal Train/Validation/OOS evidence and an explicit authority contract.
 
-## 7. No Core/execution/provider dependency
-
-The MSA1 module does not call or import:
+The eventual authority relationship remains:
 
 ```text
-DSLRuntime
-BacktestEngine
-BrokerEmulator
-ParentFeatureProvider
-```
-
-It performs no database/network/provider discovery and does not mutate the originating tactic.
-
-Removing the Add-on must not change Instrument DSL syntax, Parser/Runtime semantics, indicator semantics, Backtest accounting, BrokerEmulator or historical single-instrument TacticalProfiles.
-
-## 8. Optional Parent Feature Provider role — future
-
-After causal Train/Validation/OOS evidence, a separately versioned Add-on component may publish bounded registered context features such as:
-
-```text
-sector.breadth
-sector.leader_strength
-group.follower_alignment
-group.relative_strength
-```
-
-Allowed flow:
-
-```text
-immutable InstrumentSignalSnapshot[]
- -> validated Multi-Symbol Add-on analysis
- -> separately versioned registered Parent Feature Provider output
- -> PCTX1 result / BattlefieldContext
- -> exact read-only ctx.* binding
-```
-
-This never grants Instrument DSL arbitrary peer-symbol access.
-
-MSA1 itself does not publish parent features.
-
-## 9. Relationship to MARKET/SECTOR context
-
-Trusted parent-context work currently provides explicit MARKET and SECTOR descriptive context independently of the Add-on.
-
-A future hierarchy may be:
-
-```text
-MARKET / SECTOR parent context
- -> Instrument DSL local tactic
- -> immutable per-instrument signal snapshots
- -> optional multi-symbol Add-on analysis
- -> later validated deployment policy and/or bounded parent feature publication
- -> common execution policy
+single-instrument tactic trigger
+AND local hard guards
+AND optional separately validated Add-on permission
+AND common execution policy
  -> BrokerEmulator
 ```
 
-No layer rewrites lower-layer historical evidence.
+An Add-on can never bypass local hard guards, execution settings, accounting or Broker authority.
 
-## 10. Research-before-deployment rule
+## 7. Optional Parent Feature Provider publication
 
-Cross-symbol capabilities must progress through:
+A validated Add-on may later publish a **bounded registered parent feature** rather than expose peer-symbol state directly to Instrument DSL.
+
+Potential examples:
 
 ```text
-point-in-time single-instrument evidence
- -> immutable snapshots
- -> observation-only Add-on analysis
- -> Train/Validation/OOS evidence
- -> explicit deployment/parent-feature policy if justified
+group.breadth
+group.leader_persistence
+group.leader_follower_spread
+group.follower_confirmation
 ```
 
-An attractive leader/follower or relative-strength pattern is not immediately live order authority.
+Publication is a separate contract from MSA1/MSA2 observation. Any published feature must use PCTX1 manifest/version semantics, exact causality, dependency evidence and PCTX2D orchestration.
 
-## 11. Change-control questions
+Allowed conceptual flow:
 
-Before implementing any new cross-symbol feature:
+```text
+immutable single-instrument snapshots
+ -> MSA observation evidence
+ -> separately versioned bounded Parent Feature Provider
+ -> ContextLayerSnapshot / BattlefieldContext
+ -> read-only ctx.*
+```
+
+Direct peer-symbol query syntax in Instrument DSL remains prohibited.
+
+## 8. Default disabled and replaceable
+
+The Add-on is optional and disabled by default during neutral micro-tactic discovery.
+
+A tactic's neutral baseline must remain independently runnable without cross-symbol Add-on intelligence.
+
+The Add-on must be replaceable or removable without changing:
+
+```text
+Instrument DSL syntax
+Parser / Runtime
+indicator semantics
+Backtest accounting
+BrokerEmulator
+historical single-instrument TacticalProfiles
+```
+
+If a later tactic explicitly requires a registered Add-on-derived parent feature and that feature is unavailable, missing required context must fail closed rather than be guessed.
+
+## 9. Research before deployment
+
+Required order:
+
+```text
+single-instrument evidence
+ -> immutable snapshots
+ -> observation-only MSA evidence
+ -> Train / Validation / OOS evaluation
+ -> optional bounded registered parent feature or selection policy
+ -> separate deployment validation
+```
+
+Cross-sectional attractiveness is not entry authority.
+
+## 10. Change-control rule
+
+Before implementing any cross-symbol capability, ask:
 
 ```text
 Can it be expressed as read-only analysis of immutable per-symbol snapshots?
@@ -229,61 +241,27 @@ Can it be expressed as read-only analysis of immutable per-symbol snapshots?
 
 If yes, keep it in the Add-on.
 
-If an analysis conclusion is intended for DSL consumption:
+If a conclusion is intended for Instrument DSL consumption, ask:
 
 ```text
 Can it be published as a bounded registered point-in-time parent feature?
 ```
 
-If yes, use the PCTX provider/context seam instead of peer-symbol DSL syntax.
+If yes, use the Parent Feature Provider / Context seam.
 
-Direct cross-symbol syntax in Instrument DSL remains prohibited unless a future authority change proves that the Add-on/context representation is insufficient and separately satisfies Core promotion criteria.
+Direct cross-symbol syntax in Instrument DSL requires a future explicit authority change and independent Core-promotion evidence; it is not authorized now.
 
-## 12. Current status / nonclaims
+## 11. Current nonclaims
 
-Trusted predecessor relevant to this transition:
+Do not claim yet:
 
-```text
-PCTX2D 6de666c277d1a6d7ffb47fd9e6093e50b34ebb45
-Ran 6 tests in 0.174s
-OK
-[PASS] Tactical P1 verification completed: mode=Full.
-```
+- trusted Full PASS for MSA2;
+- production GROUP/leader-follower/breadth edge;
+- MSA2-derived registered GROUP parent features;
+- validated Add-on deployment selection;
+- portfolio allocation authority;
+- OOS profitability improvement from cross-symbol context;
+- live-trading readiness;
+- repository-wide compliance PASS.
 
-Implemented, awaiting validation:
-
-```text
-MSA1 immutable InstrumentSignalSnapshot contract
-explicit SnapshotUniverse
-explicit multi-axis observation policy
-per-axis leaderboards + Pareto evidence
-```
-
-Not yet claimed:
-
-```text
-trusted MSA1 Full PASS
-production GROUP/Leader-Follower/breadth intelligence
-Add-on-derived registered parent features
-validated cross-symbol selection edge
-allowed/blocked symbol authority
-portfolio allocation authority
-live-trading readiness
-repository-wide compliance PASS
-```
-
-`REMEDIATION_REQUIRED` remains broader repository status.
-
-## 13. Immediate gate
-
-Validate MSA1 at one exact repository SHA before leader/follower/group parent-feature publication or deployment-selection wiring.
-
-Any verifier failure must first be classified exactly as:
-
-```text
-test defect
-product defect
-authority drift
-environment issue
-unknown
-```
+`REMEDIATION_REQUIRED` remains the broader repository status.
