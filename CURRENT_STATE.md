@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **PCTX2D_TRUSTED_FULL_PASS / MSA1_IMMUTABLE_MULTI_SYMBOL_SNAPSHOT_EVIDENCE_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / REMEDIATION_REQUIRED**  
+Status: **MSA1_TRUSTED_FULL_PASS / MSA2_BOUNDED_GROUP_EVIDENCE_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / REMEDIATION_REQUIRED**  
 Updated: 2026-08-27 KST
 
 ## Authority order
@@ -21,8 +21,9 @@ Updated: 2026-08-27 KST
 14. `PCTX2C_EXACT_ROOT_PROVIDER_FRAME_ORCHESTRATION.md`
 15. `PCTX2D_DEPENDENCY_DAG_SECTOR_PROVIDER_IMPLEMENTATION.md`
 16. `MSA1_IMMUTABLE_MULTI_SYMBOL_SNAPSHOT_EVIDENCE_IMPLEMENTATION.md`
-17. earlier product/execution/playbook/audit checkpoints
-18. `PROGRESS_CHECKPOINT_2026-08-26.md`
+17. `MSA2_BOUNDED_GROUP_LEADER_FOLLOWER_BREADTH_EVIDENCE_IMPLEMENTATION.md`
+18. earlier product/execution/playbook/audit checkpoints
+19. `PROGRESS_CHECKPOINT_2026-08-26.md`
 
 ## Trusted exact Full checkpoints
 
@@ -49,19 +50,19 @@ CTXDSL1 + CTXBT1 99bb2e5f5a248dc61cddb23677b5798b258848f2
 PCTX2A  6f6aef0b09354b1171ce3eccc78d4daa451fe183
 PCTX2C  7aee063932e0d70d38c2e7f876b140d049029771
 PCTX2D  6de666c277d1a6d7ffb47fd9e6093e50b34ebb45
+MSA1    adaef963dce717b252f2575896a74462c8a277a2
 ```
 
-PCTX2D focused evidence:
+Recent focused evidence:
 
 ```text
-Ran 6 tests in 0.174s
-OK
-[PASS] Tactical P1 verification completed: mode=Full.
+PCTX2D: Ran 6 tests in 0.174s / OK
+MSA1:   Ran 6 tests in 0.003s / OK
 ```
 
-Therefore the MARKET -> SECTOR explicit dependency-DAG context boundary is trusted Full-green at the exact SHA above.
+Both were followed by Full PASS at their exact trusted SHA.
 
-## Governing execution/context architecture
+## Governing architecture
 
 Core remains deterministic and single-instrument.
 
@@ -74,103 +75,121 @@ PCTX1 typed/versioned provider contract
  -> BrokerEmulator
 ```
 
-Trusted provider/precompute layers now include:
+Trusted parent calculation/precompute path:
 
 ```text
-PCTX2A explicit deterministic MARKET provider
+PCTX2A deterministic MARKET provider
  -> PCTX2C exact root precomputation
  -> PCTX2D explicit dependency DAG
  -> descriptive SECTOR provider
 ```
 
-Provider calculation/I/O, universe discovery, peer ranking and allocation remain outside Instrument DSL/Backtest/Broker execution.
+Trusted multi-symbol evidence seam:
 
-## Existing multi-symbol vertical slice
+```text
+single-instrument causal state @ exact t
+ -> MSA1 InstrumentSignalSnapshot
+ -> explicit SnapshotUniverse
+ -> observation-only leaderboards / Pareto
+```
 
-`core/multi_symbol.py` remains the existing deterministic scenario/cohort orchestration engine described by `MULTI_LAYER_DSL_ARCHITECTURE.md`. It runs independent InstrumentTasks through the validated Backtest/Broker kernel and preserves its existing regression boundary.
+Provider calculation/I/O, universe discovery, peer ranking, allocation and adaptive learning remain outside Instrument DSL execution.
 
-The newer authoritative Add-on policy additionally requires an immutable point-in-time snapshot seam before future leader/follower, breadth, cross-sectional selection or parent-feature publication work.
+## MSA1 trusted state
 
-## MSA1 current executable tranche
+Trusted exact checkpoint:
+
+```text
+adaef963dce717b252f2575896a74462c8a277a2
+Ran 6 tests in 0.003s
+OK
+[PASS] Tactical P1 verification completed: mode=Full.
+```
+
+MSA1 is immutable point-in-time evidence only. It exposes no deployment authority and does not call DSLRuntime, BacktestEngine, BrokerEmulator or ParentFeatureProvider.
+
+## MSA2 current executable tranche
 
 New module:
 
 ```text
-core/multi_symbol_snapshot.py
+core/multi_symbol_group_evidence.py
 ```
 
-Regression:
+New regression:
 
 ```text
-test_stage1_multi_symbol_snapshot.py
+test_stage1_multi_symbol_group_evidence.py
 ```
 
 Detailed checkpoint:
 
 ```text
-MSA1_IMMUTABLE_MULTI_SYMBOL_SNAPSHOT_EVIDENCE_IMPLEMENTATION.md
+MSA2_BOUNDED_GROUP_LEADER_FOLLOWER_BREADTH_EVIDENCE_IMPLEMENTATION.md
 ```
 
-Schemas/policies:
+Schema/policies:
 
 ```text
-instrument_signal_snapshot/v1
-multi_symbol_snapshot_universe/v1
-multi_symbol_snapshot_policy/v1
-multi_symbol_snapshot_analysis/v1
-POINT_IN_TIME_ONLY
-OBSERVATION_ONLY_PER_AXIS_LEADERBOARDS_AND_PARETO_NO_HIDDEN_SCORE_NO_DEPLOYMENT_AUTHORITY
+multi_symbol_group_evidence/v1
+multi_symbol_group_evidence_policy/v1
+STATIC_EXPLICIT_UNIVERSE_EXACT_CHRONOLOGICAL_POINTS
+OBSERVATION_ONLY_BOUNDED_STATIC_UNIVERSE_LEADER_FOLLOWER_BREADTH_NO_HIDDEN_SCORE_NO_DEPLOYMENT_AUTHORITY
 ```
 
-### Snapshot contract
+MSA2 consumes a bounded chronological sequence of exact MSA1 points. v1 requires one stable universe ID, ordered symbol topology, source authority and stable candidate/family/generation identity per symbol across the frame.
 
-`InstrumentSignalSnapshot` carries explicit single-instrument point-in-time evidence:
+An explicit `GroupEvidencePolicy` declares one comparison metric, MAX/MIN direction, favorable threshold, leader count, lookback points and hard `max_symbols`/`max_points` bounds.
+
+It computes descriptive:
 
 ```text
-symbol
-as_of == knowledge_cutoff
-candidate_hash
-family_id / generation_hash
-tactic_trigger
-hard_guards_pass
-locally_admissible
-finite declared comparison_metrics
-source / evidence_hash
-snapshot_hash
+comparison eligible breadth
+favorable breadth
+current leader/follower sets
+leader/follower metric means and direction-normalized spread
+follower favorable rate
+current leader persistence over bounded lookback
 ```
 
-It does not infer comparison features from future Backtest outcomes.
+No hidden score is used. `leader_symbols` is observation evidence, not permission or selection authority.
 
-### Explicit universe contract
-
-`SnapshotUniverse` requires an explicit `universe_id`, ordered symbols, exact timestamp and source authority. The analyzer does not discover symbols. Missing/extra symbols or mismatched timestamps fail closed; there is no nearest/fill-forward behavior.
-
-### Observation-only analysis
-
-`SnapshotAnalysisPolicy` declares metric axes with `MAX` or `MIN` direction. MSA1 produces deterministic per-axis leaderboards and a Pareto frontier with no weighted hidden score.
-
-Local tactic trigger/hard-guard/admissibility state determines **comparison eligibility only**. MSA1 returns:
+MSA2 always returns:
 
 ```text
 mode = OBSERVATION_ONLY
 operational_authority = false
 ```
 
-and intentionally does not return allowed/blocked symbols, slot allocation, entry gates, DeploymentDecision or Broker orders.
+and does not emit allowed/blocked symbols, allocation, entry gate, DeploymentDecision or Broker orders.
 
-`core/multi_symbol_snapshot.py` does not import or invoke DSLRuntime, BacktestEngine, BrokerEmulator or ParentFeatureProvider.
+If comparison eligibility collapses so no follower remains, follower aggregates are explicit null values rather than fabricated zeroes.
+
+## Existing multi-symbol vertical slice
+
+`core/multi_symbol.py` remains the earlier deterministic scenario/cohort orchestration engine and is not modified by MSA1/MSA2. New peer/group research should use immutable snapshots rather than add cross-symbol syntax to Instrument DSL.
+
+## Remote CI environment
+
+Recent GitHub Actions jobs for these parent/add-on tranches have repeatedly terminated with no executable steps and no assigned runner (`runner_id=0`). Those incidents are classified:
+
+```text
+environment issue
+```
+
+No workflow/test/product guard has been weakened.
 
 ## Still not implemented / nonclaims
 
 Do not claim yet:
 
-- trusted Full PASS for MSA1;
-- production GROUP/Leader-Follower/breadth intelligence;
+- trusted Full PASS for MSA2;
+- production GROUP/leader-follower/breadth edge;
+- MSA2-derived registered GROUP parent features;
 - validated cross-symbol selection edge;
-- Add-on-derived registered parent features;
-- automatic allowed/blocked symbol authority;
-- portfolio slot/allocation authority;
-- evidence that MARKET/SECTOR/Add-on context improves OOS profitability;
+- automatic symbol permission or portfolio allocation;
+- evidence that MARKET/SECTOR/GROUP context improves OOS profitability;
+- operational macro deployment authority;
 - live-trading readiness;
 - repository-wide Chart/overall compliance PASS.
 
@@ -178,16 +197,16 @@ Do not claim yet:
 
 ## Immediate validation boundary
 
-Validate MSA1 at one exact checkout before leader/follower/group parent-feature publication or deployment selection:
+Validate MSA2 before publishing any MSA2-derived GROUP feature or adding deployment selection:
 
 ```powershell
 git pull --ff-only origin main
 git rev-parse HEAD
-python -m unittest -v test_stage1_multi_symbol_snapshot.py
+python -m unittest -v test_stage1_multi_symbol_group_evidence.py
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
-If an executable failure occurs, classify it first exactly as:
+If an executable failure occurs, classify the first failure exactly as:
 
 ```text
 test defect
