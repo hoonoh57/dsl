@@ -1,6 +1,6 @@
 # Quant DSL Progress Checkpoint — through 2026-08-27 KST
 
-Status: **CTXDSL1_CTXBT1_TRUSTED_FULL_PASS / PCTX2A_MARKET_PROVIDER_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / CORE_DSL_FREEZE_ACTIVE**
+Status: **PCTX2A_TRUSTED_FULL_PASS / PCTX2C_EXACT_ROOT_PROVIDER_FRAME_ORCHESTRATION_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / CORE_DSL_FREEZE_ACTIVE**
 
 ## Trusted exact Full checkpoints
 
@@ -24,107 +24,92 @@ E8     3256f1de6b9bb7e8b79342ea037edcd51125bcda
 PCTX1  866bf0a5a25bf6759d1b264d62efcf9f1f277446
 PCTX2B ce18ffc4b9f7758d57117b9b08eaa2d8c1e7aba4
 CTXDSL1 + CTXBT1 99bb2e5f5a248dc61cddb23677b5798b258848f2
+PCTX2A  6f6aef0b09354b1171ce3eccc78d4daa451fe183
 ```
 
-## CTXDSL1 + CTXBT1 trusted checkpoint
+## PCTX2A trusted checkpoint
 
 The operator validated exact checkout:
 
 ```text
-99bb2e5f5a248dc61cddb23677b5798b258848f2
+6f6aef0b09354b1171ce3eccc78d4daa451fe183
 ```
 
-Focused CTXBT1 regression:
+Focused provider regression:
 
 ```text
-Ran 5 tests in 0.064s
+Ran 7 tests in 0.013s
 OK
 ```
 
-Consolidated verification:
+Consolidated boundary:
 
 ```text
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-This exact checkpoint covers:
+Therefore the first concrete deterministic MARKET parent provider is trusted Full-green.
 
-```text
-PCTX2B exact DEPLOYMENT frame
- -> CTXDSL1 typed generic ctx.*
- -> CTXBT1 exact Backtest binding
- -> existing execution policy
- -> BrokerEmulator
-```
-
-Supplying parent context is not an implicit entry gate. Plain DSL behavior remains invariant to unused context; explicit `ctx.*` conditions remain subject to the separate external `entry_gate` and existing Broker execution semantics.
-
-## PCTX2A executable boundary
-
-PCTX2A adds the first concrete deterministic MARKET calculator:
-
-```text
-core/market_parent_feature_provider.py
-test_stage1_market_parent_feature_provider.py
-PCTX2A_MARKET_PARENT_FEATURE_PROVIDER_IMPLEMENTATION.md
-```
-
-Primary contracts:
-
-```text
-MarketParentFeatureConfig
-KrxBenchmarkMarketParentFeatureProvider
-```
-
-Construction is explicit:
+PCTX2A remains descriptive and source-explicit:
 
 ```text
 SessionMarketProvider
-benchmark_symbol
-feature_namespace
-source_authority
+ + explicit benchmark symbol / namespace / source authority
+ -> exact causal MARKET feature result
 ```
 
-No source/table/universe/benchmark guessing is allowed.
+It does not expose automatic entry permission, allocation or Broker authority.
 
-### Causal source contract
+## PCTX2C executable boundary
 
-PCTX2A v1 requires the source prefix to satisfy:
+New files:
 
 ```text
-as_of == knowledge_cutoff
-last source bar == as_of
-no future bars
-strict unique increasing timestamps
-matching benchmark instrument/timeframe
-sufficient finite valid OHLCV history
+core/parent_context_orchestrator.py
+test_stage1_parent_context_orchestrator.py
+PCTX2C_EXACT_ROOT_PROVIDER_FRAME_ORCHESTRATION.md
 ```
 
-The result records a deterministic `source_prefix_hash`; future data cannot enter the result identity for an earlier exact cutoff.
-
-### Descriptive features only
-
-For `kospi` namespace the default manifest exposes:
+PCTX2C turns an explicit target instrument timeline plus independent root providers into one exact precomputed frame:
 
 ```text
-market.kospi_return_short_pct
-market.kospi_return_long_pct
-market.kospi_sma_slope_pct
-market.kospi_price_to_sma_pct
-market.kospi_atr_pct
-market.kospi_volume_ratio
-market.kospi_regime_state
+target market time[]
+ + root provider(s)
+ -> provider result at every exact t
+ -> PCTX1 assembly at every exact t
+ -> PCTX2B frame
 ```
 
-The provider intentionally does not expose ALLOW/BLOCK/PERMIT/GATE/allocation/order authority. `regime_state` is descriptive `UPTREND / DOWNTREND / MIXED` evidence only.
+Policy:
 
-### Compatibility
+```text
+PRECOMPUTE_ROOT_PROVIDERS_FOR_EVERY_EXACT_TARGET_BAR_NO_FILL_FORWARD
+```
 
-PCTX2A returns a standard trusted PCTX1 `ParentFeatureProviderResult`. Regression verifies that it can be assembled by PCTX1 and transported by an exact PCTX2B frame without changing PCTX2B, CTXDSL1, CTXBT1, entry-gate or Broker semantics.
+Every provider result must satisfy exact `as_of == knowledge_cutoff == target_time`, match its declared manifest and carry no dependency hashes.
+
+Provider caller order is normalized by manifest identity; equivalent input must preserve `registry_hash`, `frame_hash` and `build_hash`.
+
+OBSERVED builds remain evidence-only. DEPLOYMENT builds can be consumed by CTXDSL1/CTXBT1 but do not create an implicit entry gate.
+
+## Regression scope
+
+`test_stage1_parent_context_orchestrator.py` covers:
+
+- provider call for every exact target bar;
+- target timeline equals PCTX2B frame points;
+- PCTX2A -> PCTX2C -> CTXBT1 -> Broker execution;
+- Broker authority unchanged;
+- provider-order-invariant identities;
+- OBSERVED frame execution rejection;
+- malformed/duplicate timeline fail-close;
+- missing target instrument fail-close;
+- duplicate provider fail-close;
+- dependency smuggling rejection.
 
 ## Remote CI environment
 
-Recent GitHub Actions jobs for the parent-context tranches repeatedly terminated before any executable step obtained a usable runner.
+Recent GitHub Actions parent-context jobs have terminated before executable steps received a usable runner.
 
 Classification:
 
@@ -136,11 +121,11 @@ No workflow/test/product guard has been weakened.
 
 ## Current validation status
 
-May claim E0-E8, PCTX1, PCTX2B and the combined CTXDSL1+CTXBT1 exact Full checkpoints above.
+May claim E0-E8, PCTX1, PCTX2B, CTXDSL1+CTXBT1 and PCTX2A trusted exact Full PASS at the SHAs above.
 
-PCTX2A source/regression are implemented but remain **untrusted until local focused + Full validation at an exact SHA**.
+PCTX2C is implemented but remains untrusted until focused + Full validation at an exact SHA.
 
-Do not claim PCTX2A OOS benefit, automatic macro deployment authority, production Sector/Group/Leader-Follower intelligence, arbitrary peer-symbol DSL access, live readiness or repository-wide compliance PASS.
+Do not claim validated Sector/Group dependency intelligence, macro OOS benefit, automatic deployment authority, arbitrary peer-symbol DSL access, live readiness or repository-wide compliance PASS.
 
 `REMEDIATION_REQUIRED` remains broader repository status.
 
@@ -149,7 +134,7 @@ Do not claim PCTX2A OOS benefit, automatic macro deployment authority, productio
 ```powershell
 git pull --ff-only origin main
 git rev-parse HEAD
-python -m unittest -v test_stage1_market_parent_feature_provider.py
+python -m unittest -v test_stage1_parent_context_orchestrator.py
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
