@@ -49,6 +49,17 @@ class DSLParser:
     ORDER_TYPES = {"MARKET", "LIMIT", "STOP", "STOP_LIMIT"}
     TIFS = {"GTC", "DAY"}
     IDENTIFIER = r"[A-Za-z_가-힣][\w가-힣]*"
+    RESERVED_NAMES = {
+        "open", "high", "low", "close", "volume", "amount", "open_interest", "date", "time", "ctx"
+    }
+
+    @classmethod
+    def _reject_reserved_name(cls, name: str, line: int) -> None:
+        if name not in cls.RESERVED_NAMES:
+            return
+        if name == "ctx":
+            raise DSLParseError("ctx는 등록된 parent-context 읽기 전용 namespace입니다.", line, code="RESERVED_CONTEXT_NAMESPACE")
+        raise DSLParseError(f"시장 데이터 이름은 다시 할당할 수 없습니다: {name}", line, code="RESERVED_NAME")
 
     @classmethod
     def parse(cls, source: str) -> StrategyNode:
@@ -90,6 +101,7 @@ class DSLParser:
             state_match = re.match(rf"^state\s+({cls.IDENTIFIER})\s*=\s*(.+)$", statement)
             if state_match:
                 name, expression = state_match.groups(); cls._validate_expression_syntax(expression, line_number)
+                cls._reject_reserved_name(name, line_number)
                 if name in declared: raise DSLParseError(f"변수가 중복 선언되었습니다: {name}", line_number, code="DUPLICATE_SYMBOL")
                 declared.add(name); states.append(StateNode(name, expression, line_number)); index += 1; continue
             match = re.match(rf"^(input\s+)?({cls.IDENTIFIER})\s*=\s*(.+)$", statement)
@@ -100,7 +112,7 @@ class DSLParser:
                 if not re.match(r"^\d+(?:m|h|d|w|M)$", value): raise DSLParseError(f"지원하지 않는 timeframe: {value}", line_number, code="BAD_TIMEFRAME")
                 timeframe = value
             else:
-                if name in {"open","high","low","close","volume","amount","open_interest","date","time"}: raise DSLParseError(f"시장 데이터 이름은 다시 할당할 수 없습니다: {name}", line_number, code="RESERVED_NAME")
+                cls._reject_reserved_name(name, line_number)
                 if name in declared: raise DSLParseError(f"변수가 중복 선언되었습니다: {name}", line_number, code="DUPLICATE_SYMBOL")
                 declared.add(name); assignments.append(AssignmentNode(name, expression, line_number, bool(input_prefix)))
             index += 1
@@ -123,7 +135,7 @@ class DSLParser:
                 result.append(IfNode(condition, body, otherwise, line)); continue
             match_set = re.match(rf"^(?:set\s+)?({cls.IDENTIFIER})\s*=\s*(.+)$", text)
             if not match_set: raise DSLParseError(f"on_bar에서 인식할 수 없는 문장: {text}", line, code="BAD_ON_BAR_STATEMENT")
-            name, expression = match_set.groups(); cls._validate_expression_syntax(expression, line); result.append(SetNode(name, expression, line)); index += 1
+            name, expression = match_set.groups(); cls._validate_expression_syntax(expression, line); cls._reject_reserved_name(name, line); result.append(SetNode(name, expression, line)); index += 1
         if stop_on_brace: raise DSLParseError("if/else 블록의 닫는 괄호가 없습니다.", base_line + start, code="UNCLOSED_IF")
         return result, index
 
