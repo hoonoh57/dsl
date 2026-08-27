@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 import re
 from enum import Enum
-from typing import Dict
+from typing import Dict, Mapping
 from core.dsl_parser import IfNode, SetNode, StrategyNode
 from core.function_registry import FUNCTION_SPECS
 from core.assignment_flow import collect_bar_output_names, partition_assignments
@@ -15,6 +15,7 @@ class ValueType(str, Enum):
     STRING = "string"
     SERIES_NUMBER = "series<number>"
     SERIES_BOOL = "series<bool>"
+    SERIES_STRING = "series<string>"
 
 
 class DSLSemanticError(ValueError):
@@ -23,10 +24,27 @@ class DSLSemanticError(ValueError):
         super().__init__(f"line {line}, column {column}: {message}")
 
 
-def _series(value): return value in {ValueType.SERIES_NUMBER, ValueType.SERIES_BOOL}
+def _series(value): return value in {ValueType.SERIES_NUMBER, ValueType.SERIES_BOOL, ValueType.SERIES_STRING}
 def _boolean(value): return value in {ValueType.SCALAR_BOOL, ValueType.SERIES_BOOL}
 def _number(value): return value in {ValueType.SCALAR_NUMBER, ValueType.SERIES_NUMBER}
+def _string(value): return value in {ValueType.STRING, ValueType.SERIES_STRING}
 def _scalar_number(value): return value == ValueType.SCALAR_NUMBER
+
+
+def _attribute_parts(node):
+    if isinstance(node, ast.Name):
+        return [node.id]
+    if isinstance(node, ast.Attribute):
+        return _attribute_parts(node.value) + [node.attr]
+    return []
+
+
+def _context_value_type(value_type: str) -> ValueType:
+    kind = str(value_type).strip().upper()
+    if kind == "NUMBER": return ValueType.SERIES_NUMBER
+    if kind == "BOOLEAN": return ValueType.SERIES_BOOL
+    if kind == "STRING": return ValueType.SERIES_STRING
+    raise ValueError(f"지원하지 않는 parent context value_type: {value_type!r}")
 
 
 RETURNS = {
@@ -39,8 +57,17 @@ RETURNS = {
 
 
 class ExpressionTypeChecker(ast.NodeVisitor):
-    def __init__(self, symbols: Dict[str, ValueType], line: int, allow_calls: bool = True):
-        self.symbols, self.line, self.allow_calls = symbols, line, allow_calls
+    def __init__(
+        self,
+        symbols: Dict[str, ValueType],
+        line: int,
+        allow_calls: bool = True,
+        context_feature_types: Mapping[str, str] | None = None,
+    ):
+        self.symbols = symbols
+        self.line = line
+        self.allow_calls = allow_calls
+        self.context_feature_types = dict(context_feature_types or {})
 
     def check(self, text):
         text = re.sub(r"\btrue\b", "True", text, flags=re.I)
@@ -50,6 +77,11 @@ class ExpressionTypeChecker(ast.NodeVisitor):
     def visit_Name(self, node):
         if node.id in self.symbols: return self.symbols[node.id]
         if node.id in {"True", "False"}: return ValueType.SCALAR_BOOL
+        if node.id == "ctx":
+            raise DSLSemanticError(
+                "ctx는 단독 값이 아니라 ctx.<layer>.<feature> 형식으로만 사용할 수 있습니다.",
+                self.line, node.col_offset + 1, "BAD_CONTEXT_REFERENCE"
+            )
         raise DSLSemanticError(f"정의되지 않은 변수: {node.id}", self.line, node.col_offset + 1, "UNDEFINED_SYMBOL")
 
     def visit_Constant(self, node):
@@ -59,7 +91,33 @@ class ExpressionTypeChecker(ast.NodeVisitor):
         raise DSLSemanticError("지원하지 않는 상수 형식", self.line, node.col_offset + 1, "BAD_CONSTANT")
 
     def visit_Attribute(self, node):
-        if isinstance(node.value, ast.Name): return f"{node.value.id}.{node.attr}"
+        parts = _attribute_parts(node)
+        if parts and parts[0] == "ctx":
+            if len(parts) < 3:
+                raise DSLSemanticError(
+                    "parent context는 ctx.<layer>.<feature> 형식이어야 합니다.",
+                    self.line, node.col_offset + 1, "BAD_CONTEXT_REFERENCE"
+                )
+            feature_id = ".".join(parts[1:])
+            if not self.context_feature_types:
+                raise DSLSemanticError(
+                    f"ctx parent-context binding이 제공되지 않았습니다: {feature_id}",
+                    self.line, node.col_offset + 1, "CONTEXT_BINDING_REQUIRED"
+                )
+            value_type = self.context_feature_types.get(feature_id)
+            if value_type is None:
+                raise DSLSemanticError(
+                    f"등록/실행 바인딩되지 않은 parent feature: {feature_id}",
+                    self.line, node.col_offset + 1, "UNKNOWN_CONTEXT_FEATURE"
+                )
+            try:
+                return _context_value_type(value_type)
+            except ValueError as exc:
+                raise DSLSemanticError(
+                    str(exc), self.line, node.col_offset + 1, "BAD_CONTEXT_TYPE"
+                ) from exc
+        if len(parts) == 2:
+            return f"{parts[0]}.{parts[1]}"
         raise DSLSemanticError("지원하지 않는 속성 접근", self.line, node.col_offset + 1, "BAD_ATTRIBUTE")
 
     def _require(self, condition, message, node):
@@ -132,6 +190,8 @@ class ExpressionTypeChecker(ast.NodeVisitor):
         if not self.allow_calls:
             raise DSLSemanticError("on_bar에서는 함수 호출을 허용하지 않습니다. 함수 결과를 바깥 변수로 먼저 선언하세요.", self.line, node.col_offset + 1, "ON_BAR_CALL_UNSUPPORTED")
         name = self.visit(node.func)
+        if not isinstance(name, str):
+            raise DSLSemanticError("호출 대상은 등록된 함수여야 합니다.", self.line, node.col_offset + 1, "UNSUPPORTED_FUNCTION")
         spec = FUNCTION_SPECS.get(name)
         if not spec:
             raise DSLSemanticError(f"지원하지 않는 함수: {name}", self.line, node.col_offset + 1, "UNSUPPORTED_FUNCTION")
@@ -145,6 +205,12 @@ class ExpressionTypeChecker(ast.NodeVisitor):
         return RETURNS[spec.returns]
 
     def visit_Subscript(self, node):
+        parts = _attribute_parts(node.value)
+        if parts and parts[0] == "ctx":
+            raise DSLSemanticError(
+                "ctx.* v1은 별도 과거참조 문법을 지원하지 않습니다. provider/frame에서 원하는 causal feature를 선언하세요.",
+                self.line, node.col_offset + 1, "CONTEXT_HISTORY_UNSUPPORTED"
+            )
         value = self.visit(node.value)
         if not _series(value):
             raise DSLSemanticError("과거 참조는 series에만 사용할 수 있습니다.", self.line, node.col_offset + 1, "BAD_HISTORY_TARGET")
@@ -173,7 +239,18 @@ class ExpressionTypeChecker(ast.NodeVisitor):
 
     def visit_Compare(self, node):
         values = [self.visit(node.left)] + [self.visit(value) for value in node.comparators]
-        if not all(_number(value) for value in values): raise DSLSemanticError("비교 연산은 숫자형에만 사용할 수 있습니다.", self.line, node.col_offset + 1, "BAD_COMPARE_TYPE")
+        for index, operator in enumerate(node.ops):
+            left, right = values[index], values[index + 1]
+            if isinstance(operator, (ast.Eq, ast.NotEq)):
+                compatible = (
+                    (_number(left) and _number(right))
+                    or (_boolean(left) and _boolean(right))
+                    or (_string(left) and _string(right))
+                )
+                if not compatible:
+                    raise DSLSemanticError("동등 비교 양쪽 형식이 호환되지 않습니다.", self.line, node.col_offset + 1, "BAD_COMPARE_TYPE")
+            elif not (_number(left) and _number(right)):
+                raise DSLSemanticError("대소 비교는 숫자형에만 사용할 수 있습니다.", self.line, node.col_offset + 1, "BAD_COMPARE_TYPE")
         return ValueType.SERIES_BOOL if any(_series(value) for value in values) else ValueType.SCALAR_BOOL
 
     def generic_visit(self, node):
@@ -184,12 +261,21 @@ class DSLSemanticAnalyzer:
     MARKET = {name: ValueType.SERIES_NUMBER for name in ("open", "high", "low", "close", "volume", "amount", "open_interest", "date", "time")}
 
     @classmethod
-    def analyze(cls, document: StrategyNode):
+    def analyze(cls, document: StrategyNode, context_feature_types: Mapping[str, str] | None = None):
         before_bar, after_bar = partition_assignments(document)
         symbols = dict(cls.MARKET)
+        context_types = dict(context_feature_types or {})
+
+        def checker(current_symbols, line, allow_calls=True):
+            return ExpressionTypeChecker(
+                current_symbols,
+                line,
+                allow_calls=allow_calls,
+                context_feature_types=context_types,
+            )
 
         for item in before_bar:
-            value = ExpressionTypeChecker(symbols, item.line).check(item.expression)
+            value = checker(symbols, item.line).check(item.expression)
             if item.is_input and value not in {ValueType.SCALAR_NUMBER, ValueType.SCALAR_BOOL, ValueType.STRING}:
                 raise DSLSemanticError(f"input은 scalar만 허용합니다: {item.name}", item.line, code="SERIES_INPUT")
             symbols[item.name] = value
@@ -197,7 +283,7 @@ class DSLSemanticAnalyzer:
         state_names = set()
         state_scalar_types: dict[str, ValueType] = {}
         for item in document.states:
-            value = ExpressionTypeChecker(symbols, item.line).check(item.expression)
+            value = checker(symbols, item.line).check(item.expression)
             if value not in {ValueType.SCALAR_NUMBER, ValueType.SCALAR_BOOL}:
                 raise DSLSemanticError(f"state 초기값은 scalar 숫자/boolean만 허용합니다: {item.name}", item.line, code="BAD_STATE_INITIALIZER")
             symbols[item.name] = value
@@ -209,13 +295,15 @@ class DSLSemanticAnalyzer:
         def analyze_bar(items):
             for item in items:
                 if isinstance(item, IfNode):
-                    condition = ExpressionTypeChecker(symbols, item.line, allow_calls=False).check(item.condition)
+                    condition = checker(symbols, item.line, allow_calls=False).check(item.condition)
                     if not _boolean(condition):
                         raise DSLSemanticError("if 조건은 boolean이어야 합니다.", item.line, code="BAD_IF_TYPE")
                     analyze_bar(item.body)
                     analyze_bar(item.otherwise)
                 elif isinstance(item, SetNode):
-                    value = ExpressionTypeChecker(symbols, item.line, allow_calls=False).check(item.expression)
+                    value = checker(symbols, item.line, allow_calls=False).check(item.expression)
+                    if _string(value):
+                        raise DSLSemanticError("on_bar set/state는 string 값을 저장할 수 없습니다.", item.line, code="BAD_ON_BAR_VALUE_TYPE")
                     scalar_value = ValueType.SCALAR_BOOL if value in {ValueType.SCALAR_BOOL, ValueType.SERIES_BOOL} else ValueType.SCALAR_NUMBER
                     if item.name in state_names:
                         current = state_scalar_types[item.name]
@@ -226,8 +314,6 @@ class DSLSemanticAnalyzer:
 
         analyze_bar(document.on_bar)
 
-        # Every declared state is materialized as one value per bar, even if a
-        # particular state is not assigned in on_bar on every bar.
         for name, scalar_type in state_scalar_types.items():
             event_symbols[name] = ValueType.SERIES_BOOL if _boolean(scalar_type) else ValueType.SERIES_NUMBER
         for name in collect_bar_output_names(document.on_bar):
@@ -236,14 +322,14 @@ class DSLSemanticAnalyzer:
                 event_symbols[name] = ValueType.SERIES_BOOL if _boolean(scalar_type) else ValueType.SERIES_NUMBER
 
         for item in after_bar:
-            value = ExpressionTypeChecker(event_symbols, item.line).check(item.expression)
+            value = checker(event_symbols, item.line).check(item.expression)
             if item.is_input and value not in {ValueType.SCALAR_NUMBER, ValueType.SCALAR_BOOL, ValueType.STRING}:
                 raise DSLSemanticError(f"input은 scalar만 허용합니다: {item.name}", item.line, code="SERIES_INPUT")
             event_symbols[item.name] = value
 
         for event in document.events:
-            checker = ExpressionTypeChecker(event_symbols, event.line)
-            value = checker.check(event.condition)
+            event_checker = checker(event_symbols, event.line)
+            value = event_checker.check(event.condition)
             if not _boolean(value):
                 raise DSLSemanticError("on 조건은 boolean이어야 합니다.", event.line, code="BAD_EVENT_TYPE")
             for order in event.orders:
@@ -254,7 +340,7 @@ class DSLSemanticAnalyzer:
                     if keyword.arg not in {"limit", "stop"}:
                         continue
                     expression = ast.unparse(keyword.value)
-                    price_type = checker.check(expression)
+                    price_type = event_checker.check(expression)
                     if not _number(price_type):
                         raise DSLSemanticError(
                             f"주문 {keyword.arg} 가격은 숫자형 scalar/series여야 합니다.",
