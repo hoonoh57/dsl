@@ -1,12 +1,12 @@
 # Parent Context Feature Provider / Read-Only DSL Binding Policy
 
-Status: **AUTHORITATIVE CONTEXT-INHERITANCE POLICY / PCTX1-PCTX2C + CTXDSL1-CTXBT1 TRUSTED / PCTX2D ACTIVE / 2026-08-27 KST**
+Status: **AUTHORITATIVE CONTEXT-INHERITANCE POLICY / PCTX1-PCTX2D TRUSTED / MSA3 GROUP PUBLICATION ACTIVE / 2026-08-27 KST**
 
 ## Governing rule
 
 > **Parent features are computed outside Instrument DSL, frozen as point-in-time context evidence, and consumed inside DSL only through a narrow registered read-only binding contract.**
 
-Instrument DSL remains deterministic and single-instrument. It may know stable `feature_id` values; it must not know provider algorithms, perform provider I/O, discover peers/universes or rank symbols.
+Instrument DSL remains deterministic and single-instrument. It may know stable registered `feature_id` values; it must not know provider algorithms, perform provider I/O, discover peers/universes or rank symbols.
 
 ## Trusted chain
 
@@ -19,7 +19,7 @@ PCTX1 typed/versioned Parent Feature Provider contract
  -> BrokerEmulator
 ```
 
-Trusted exact checkpoints:
+Trusted exact checkpoints include:
 
 ```text
 PCTX1  866bf0a5a25bf6759d1b264d62efcf9f1f277446
@@ -27,25 +27,22 @@ PCTX2B ce18ffc4b9f7758d57117b9b08eaa2d8c1e7aba4
 CTXDSL1 + CTXBT1 99bb2e5f5a248dc61cddb23677b5798b258848f2
 PCTX2A  6f6aef0b09354b1171ce3eccc78d4daa451fe183
 PCTX2C  7aee063932e0d70d38c2e7f876b140d049029771
+PCTX2D  6de666c277d1a6d7ffb47fd9e6093e50b34ebb45
+MSA1    adaef963dce717b252f2575896a74462c8a277a2
+MSA2    3a5a2ece658ead28a1822ef7482a3d284d12e2d6
 ```
 
-Every listed exact checkout received:
+Every listed executable checkpoint received Tactical P1 Full PASS at the exact SHA.
 
-```text
-[PASS] Tactical P1 verification completed: mode=Full.
-```
-
-PCTX2A additionally received seven focused provider tests; PCTX2C received six focused orchestration tests.
-
-## PCTX1 contract
+## PCTX1 typed contract
 
 `ParentFeatureSpec`, `ParentFeatureManifest`, `ParentFeatureRegistry`, `ParentFeatureProviderResult`, `ParentContextAssembly` and `ParentContextAssembler` define immutable typed evidence.
 
-Required behavior remains fail-closed for future data, stale data beyond manifest limit, missing required feature, undeclared feature, incompatible type, missing source and missing/future dependency evidence. Optional values remain explicitly absent rather than silently defaulted.
+Required behavior is fail-closed for future/stale data, missing required values, undeclared values, incompatible types, missing source authority and invalid dependency hashes. Optional values are explicitly absent rather than silently defaulted.
 
-Every semantic change requires provider/manifest version identity change.
+Provider/feature semantic changes require versioned identity changes.
 
-## PCTX2B / CTXDSL1 / CTXBT1 exact binding
+## Exact frame / binding policy
 
 Frame points require:
 
@@ -53,105 +50,108 @@ Frame points require:
 target_time == assembly.knowledge_cutoff == assembly.context.as_of
 ```
 
-Resolution/binding policies remain:
+Resolution/binding remains exact:
 
 ```text
 EXACT_PRECOMPUTED_POINT_ONLY_NO_NEAREST_NO_FILL_FORWARD
 REGISTERED_READ_ONLY_EXACT_TIME_NO_PROVIDER_CALL
-REGISTERED_REQUIRED_EXACT_TIME_DEPLOYMENT_ONLY_NO_PROVIDER_CALL
-EXACT_MARKET_BAR_TIMES_DEPLOYMENT_FRAME_NO_PROVIDER_CALL
 ```
 
-Supplying context does not itself authorize an entry. Context affects tactic logic only through an explicit registered `ctx.*` expression; existing `entry_gate` and Broker execution policy remain separate restrictions.
+No Parser/Semantic/Runtime/Backtest/Broker path calls a provider. Supplying context does not itself authorize an entry.
 
-## PCTX2A MARKET provider — trusted
-
-`KrxBenchmarkMarketParentFeatureProvider` consumes an explicit `SessionMarketProvider`, benchmark symbol, namespace and source authority. It requires exact causal source prefixes ending at `as_of == knowledge_cutoff` and publishes descriptive return/trend/ATR/volume/regime features only.
-
-No ALLOW/BLOCK/PERMIT/GATE/order/allocation feature is produced.
-
-## PCTX2C root orchestration — trusted
-
-`RootParentContextFrameBuilder` precomputes independent root provider results for every exact target bar before tactic execution.
-
-Policy:
+## Trusted MARKET / SECTOR provider path
 
 ```text
-PRECOMPUTE_ROOT_PROVIDERS_FOR_EVERY_EXACT_TARGET_BAR_NO_FILL_FORWARD
+explicit benchmark source
+ -> PCTX2A deterministic MARKET result
+ -> PCTX2C exact root precomputation
+ -> PCTX2D explicit dependency DAG
+ -> descriptive SECTOR result
 ```
 
-It remains root-only. Provider caller order is normalized by manifest identity. No provider call occurs from Parser/Semantic/Runtime/Backtest/Broker.
+PCTX2D requires explicit provider dependencies, deterministic topological order, exact-time child/parent results and equality between declared parent result hashes and each child `dependency_result_hashes`.
 
-Trusted exact PCTX2C checkpoint:
+Trusted PCTX2D checkpoint:
 
 ```text
-7aee063932e0d70d38c2e7f876b140d049029771
-Ran 6 tests in 0.107s
+6de666c277d1a6d7ffb47fd9e6093e50b34ebb45
+Ran 6 tests in 0.174s
 OK
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-## PCTX2D explicit dependency DAG — active
+MARKET and SECTOR features remain descriptive; they do not perform universe discovery, peer ranking, selection, allocation or Broker actions.
 
-New orchestration:
+## Multi-symbol evidence before GROUP publication
+
+Cross-symbol/group intelligence belongs to the optional Add-on sidecar.
+
+Trusted sequence:
 
 ```text
-core/parent_context_dependency_orchestrator.py
+MSA1 immutable per-symbol exact snapshots
+ -> MSA2 bounded exact chronological group evidence
 ```
 
-Policy:
+MSA2 is trusted at:
 
 ```text
-EXPLICIT_DEPENDENCY_DAG_PRECOMPUTE_EVERY_EXACT_TARGET_BAR
+3a5a2ece658ead28a1822ef7482a3d284d12e2d6
+Ran 7 tests in 0.017s
+OK
+[PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-Every provider node explicitly declares parent `provider_id` dependencies. Unknown/self/duplicate dependencies and cycles fail closed. Execution uses deterministic topological order.
+MSA1/MSA2 remain `OBSERVATION_ONLY` with `operational_authority=false`.
 
-At exact target `t`, each child provider receives only its declared already-built parent results for `t`. Its returned `dependency_result_hashes` must exactly equal the supplied parent result hashes. No implicit dependency discovery is allowed.
+## MSA3 registered GROUP publication — active validation tranche
 
-## First SECTOR provider — active PCTX2D component
-
-```text
-core/sector_parent_feature_provider.py
-KrxSectorBenchmarkParentFeatureProvider
-```
-
-Construction requires explicit sector benchmark source/symbol/namespace/source authority plus explicit MARKET dependency provider ID and public MARKET return/regime feature IDs.
-
-It can publish descriptive SECTOR values such as:
+MSA3 is the allowed bridge from already-computed Add-on evidence into PCTX1/PCTX2D.
 
 ```text
-sector.<namespace>_return_short_pct
-sector.<namespace>_return_long_pct
-sector.<namespace>_sma_slope_pct
-sector.<namespace>_price_to_sma_pct
-sector.<namespace>_relative_strength_long_pct
-sector.<namespace>_regime_state
-sector.<namespace>_market_alignment
-```
-
-This provider does not discover sector constituents, scan peer symbols, rank leaders/followers or emit execution authority.
-
-## Cascading architecture
-
-The intended causal chain is now explicit:
-
-```text
-raw benchmark data
- -> MARKET result
- -> declared result-hash dependency
- -> SECTOR result
- -> later declared dependency
- -> future GROUP result
+exact immutable MSA2 result @ t
+ + exact SECTOR ParentFeatureProviderResult @ t
+ -> registered GROUP ParentFeatureProviderResult
  -> PCTX1 assembly
- -> exact PCTX2B frame
+ -> PCTX2D OBSERVED frame
+ -> generic read-only binder
 ```
 
-A future GROUP/Leader-Follower provider must use the same explicit DAG/result-hash discipline. It may not create arbitrary peer-symbol reads inside Instrument DSL.
+Module:
 
-## Evidence before operational gate
+```text
+core/group_evidence_parent_feature_provider.py
+```
 
-The required progression remains:
+Publication policy:
+
+```text
+EXACT_PRECOMPUTED_MSA2_EVIDENCE_PLUS_EXPLICIT_SECTOR_DEPENDENCY_NO_PEER_RUNTIME_READ_NO_DEPLOYMENT_AUTHORITY
+publication_state = RESEARCH_ONLY
+operational_authority = false
+```
+
+The evidence timeline accepts only exact `multi_symbol_group_evidence/v1` payloads, verifies their `result_hash`, and forbids nearest-time/fill-forward substitution.
+
+The first bounded GROUP manifest publishes only aggregate numeric context:
+
+```text
+group.<namespace>_comparison_eligible_rate
+group.<namespace>_favorable_breadth_rate
+group.<namespace>_leader_persistence_rate
+group.<namespace>_leader_follower_spread       optional
+group.<namespace>_follower_favorable_rate      optional
+```
+
+It does not publish peer symbol identities, rank lists, allowed/blocked symbols, allocation, entry-gate fields or Broker instructions.
+
+Follower-dependent aggregates remain `OPTIONAL_ABSENT` when no follower evidence exists.
+
+The GROUP result must depend on exactly one configured SECTOR result at the same exact timestamp and carry that SECTOR `result_hash` in `dependency_result_hashes`.
+
+## Research publication is not deployment authority
+
+Required progression remains:
 
 ```text
 NEUTRAL micro baseline
@@ -162,24 +162,35 @@ NEUTRAL micro baseline
  -> separately validated operational integration
 ```
 
-Descriptive MARKET/SECTOR context is not entry authority. Macro context must amplify a valid micro tactic rather than become life support for one.
+MSA3 regression intentionally stops at an OBSERVED PCTX2D frame and read-only binder. A registered GROUP feature does not become CTXBT1/Backtest deployment input merely because publication is technically possible.
 
-## Multi-symbol boundary
+Macro/group context must amplify a valid micro tactic rather than become life support for one.
 
-Sector membership discovery, leader/follower analysis, cross-sectional ranking, universe construction and allocation remain in a future optional Multi-Symbol Add-on/orchestration layer. Such a layer may publish bounded registered provider outputs, but Instrument DSL still consumes only immutable registered context values.
+## Prohibited boundaries
+
+Instrument DSL must not directly implement:
+
+```text
+provider/network/database calls
+universe discovery
+peer-symbol reads
+cross-sectional ranking
+leader/follower selection
+portfolio allocation
+arbitrary dynamic context discovery
+```
+
+Cross-symbol conclusions must remain Add-on evidence or bounded registered parent features.
 
 ## Current nonclaims
 
 Do not claim yet:
 
-- PCTX2D trusted Full PASS;
-- GROUP/leader-follower provider intelligence;
-- sector constituent discovery/ranking;
-- MARKET/SECTOR OOS profitability benefit;
-- automatic macro deployment authorization;
-- arbitrary peer-symbol DSL reads;
+- trusted Full PASS for MSA3;
+- validated GROUP-feature OOS benefit;
+- GROUP feature DEPLOYMENT eligibility;
+- automatic macro/group entry authority;
 - cross-symbol allocation deployment;
-- Broker-side provider calculation;
 - live-trading readiness;
 - repository-wide compliance PASS.
 
@@ -187,4 +198,4 @@ Do not claim yet:
 
 ## Immediate gate
 
-Validate `test_stage1_parent_context_dependency_orchestrator.py` and Tactical P1 Full at one exact PCTX2D checkout before GROUP/leader-follower or operational deployment wiring. Any failure must first be classified exactly as `test defect`, `product defect`, `authority drift`, `environment issue`, or `unknown`.
+Validate MSA3 focused regression and Tactical P1 Full at one exact checkout before any GROUP DEPLOYMENT use or operational selection work. Any failure must first be classified exactly as `test defect`, `product defect`, `authority drift`, `environment issue`, or `unknown`.
