@@ -1,23 +1,34 @@
 # PCTX2A Deterministic Market Parent Feature Provider — Implementation Checkpoint
 
-Status: **IMPLEMENTED / AWAITING LOCAL EXECUTABLE VALIDATION / 2026-08-27 KST**
+Status: **TRUSTED FULL PASS / 2026-08-27 KST**
 
-## 1. Trusted predecessor
+## 1. Trusted checkpoint
 
-CTXDSL1 + CTXBT1 were operator-validated together at exact checkout:
+Operator validation was completed at exact checkout:
 
 ```text
-99bb2e5f5a248dc61cddb23677b5798b258848f2
-python -m unittest -v test_stage1_backtest_parent_context.py
-Ran 5 tests ... OK
+6f6aef0b09354b1171ce3eccc78d4daa451fe183
+```
+
+Focused regression:
+
+```text
+python -m unittest -v test_stage1_market_parent_feature_provider.py
+Ran 7 tests in 0.013s
+OK
+```
+
+Consolidated boundary:
+
+```text
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-Therefore the executable path from PCTX2B exact context through generic `ctx.*` and Backtest is trusted Full-green at that SHA.
+Therefore PCTX2A is trusted Full-green at that exact SHA.
 
 ## 2. Objective
 
-PCTX2A supplies the first concrete deterministic MARKET-layer calculator behind the already-trusted PCTX1 provider contract.
+PCTX2A is the first concrete deterministic MARKET-layer calculator behind the PCTX1 provider contract.
 
 ```text
 explicit SessionMarketProvider
@@ -29,11 +40,9 @@ explicit SessionMarketProvider
  -> optional CTXDSL1 / CTXBT1 consumption
 ```
 
-The provider is descriptive evidence, not an ALLOW/BLOCK policy engine.
+The provider remains descriptive evidence, not an ALLOW/BLOCK policy engine.
 
 ## 3. Executable
-
-New module:
 
 ```text
 core/market_parent_feature_provider.py
@@ -46,21 +55,14 @@ MarketParentFeatureConfig
 KrxBenchmarkMarketParentFeatureProvider
 ```
 
-Provider version:
+Provider version and calculation policy:
 
 ```text
 v1
-```
-
-Calculation policy:
-
-```text
 EXACT_SOURCE_BAR_PREFIX_DETERMINISTIC_NO_GATE_DECISION
 ```
 
 ## 4. Explicit source authority
-
-The provider does not guess a production source, benchmark, table, universe or market.
 
 Construction requires:
 
@@ -71,15 +73,11 @@ feature_namespace
 source_authority
 ```
 
-The existing `SessionMarketProvider` seam can therefore be backed by an explicitly configured production adapter such as `MySQLBarProvider`, while unit/regression tests use deterministic fixtures.
+The provider does not guess a source, table, benchmark, universe or target instrument.
 
-The returned source metadata must identify:
+The existing `SessionMarketProvider` seam can be backed by an explicitly configured adapter such as `MySQLBarProvider`; unit tests use deterministic fixtures.
 
-- a non-empty source;
-- the exact configured benchmark instrument;
-- the exact configured timeframe.
-
-## 5. Exact causal source prefix
+## 5. Exact causal source contract
 
 PCTX2A requires:
 
@@ -88,13 +86,15 @@ as_of == knowledge_cutoff
 last source bar timestamp == as_of
 no source bar timestamp > as_of
 strictly increasing unique source timestamps
+matching configured benchmark instrument/timeframe
+sufficient finite valid OHLCV history
 ```
 
-A stale last bar, future bar, malformed source identity or insufficient history fails closed.
+A stale/future/malformed source fails closed.
 
-The result metadata carries a deterministic `source_prefix_hash` over only the bars supplied through the exact `as_of` point. Data after `as_of` cannot participate in the feature calculation.
+Result metadata carries a deterministic `source_prefix_hash` over the exact source bars used for calculation.
 
-## 6. Feature set
+## 6. Descriptive feature set
 
 For namespace `kospi`, v1 publishes:
 
@@ -108,14 +108,6 @@ market.kospi_volume_ratio
 market.kospi_regime_state
 ```
 
-The same concrete algorithm can be instantiated with another explicit namespace/symbol such as a separately authorized KOSDAQ benchmark. Each instance gets a distinct manifest identity.
-
-All numeric values are finite `NUMBER`; regime state is `STRING`.
-
-No public feature is named or defined as `allow`, `permit`, `block`, `gate`, allocation or order authority.
-
-## 7. Default semantics
-
 Default config:
 
 ```text
@@ -128,112 +120,48 @@ atr_period = 14
 volume_period = 20
 ```
 
-Semantics:
+`regime_state` is descriptive `UPTREND / DOWNTREND / MIXED` evidence only. No public feature is an entry permission, block, allocation or order authority.
 
-- short/long return: current close versus exact N-bar-prior close;
-- SMA slope: current trailing SMA versus the same SMA `slope_bars` earlier;
-- price-to-SMA: current close displacement from current trailing SMA;
-- ATR%: trailing true-range mean divided by current close;
-- volume ratio: current volume divided by the prior `volume_period` bars' mean;
-- regime state: `UPTREND`, `DOWNTREND` or `MIXED` from current SMA level plus SMA slope sign.
+## 7. Trusted compatibility
 
-Regime policy:
+Regression verifies:
 
-```text
-SMA_LEVEL_AND_SLOPE_THREE_STATE
-```
-
-`regime_state` remains a descriptive context feature. It does not automatically authorize an entry.
-
-## 8. PCTX1 compatibility
-
-The provider returns a normal trusted `ParentFeatureProviderResult` with:
-
-```text
-manifest
-as_of
-knowledge_cutoff
-source
-features
-metadata
-result_hash
-```
-
-It is a root MARKET provider and rejects parent dependencies in v1.
-
-Manifest metadata includes benchmark/source identity, algorithm policy and complete config so changing semantics changes manifest identity.
-
-## 9. PCTX2B compatibility
-
-Provider results can be assembled by `ParentContextAssembler` into `DEPLOYMENT` or `OBSERVED` context and then into exact PCTX2B frames.
-
-PCTX2A does not alter:
-
-```text
-ParentContextFrame exact-time semantics
-ParentContextBinder
-CTXDSL1 grammar/type semantics
-CTXBT1 Backtest adapter semantics
-BrokerEmulator
-entry_gate
-```
-
-## 10. Regression coverage
-
-New regression:
-
-```text
-test_stage1_market_parent_feature_provider.py
-```
-
-Coverage includes:
-
-- explicit manifest/type/descriptive feature identity;
+- explicit manifest/type/descriptive identities;
 - deterministic same-prefix result identity;
-- future source rows cannot affect an earlier exact prefix;
-- changing causal prefix changes result identity;
+- changed causal prefix changes result identity;
 - future/stale source fail-close;
-- source instrument/timeframe/source metadata mismatch fail-close;
+- source identity mismatch fail-close;
 - exact cutoff requirement;
 - root dependency rejection;
 - config/history fail-close;
 - PCTX1 assembly and PCTX2B exact-frame interoperability.
 
-The Tactical P1 Full verifier discovers this file through `test_stage1_*.py`.
+PCTX2A does not alter PCTX2B/CTXDSL1/CTXBT1/Broker semantics.
 
-## 11. Deliberate nonclaims
+## 8. Next boundary
+
+The next executable tranche is PCTX2C exact root-provider frame orchestration:
+
+```text
+target instrument exact bar timeline
+ -> precompute PCTX2A result at every target time
+ -> PCTX1 assemblies
+ -> PCTX2B frame
+```
+
+This orchestration remains outside Backtest execution. Sector/Group dependency DAGs and operational deployment wiring remain later boundaries.
+
+## 9. Nonclaims
 
 PCTX2A does not establish:
 
-- that any market feature improves profitability;
-- a validated macro entry gate;
-- a Sector/Group/Leader-Follower provider;
-- cross-symbol ranking or allocation;
-- arbitrary peer-symbol reads from Instrument DSL;
-- provider calls from Parser/Runtime/Backtest/Broker;
-- automatic deployment authorization;
+- profitable/generalizing macro context;
+- validated automatic macro entry authority;
+- Sector/Group/Leader-Follower providers;
+- multi-symbol ranking/allocation;
+- arbitrary peer-symbol DSL reads;
+- Broker-side parent calculation;
 - live-trading readiness;
 - repository-wide compliance PASS.
 
-`REMEDIATION_REQUIRED` remains broader repository status.
-
-## 12. Validation gate
-
-Before beginning a Sector/Group provider or operational deployment-policy wiring, validate this exact tranche locally:
-
-```powershell
-git pull --ff-only origin main
-git rev-parse HEAD
-python -m unittest -v test_stage1_market_parent_feature_provider.py
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
-```
-
-If an executable failure occurs, classify it first as exactly one of:
-
-```text
-test defect
-product defect
-authority drift
-environment issue
-unknown
-```
+`REMEDIATION_REQUIRED` remains the broader repository status.
