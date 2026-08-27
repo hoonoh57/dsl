@@ -1,6 +1,6 @@
 # Quant DSL Progress Checkpoint — through 2026-08-27 KST
 
-Status: **MSA1_TRUSTED_FULL_PASS / MSA2_BOUNDED_GROUP_EVIDENCE_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / CORE_DSL_FREEZE_ACTIVE**
+Status: **MSA2_TRUSTED_FULL_PASS / MSA3_REGISTERED_GROUP_PARENT_FEATURE_PUBLICATION_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / CORE_DSL_FREEZE_ACTIVE**
 
 ## Trusted exact Full checkpoints
 
@@ -28,64 +28,73 @@ PCTX2A  6f6aef0b09354b1171ce3eccc78d4daa451fe183
 PCTX2C  7aee063932e0d70d38c2e7f876b140d049029771
 PCTX2D  6de666c277d1a6d7ffb47fd9e6093e50b34ebb45
 MSA1    adaef963dce717b252f2575896a74462c8a277a2
+MSA2    3a5a2ece658ead28a1822ef7482a3d284d12e2d6
 ```
 
-## MSA1 trusted checkpoint
-
-Operator evidence:
+Recent operator evidence:
 
 ```text
-adaef963dce717b252f2575896a74462c8a277a2
-Ran 6 tests in 0.003s
-OK
-[PASS] Tactical P1 verification completed: mode=Full.
+MSA1: Ran 6 tests in 0.003s / OK
+MSA2: Ran 7 tests in 0.017s / OK
 ```
 
-Therefore the immutable point-in-time multi-symbol snapshot/evidence seam is trusted Full-green.
+Both were followed by Full PASS at their exact trusted SHA.
 
-MSA1 remains observation-only and has no Broker/deployment/provider authority.
+## MSA2 trusted boundary
 
-## MSA2 executable boundary
+MSA2 provides bounded static-universe exact-time leader/follower/breadth/persistence observation evidence over immutable MSA1 snapshots.
+
+It remains:
+
+```text
+mode = OBSERVATION_ONLY
+operational_authority = false
+```
+
+No allowed/blocked symbols, allocation, entry gate, DeploymentDecision or Broker action is produced.
+
+## MSA3 executable boundary
 
 New files:
 
 ```text
-core/multi_symbol_group_evidence.py
-test_stage1_multi_symbol_group_evidence.py
-MSA2_BOUNDED_GROUP_LEADER_FOLLOWER_BREADTH_EVIDENCE_IMPLEMENTATION.md
+core/group_evidence_parent_feature_provider.py
+test_stage1_group_evidence_parent_feature_provider.py
+MSA3_REGISTERED_GROUP_PARENT_FEATURE_PUBLICATION_IMPLEMENTATION.md
 ```
 
-MSA2 analyzes a bounded exact chronological frame of MSA1 snapshots under one stable explicit universe and tactic identity topology.
-
-Policy:
+MSA3 publishes only a five-feature aggregate GROUP manifest from exact precomputed MSA2 evidence:
 
 ```text
-OBSERVATION_ONLY_BOUNDED_STATIC_UNIVERSE_LEADER_FOLLOWER_BREADTH_NO_HIDDEN_SCORE_NO_DEPLOYMENT_AUTHORITY
+comparison eligible rate
+favorable breadth rate
+mean current-leader persistence rate
+leader/follower spread               optional
+follower favorable rate              optional
 ```
 
-Evidence includes favorable/eligible breadth, explicit-axis leaders/followers, direction-normalized leader/follower spread, follower favorable rate and bounded leader persistence.
+Peer symbol identities and selection/permission/allocation fields are not published.
 
-The policy declares metric, direction, threshold, leader count, lookback, max symbols and max points. No hidden weighted score, universe discovery, nearest-time alignment or fill-forward is permitted.
+The source timeline revalidates each MSA2 `result_hash` and resolves only exact `end_as_of` points. No nearest-time/fill-forward behavior is allowed.
 
-MSA2 returns `operational_authority=false` and does not produce allowed/blocked symbols, entry gates, allocation, DeploymentDecision or Broker orders.
+The GROUP provider requires one exact configured SECTOR result and records its `result_hash`, preserving the explicit PCTX2D chain:
 
-## Regression scope
+```text
+MARKET -> SECTOR -> GROUP
+```
 
-`test_stage1_multi_symbol_group_evidence.py` covers:
+Publication remains:
 
-- exact breadth / leader / follower / persistence evidence;
-- snapshot input-order invariance;
-- strict chronological timeline;
-- static universe topology;
-- tactic identity drift rejection;
-- hard symbol/point bounds;
-- MAX/MIN favorable semantics;
-- no execution/provider/network imports;
-- no deployment-authority fields.
+```text
+RESEARCH_ONLY
+operational_authority = false
+```
+
+Regression integration stops at a PCTX2D `OBSERVED` frame plus registered PCTX2B binder resolution. The new GROUP values are not executed through CTXBT1/Backtest in this tranche.
 
 ## Remote CI environment
 
-Recent GitHub Actions jobs continue to terminate before executable steps receive a runner (`runner_id=0`, empty steps). Classification remains:
+Recent GitHub Actions runs continue to terminate before executable steps receive a runner (`runner_id=0`, empty steps). Classification remains:
 
 ```text
 environment issue
@@ -95,11 +104,11 @@ No workflow/test/product guard has been weakened.
 
 ## Current validation status
 
-May claim E0-E8, PCTX1, PCTX2B, CTXDSL1+CTXBT1, PCTX2A-PCTX2D and MSA1 trusted exact Full PASS at the SHAs above.
+May claim E0-E8, PCTX1, PCTX2B, CTXDSL1+CTXBT1, PCTX2A-PCTX2D, MSA1 and MSA2 trusted exact Full PASS at the SHAs above.
 
-MSA2 remains untrusted until focused + Full local validation at one exact SHA.
+MSA3 remains untrusted until focused + Full local validation at one exact SHA.
 
-Do not claim production GROUP/leader-follower edge, registered GROUP features from MSA2, cross-symbol deployment selection, portfolio allocation, parent-context OOS benefit, live readiness or repository-wide compliance PASS.
+Do not claim GROUP-feature OOS benefit, GROUP DEPLOYMENT eligibility, cross-symbol operational selection, portfolio allocation, live readiness or repository-wide compliance PASS.
 
 `REMEDIATION_REQUIRED` remains broader repository status.
 
@@ -108,7 +117,7 @@ Do not claim production GROUP/leader-follower edge, registered GROUP features fr
 ```powershell
 git pull --ff-only origin main
 git rev-parse HEAD
-python -m unittest -v test_stage1_multi_symbol_group_evidence.py
+python -m unittest -v test_stage1_group_evidence_parent_feature_provider.py
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
