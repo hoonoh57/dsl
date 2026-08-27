@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **PCTX2C_TRUSTED_FULL_PASS / PCTX2D_DEPENDENCY_DAG_SECTOR_PROVIDER_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / REMEDIATION_REQUIRED**  
+Status: **PCTX2D_TRUSTED_FULL_PASS / MSA1_IMMUTABLE_MULTI_SYMBOL_SNAPSHOT_EVIDENCE_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / REMEDIATION_REQUIRED**  
 Updated: 2026-08-27 KST
 
 ## Authority order
@@ -20,8 +20,9 @@ Updated: 2026-08-27 KST
 13. `PCTX2A_MARKET_PARENT_FEATURE_PROVIDER_IMPLEMENTATION.md`
 14. `PCTX2C_EXACT_ROOT_PROVIDER_FRAME_ORCHESTRATION.md`
 15. `PCTX2D_DEPENDENCY_DAG_SECTOR_PROVIDER_IMPLEMENTATION.md`
-16. earlier product/execution/playbook/audit checkpoints
-17. `PROGRESS_CHECKPOINT_2026-08-26.md`
+16. `MSA1_IMMUTABLE_MULTI_SYMBOL_SNAPSHOT_EVIDENCE_IMPLEMENTATION.md`
+17. earlier product/execution/playbook/audit checkpoints
+18. `PROGRESS_CHECKPOINT_2026-08-26.md`
 
 ## Trusted exact Full checkpoints
 
@@ -47,15 +48,22 @@ PCTX2B ce18ffc4b9f7758d57117b9b08eaa2d8c1e7aba4
 CTXDSL1 + CTXBT1 99bb2e5f5a248dc61cddb23677b5798b258848f2
 PCTX2A  6f6aef0b09354b1171ce3eccc78d4daa451fe183
 PCTX2C  7aee063932e0d70d38c2e7f876b140d049029771
+PCTX2D  6de666c277d1a6d7ffb47fd9e6093e50b34ebb45
 ```
 
-Focused evidence includes CTXBT1 5 tests, PCTX2A 7 tests and PCTX2C 6 tests, each followed by the consolidated Full PASS at the exact trusted SHA shown above.
+PCTX2D focused evidence:
 
-## Governing parent-context path
+```text
+Ran 6 tests in 0.174s
+OK
+[PASS] Tactical P1 verification completed: mode=Full.
+```
 
-Core remains deterministic and single-instrument. Provider calculation/I/O, universe discovery, peer ranking and allocation remain outside Instrument DSL execution.
+Therefore the MARKET -> SECTOR explicit dependency-DAG context boundary is trusted Full-green at the exact SHA above.
 
-Trusted path:
+## Governing execution/context architecture
+
+Core remains deterministic and single-instrument.
 
 ```text
 PCTX1 typed/versioned provider contract
@@ -66,91 +74,103 @@ PCTX1 typed/versioned provider contract
  -> BrokerEmulator
 ```
 
-Trusted concrete/precompute layers:
+Trusted provider/precompute layers now include:
 
 ```text
-explicit benchmark SessionMarketProvider
- -> PCTX2A deterministic MARKET result
- -> PCTX2C exact root precomputation for every target bar
+PCTX2A explicit deterministic MARKET provider
+ -> PCTX2C exact root precomputation
+ -> PCTX2D explicit dependency DAG
+ -> descriptive SECTOR provider
 ```
 
-No provider is invoked from Parser/Semantic/Runtime/Backtest/Broker.
+Provider calculation/I/O, universe discovery, peer ranking and allocation remain outside Instrument DSL/Backtest/Broker execution.
 
-## PCTX2C trusted state
+## Existing multi-symbol vertical slice
 
-Trusted exact checkpoint:
+`core/multi_symbol.py` remains the existing deterministic scenario/cohort orchestration engine described by `MULTI_LAYER_DSL_ARCHITECTURE.md`. It runs independent InstrumentTasks through the validated Backtest/Broker kernel and preserves its existing regression boundary.
 
-```text
-7aee063932e0d70d38c2e7f876b140d049029771
-Ran 6 tests in 0.107s
-OK
-[PASS] Tactical P1 verification completed: mode=Full.
-```
+The newer authoritative Add-on policy additionally requires an immutable point-in-time snapshot seam before future leader/follower, breadth, cross-sectional selection or parent-feature publication work.
 
-PCTX2C remains root-only and exact-time:
+## MSA1 current executable tranche
+
+New module:
 
 ```text
-PRECOMPUTE_ROOT_PROVIDERS_FOR_EVERY_EXACT_TARGET_BAR_NO_FILL_FORWARD
-```
-
-## PCTX2D current executable tranche
-
-New modules:
-
-```text
-core/parent_context_dependency_orchestrator.py
-core/sector_parent_feature_provider.py
+core/multi_symbol_snapshot.py
 ```
 
 Regression:
 
 ```text
-test_stage1_parent_context_dependency_orchestrator.py
+test_stage1_multi_symbol_snapshot.py
 ```
 
 Detailed checkpoint:
 
 ```text
-PCTX2D_DEPENDENCY_DAG_SECTOR_PROVIDER_IMPLEMENTATION.md
+MSA1_IMMUTABLE_MULTI_SYMBOL_SNAPSHOT_EVIDENCE_IMPLEMENTATION.md
 ```
 
-Dependency orchestration policy:
+Schemas/policies:
 
 ```text
-EXPLICIT_DEPENDENCY_DAG_PRECOMPUTE_EVERY_EXACT_TARGET_BAR
+instrument_signal_snapshot/v1
+multi_symbol_snapshot_universe/v1
+multi_symbol_snapshot_policy/v1
+multi_symbol_snapshot_analysis/v1
+POINT_IN_TIME_ONLY
+OBSERVATION_ONLY_PER_AXIS_LEADERBOARDS_AND_PARETO_NO_HIDDEN_SCORE_NO_DEPLOYMENT_AUTHORITY
 ```
 
-Each provider node explicitly declares `depends_on=(provider_id, ...)`. The graph rejects unknown/self/duplicate dependencies and cycles. Execution uses deterministic topological order. At every target `t`, each child receives only declared exact parent results from `t`, and its `dependency_result_hashes` must equal the supplied parent result hash set exactly.
+### Snapshot contract
 
-### First SECTOR provider
-
-`KrxSectorBenchmarkParentFeatureProvider` consumes:
+`InstrumentSignalSnapshot` carries explicit single-instrument point-in-time evidence:
 
 ```text
-explicit sector SessionMarketProvider
-explicit sector benchmark symbol/namespace/source authority
-exact declared MARKET provider result
-explicit MARKET return feature_id
-explicit MARKET regime feature_id
+symbol
+as_of == knowledge_cutoff
+candidate_hash
+family_id / generation_hash
+tactic_trigger
+hard_guards_pass
+locally_admissible
+finite declared comparison_metrics
+source / evidence_hash
+snapshot_hash
 ```
 
-It publishes descriptive features such as sector return, trend, relative strength and market alignment. It does not discover constituents, rank peer symbols or issue ALLOW/BLOCK/PERMIT/GATE/order/allocation authority.
+It does not infer comparison features from future Backtest outcomes.
 
-### Execution separation
+### Explicit universe contract
 
-PCTX2D does not change CTXDSL1 grammar/runtime, CTXBT1 Backtest binding, `entry_gate` or Broker semantics. OBSERVED remains evidence-only. DEPLOYMENT makes registered exact context available but is not automatic entry permission.
+`SnapshotUniverse` requires an explicit `universe_id`, ordered symbols, exact timestamp and source authority. The analyzer does not discover symbols. Missing/extra symbols or mismatched timestamps fail closed; there is no nearest/fill-forward behavior.
+
+### Observation-only analysis
+
+`SnapshotAnalysisPolicy` declares metric axes with `MAX` or `MIN` direction. MSA1 produces deterministic per-axis leaderboards and a Pareto frontier with no weighted hidden score.
+
+Local tactic trigger/hard-guard/admissibility state determines **comparison eligibility only**. MSA1 returns:
+
+```text
+mode = OBSERVATION_ONLY
+operational_authority = false
+```
+
+and intentionally does not return allowed/blocked symbols, slot allocation, entry gates, DeploymentDecision or Broker orders.
+
+`core/multi_symbol_snapshot.py` does not import or invoke DSLRuntime, BacktestEngine, BrokerEmulator or ParentFeatureProvider.
 
 ## Still not implemented / nonclaims
 
 Do not claim yet:
 
-- trusted Full PASS for PCTX2D;
-- GROUP/Leader-Follower provider logic;
-- sector constituent discovery or peer ranking;
-- evidence that MARKET/SECTOR context improves OOS profitability;
-- validated automatic macro entry authority;
-- multi-symbol allocation deployment;
-- Broker-side parent calculation;
+- trusted Full PASS for MSA1;
+- production GROUP/Leader-Follower/breadth intelligence;
+- validated cross-symbol selection edge;
+- Add-on-derived registered parent features;
+- automatic allowed/blocked symbol authority;
+- portfolio slot/allocation authority;
+- evidence that MARKET/SECTOR/Add-on context improves OOS profitability;
 - live-trading readiness;
 - repository-wide Chart/overall compliance PASS.
 
@@ -158,12 +178,12 @@ Do not claim yet:
 
 ## Immediate validation boundary
 
-Validate PCTX2D at one exact checkout before GROUP/leader-follower or operational deployment wiring:
+Validate MSA1 at one exact checkout before leader/follower/group parent-feature publication or deployment selection:
 
 ```powershell
 git pull --ff-only origin main
 git rev-parse HEAD
-python -m unittest -v test_stage1_parent_context_dependency_orchestrator.py
+python -m unittest -v test_stage1_multi_symbol_snapshot.py
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
