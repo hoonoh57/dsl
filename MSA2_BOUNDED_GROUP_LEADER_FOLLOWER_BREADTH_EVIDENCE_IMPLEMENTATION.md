@@ -1,44 +1,29 @@
 # MSA2 Bounded Group Leader/Follower/Breadth Evidence — Implementation Checkpoint
 
-Status: **IMPLEMENTED / AWAITING LOCAL EXECUTABLE VALIDATION / 2026-08-27 KST**
+Status: **TRUSTED FULL PASS / 2026-08-27 KST**
 
-## Trusted predecessor
+## Trusted exact checkpoint
 
-MSA1 received operator validation at exact checkout:
+Operator validation completed at:
 
 ```text
-adaef963dce717b252f2575896a74462c8a277a2
-Ran 6 tests in 0.003s
+3a5a2ece658ead28a1822ef7482a3d284d12e2d6
+Ran 7 tests in 0.017s
 OK
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-Therefore the immutable point-in-time multi-symbol snapshot seam is trusted Full-green at that SHA.
+MSA2 is therefore trusted Full-green at that exact SHA.
 
-## Objective
+## Trusted behavior
 
-MSA2 adds bounded GROUP-level descriptive evidence without turning cross-symbol research into execution authority.
-
-```text
-exact InstrumentSignalSnapshot points
- + explicit static SnapshotUniverse
- + explicit metric/direction/threshold policy
- -> bounded exact chronological group frame
- -> breadth / leader / follower / persistence evidence
- -> OBSERVATION_ONLY
-```
-
-It does not publish a ParentFeatureProvider result yet and does not create an entry gate, DeploymentDecision, allocation or Broker order.
-
-## Executable
-
-New module:
+Executable:
 
 ```text
 core/multi_symbol_group_evidence.py
 ```
 
-New regression:
+Regression:
 
 ```text
 test_stage1_multi_symbol_group_evidence.py
@@ -53,175 +38,57 @@ STATIC_EXPLICIT_UNIVERSE_EXACT_CHRONOLOGICAL_POINTS
 OBSERVATION_ONLY_BOUNDED_STATIC_UNIVERSE_LEADER_FOLLOWER_BREADTH_NO_HIDDEN_SCORE_NO_DEPLOYMENT_AUTHORITY
 ```
 
-## Explicit bounded policy
+MSA2 consumes bounded chronological MSA1 points under one explicit stable universe. It requires exact strictly increasing timestamps, stable ordered symbol topology/source authority, stable candidate/family/generation identity per symbol, one declared metric/direction/threshold, and explicit symbol/point bounds.
 
-`GroupEvidencePolicy` declares:
-
-```text
-policy_id / policy_version
-metric_id
-direction = MAX | MIN
-favorable_threshold
-leader_count
-lookback_points
-max_symbols
-max_points
-require_tactic_trigger
-require_hard_guards
-require_local_admissibility
-```
-
-There is no weighted universal score. The single metric used for v1 leader/follower evidence is explicit and versioned.
-
-## Exact frame contract
-
-Each `GroupSnapshotPoint` contains exactly one MSA1 `SnapshotUniverse` and the exact snapshot set for that timestamp.
-
-MSA2 v1 requires:
-
-- at least two exact chronological points;
-- unique strictly increasing `YYYYMMDDHHMMSS` timestamps;
-- one stable `universe_id`;
-- identical ordered symbol topology at every point;
-- one stable universe source authority;
-- explicit `max_symbols` and `max_points` bounds;
-- exact point-in-time snapshot membership;
-- stable candidate/family/generation identity per symbol across the frame;
-- the declared metric present and finite on every snapshot.
-
-There is no universe discovery, nearest-time substitution, interpolation or fill-forward.
-
-## Descriptive group evidence
-
-At every point MSA2 reuses MSA1 comparison eligibility and deterministic leaderboard semantics. The latest evidence contains:
+Trusted descriptive evidence includes:
 
 ```text
-comparison_eligible_count / rate
-favorable_count / favorable_breadth_rate
-leader_symbols
-follower_symbols
-leader_metric_mean
-follower_metric_mean
-leader_follower_spread
-follower_favorable_rate
-leader_persistence over bounded lookback
+comparison eligible breadth
+favorable breadth
+current leaders/followers
+leader/follower metric means
+normalized leader/follower spread
+follower favorable rate
+bounded current-leader persistence
 ```
 
-For `MAX`, favorable means `value >= favorable_threshold`; for `MIN`, favorable means `value <= favorable_threshold`.
+For `MAX`, favorable means `value >= threshold`; for `MIN`, favorable means `value <= threshold`.
 
-`leader_follower_spread` is direction-normalized so a positive value means the observed leaders are stronger on the declared axis:
+If comparison eligibility collapses so no follower remains, follower aggregates are explicit `null`, never fabricated zeroes.
 
-```text
-MAX: leader_mean - follower_mean
-MIN: follower_mean - leader_mean
-```
+## Authority boundary
 
-If comparison eligibility collapses so no follower remains, follower aggregates are explicitly `null`. They are never silently replaced with zero and the collapse remains research evidence.
-
-## Leader/follower is not selection authority
-
-`leader_symbols` means only "descriptively ranked at this exact point under this declared policy".
-
-MSA2 always returns:
+MSA2 remains:
 
 ```text
 mode = OBSERVATION_ONLY
 operational_authority = false
 ```
 
-It intentionally does not return:
+It does not emit allowed/blocked symbols, allocation, max slots, entry gate, DeploymentDecision or Broker order. It does not invoke DSLRuntime, BacktestEngine, BrokerEmulator, ParentFeatureProvider, DB/network discovery or peer reads from Instrument DSL.
+
+`leader_symbols` is observation evidence only and is not a selection/permission result.
+
+## Successor
+
+With MSA2 trusted, the next tranche is MSA3:
 
 ```text
-allowed_symbols
-blocked_symbols
-allocation
-max_slots
-entry_gate
-DeploymentDecision
-Broker order
+MSA2 exact observation evidence
+ -> narrow aggregate-only registered GROUP Parent Feature Provider
+ -> PCTX2D OBSERVED frame
 ```
 
-## No execution/provider calls
+MSA3 publication remains `RESEARCH_ONLY`; no GROUP feature receives DEPLOYMENT authority merely because it is registered.
 
-`core/multi_symbol_group_evidence.py` consumes MSA1 snapshot contracts only. It does not invoke:
+See:
 
 ```text
-DSLRuntime
-BacktestEngine
-BrokerEmulator
-ParentFeatureProvider
-DB/network source discovery
+MSA3_REGISTERED_GROUP_PARENT_FEATURE_PUBLICATION_IMPLEMENTATION.md
 ```
-
-Instrument DSL remains single-instrument and receives no peer-symbol query capability.
-
-## Regression coverage
-
-The focused regression covers:
-
-- breadth, leader/follower spread and leader persistence;
-- deterministic result identity under snapshot input reordering;
-- strict chronological point ordering;
-- static universe topology enforcement;
-- tactic identity drift rejection;
-- explicit symbol/point bounds;
-- MAX and MIN favorable semantics;
-- observation-only/no-authority output;
-- no execution/provider/network imports.
-
-The Tactical P1 Full verifier discovers the regression through `test_stage1_*.py`.
-
-## Mutation boundary
-
-MSA2 adds only its sidecar evidence module, regression and checkpoint/status documentation. It does not modify:
-
-```text
-Parser / Semantic / Runtime
-BacktestEngine
-BrokerEmulator
-core/multi_symbol.py
-PCTX1-PCTX2D provider/context semantics
-CTXDSL1 / CTXBT1
-entry_gate
-Chart SSOT
-```
-
-## What comes next only after trusted validation
-
-The next decision is not automatic deployment selection. First determine whether a **small bounded subset** of MSA2 evidence deserves publication as registered GROUP parent features, for example breadth or leader persistence, under PCTX1/PCTX2D dependency evidence.
-
-Any such publication must remain descriptive, causal and separately versioned. Train/Validation/OOS evidence is still required before any operational gate.
 
 ## Nonclaims
 
-Do not claim yet:
+Do not claim production GROUP edge, validated cross-symbol selection, GROUP-feature OOS benefit, GROUP DEPLOYMENT eligibility, automatic symbol permission/allocation, live readiness or repository-wide compliance PASS.
 
-- trusted Full PASS for MSA2;
-- production GROUP/leader-follower edge;
-- validated cross-symbol selection edge;
-- registered GROUP parent features from MSA2;
-- automatic symbol permission/allocation;
-- OOS profitability improvement;
-- live-trading readiness;
-- repository-wide compliance PASS.
-
-`REMEDIATION_REQUIRED` remains the broader repository status.
-
-## Validation gate
-
-```powershell
-git pull --ff-only origin main
-git rev-parse HEAD
-python -m unittest -v test_stage1_multi_symbol_group_evidence.py
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
-```
-
-Any executable failure must first be classified exactly as:
-
-```text
-test defect
-product defect
-authority drift
-environment issue
-unknown
-```
+`REMEDIATION_REQUIRED` remains broader repository status.
