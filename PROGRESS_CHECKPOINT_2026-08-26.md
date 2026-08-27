@@ -1,6 +1,6 @@
 # Quant DSL Progress Checkpoint — through 2026-08-27 KST
 
-Status: **PCTX2B_TRUSTED_FULL_PASS / CTXDSL1_LOCAL_PASS_REPORTED / CTXBT1_BACKTEST_CONTEXT_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / CORE_DSL_FREEZE_ACTIVE**
+Status: **CTXDSL1_CTXBT1_TRUSTED_FULL_PASS / PCTX2A_MARKET_PROVIDER_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / CORE_DSL_FREEZE_ACTIVE**
 
 ## Trusted exact Full checkpoints
 
@@ -23,124 +23,108 @@ E7     dc420d7f7961a4f0517b00c059d159b8face706c
 E8     3256f1de6b9bb7e8b79342ea037edcd51125bcda
 PCTX1  866bf0a5a25bf6759d1b264d62efcf9f1f277446
 PCTX2B ce18ffc4b9f7758d57117b9b08eaa2d8c1e7aba4
+CTXDSL1 + CTXBT1 99bb2e5f5a248dc61cddb23677b5798b258848f2
 ```
 
-E4's first Full failure was `environment issue`: the external Chart SSOT checkout was stale. After fast-forwarding that dependency, the same E4 DSL SHA passed without weakening product/tests.
+## CTXDSL1 + CTXBT1 trusted checkpoint
 
-## Parent-context mainline
-
-Current safe topology:
+The operator validated exact checkout:
 
 ```text
-PCTX1 typed provider contract
- -> PCTX2B exact-time frozen frame
- -> CTXDSL1 generic read-only ctx.* binding
- -> CTXBT1 Backtest compile integration
- -> existing common execution policy
- -> BrokerEmulator
+99bb2e5f5a248dc61cddb23677b5798b258848f2
 ```
 
-Provider calculation, DB/network access, peer-symbol discovery/ranking and portfolio allocation remain outside Instrument DSL and Backtest/Broker execution.
-
-## PCTX2B trusted checkpoint
-
-PCTX2B established:
+Focused CTXBT1 regression:
 
 ```text
-target_time == knowledge_cutoff == context.as_of
-EXACT_PRECOMPUTED_POINT_ONLY_NO_NEAREST_NO_FILL_FORWARD
-REGISTERED_READ_ONLY_EXACT_TIME_NO_PROVIDER_CALL
-```
-
-Trusted exact SHA:
-
-```text
-ce18ffc4b9f7758d57117b9b08eaa2d8c1e7aba4
-[PASS] Tactical P1 verification completed: mode=Full.
-```
-
-## CTXDSL1 local evidence
-
-CTXDSL1 added generic registered parent-context references:
-
-```dsl
-ctx.market.kospi_slope
-ctx.market.regime_state
-ctx.market.entry_permitted
-```
-
-with policy:
-
-```text
-REGISTERED_REQUIRED_EXACT_TIME_DEPLOYMENT_ONLY_NO_PROVIDER_CALL
-```
-
-The operator reported the requested focused validation:
-
-```text
-Ran 6 tests in 0.162s
+Ran 5 tests in 0.064s
 OK
 ```
 
-followed by:
+Consolidated verification:
 
 ```text
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-The pasted output did not include the local `git rev-parse HEAD`, so CTXDSL1 is not separately recorded as an exact trusted-SHA checkpoint. CTXBT1's next exact Full validation will subsume the language/runtime change.
-
-## CTXBT1 executable boundary
-
-New files:
+This exact checkpoint covers:
 
 ```text
-core/backtest_parent_context.py
-test_stage1_backtest_parent_context.py
-CTXBT1_EXACT_PARENT_CONTEXT_BACKTEST_INTEGRATION.md
+PCTX2B exact DEPLOYMENT frame
+ -> CTXDSL1 typed generic ctx.*
+ -> CTXBT1 exact Backtest binding
+ -> existing execution policy
+ -> BrokerEmulator
 ```
 
-Changed:
+Supplying parent context is not an implicit entry gate. Plain DSL behavior remains invariant to unused context; explicit `ctx.*` conditions remain subject to the separate external `entry_gate` and existing Broker execution semantics.
+
+## PCTX2A executable boundary
+
+PCTX2A adds the first concrete deterministic MARKET calculator:
 
 ```text
-core/backtest.py
+core/market_parent_feature_provider.py
+test_stage1_market_parent_feature_provider.py
+PCTX2A_MARKET_PARENT_FEATURE_PROVIDER_IMPLEMENTATION.md
 ```
 
-`BacktestEngine.run(...)` optionally receives both:
+Primary contracts:
 
 ```text
-parent_context_frame
-parent_feature_registry
+MarketParentFeatureConfig
+KrxBenchmarkMarketParentFeatureProvider
 ```
 
-The adapter requires exact market bar timestamps, matching target instrument and DEPLOYMENT-only context. It creates one CTXDSL1 immutable binding and passes it to `DSLRuntime.compile(...)`.
+Construction is explicit:
 
-No nearest lookup, fill-forward, provider call or missing-value default is permitted.
+```text
+SessionMarketProvider
+benchmark_symbol
+feature_namespace
+source_authority
+```
 
-### Authority separation
+No source/table/universe/benchmark guessing is allowed.
 
-Supplying context alone is not an implicit entry gate. A DSL with no `ctx.*` reference must retain the same tactic result with or without a context frame.
+### Causal source contract
 
-When DSL context conditions are used, the existing external `entry_gate` remains an independent restrictive policy. Broker authority remains unchanged.
+PCTX2A v1 requires the source prefix to satisfy:
 
-### Regression
+```text
+as_of == knowledge_cutoff
+last source bar == as_of
+no future bars
+strict unique increasing timestamps
+matching benchmark instrument/timeframe
+sufficient finite valid OHLCV history
+```
 
-`test_stage1_backtest_parent_context.py` covers:
+The result records a deterministic `source_prefix_hash`; future data cannot enter the result identity for an earlier exact cutoff.
 
-- exact end-to-end context Backtest execution;
-- expected signal timestamps;
-- Broker authority unchanged;
-- external gate independence;
-- no implicit context gating for plain DSL;
-- frame/registry pair requirement;
-- target-symbol mismatch fail-close;
-- missing exact context point fail-close;
-- OBSERVED frame rejection;
-- unbound ctx-reference rejection.
+### Descriptive features only
 
-## Remote CI incident
+For `kospi` namespace the default manifest exposes:
 
-CTXDSL1 and CTXBT1 GitHub Actions runs ended before any executable step ran. The jobs did not receive a usable runner and exposed no step list.
+```text
+market.kospi_return_short_pct
+market.kospi_return_long_pct
+market.kospi_sma_slope_pct
+market.kospi_price_to_sma_pct
+market.kospi_atr_pct
+market.kospi_volume_ratio
+market.kospi_regime_state
+```
+
+The provider intentionally does not expose ALLOW/BLOCK/PERMIT/GATE/allocation/order authority. `regime_state` is descriptive `UPTREND / DOWNTREND / MIXED` evidence only.
+
+### Compatibility
+
+PCTX2A returns a standard trusted PCTX1 `ParentFeatureProviderResult`. Regression verifies that it can be assembled by PCTX1 and transported by an exact PCTX2B frame without changing PCTX2B, CTXDSL1, CTXBT1, entry-gate or Broker semantics.
+
+## Remote CI environment
+
+Recent GitHub Actions jobs for the parent-context tranches repeatedly terminated before any executable step obtained a usable runner.
 
 Classification:
 
@@ -148,25 +132,33 @@ Classification:
 environment issue
 ```
 
-No product/test/workflow guard was weakened.
+No workflow/test/product guard has been weakened.
 
 ## Current validation status
 
-May claim E0-E8, PCTX1 and PCTX2B trusted exact Full PASS. May report CTXDSL1's focused + Full local PASS evidence, but not a standalone exact CTXDSL1 SHA. CTXBT1 is implemented and awaiting local executable validation.
+May claim E0-E8, PCTX1, PCTX2B and the combined CTXDSL1+CTXBT1 exact Full checkpoints above.
 
-Do not claim production parent providers, profitable macro context, automatic deployment authority, arbitrary peer-symbol DSL access, live readiness or repository-wide compliance PASS.
+PCTX2A source/regression are implemented but remain **untrusted until local focused + Full validation at an exact SHA**.
+
+Do not claim PCTX2A OOS benefit, automatic macro deployment authority, production Sector/Group/Leader-Follower intelligence, arbitrary peer-symbol DSL access, live readiness or repository-wide compliance PASS.
 
 `REMEDIATION_REQUIRED` remains broader repository status.
 
 ## Immediate validation
 
-At the exact current checkout:
-
 ```powershell
 git pull --ff-only origin main
 git rev-parse HEAD
-python -m unittest -v test_stage1_backtest_parent_context.py
+python -m unittest -v test_stage1_market_parent_feature_provider.py
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
-If any executable test fails, classify first as exactly `test defect`, `product defect`, `authority drift`, `environment issue`, or `unknown` before editing.
+If a failure occurs, classify it before editing as exactly:
+
+```text
+test defect
+product defect
+authority drift
+environment issue
+unknown
+```
