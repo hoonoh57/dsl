@@ -2,7 +2,7 @@ from copy import deepcopy
 import unittest
 from pathlib import Path
 
-from core.battlefield_context import BattlefieldContext
+from core.battlefield_context import BattlefieldContext, ContextLayerSnapshot
 from core.parent_feature_provider import (
     ParentContextAssembler,
     ParentFeatureManifest,
@@ -221,10 +221,30 @@ class TacticalContextValidationTests(unittest.TestCase):
         contexts = dict(train.contexts)
         case_id = train.case_ids[0]
         original = contexts[case_id]
-        contexts[case_id] = BattlefieldContext(
+
+        malformed_envelope = BattlefieldContext(
             as_of="20260801092959",
             mode="OBSERVED",
             layers=original.layers,
+            metadata=original.metadata,
+        )
+        with self.assertRaises(ValueError):
+            malformed_envelope.validate_for("20260801093000")
+
+        lagged_layers = tuple(
+            ContextLayerSnapshot(
+                layer=layer.layer,
+                context_id=layer.context_id,
+                as_of="20260801092959",
+                source=layer.source,
+                features=layer.features,
+            )
+            for layer in original.layers
+        )
+        contexts[case_id] = BattlefieldContext(
+            as_of="20260801092959",
+            mode="OBSERVED",
+            layers=lagged_layers,
             metadata=original.metadata,
         )
         items[0] = ContextValidationPartition(
