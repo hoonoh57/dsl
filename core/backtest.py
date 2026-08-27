@@ -8,6 +8,7 @@ import numpy as np
 
 from core.dsl_runtime import DSLRuntime
 from core.broker import BrokerEmulator, BrokerOrder, OrderStatus
+from core.backtest_parent_context import prepare_backtest_parent_context
 
 
 @dataclass
@@ -119,6 +120,8 @@ class BacktestEngine:
         market: Optional[Dict] = None,
         data_timeframe: Optional[str] = None,
         entry_gate: Optional[Sequence[bool]] = None,
+        parent_context_frame=None,
+        parent_feature_registry=None,
     ):
         config = StrategySettings(**(settings or {}))
         if initial_capital is not None:
@@ -139,7 +142,17 @@ class BacktestEngine:
         digits = ["".join(ch for ch in str(value) if ch.isdigit()) for value in data["time"]]
         numeric["date"] = np.asarray([float(value[:8] or index) for index, value in enumerate(digits)])
         numeric["time"] = np.asarray([float(value[8:14] or 0) for value in digits])
-        compiled = DSLRuntime.compile(dsl_code, numeric)
+        context_binding, parent_context_diagnostics = prepare_backtest_parent_context(
+            market=data,
+            frame=parent_context_frame,
+            registry=parent_feature_registry,
+        )
+        compiled = DSLRuntime.compile(
+            dsl_code,
+            numeric,
+            context_binding=context_binding,
+            target_times=data["time"] if context_binding is not None else None,
+        )
         actual_timeframe = data_timeframe or (data.get("_meta") or {}).get("timeframe")
         if actual_timeframe and str(actual_timeframe) != str(compiled.timeframe):
             raise ValueError(
@@ -790,6 +803,7 @@ class BacktestEngine:
             ) if mfe_values else 0.0,
             "data_meta": dict(data.get("_meta") or {}),
             "execution_authority": "BrokerEmulator",
+            "parent_context": parent_context_diagnostics,
             "entry_policy": {
                 "entry_start_time": config.entry_start_time,
                 "entry_end_time": config.entry_end_time,
