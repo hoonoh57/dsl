@@ -1,6 +1,6 @@
 # Quant DSL Progress Checkpoint — through 2026-08-27 KST
 
-Status: **PCTX2D_TRUSTED_FULL_PASS / MSA1_IMMUTABLE_MULTI_SYMBOL_SNAPSHOT_EVIDENCE_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / CORE_DSL_FREEZE_ACTIVE**
+Status: **MSA1_TRUSTED_FULL_PASS / MSA2_BOUNDED_GROUP_EVIDENCE_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / CORE_DSL_FREEZE_ACTIVE**
 
 ## Trusted exact Full checkpoints
 
@@ -27,65 +27,65 @@ CTXDSL1 + CTXBT1 99bb2e5f5a248dc61cddb23677b5798b258848f2
 PCTX2A  6f6aef0b09354b1171ce3eccc78d4daa451fe183
 PCTX2C  7aee063932e0d70d38c2e7f876b140d049029771
 PCTX2D  6de666c277d1a6d7ffb47fd9e6093e50b34ebb45
+MSA1    adaef963dce717b252f2575896a74462c8a277a2
 ```
 
-## PCTX2D trusted checkpoint
+## MSA1 trusted checkpoint
 
 Operator evidence:
 
 ```text
-6de666c277d1a6d7ffb47fd9e6093e50b34ebb45
-Ran 6 tests in 0.174s
+adaef963dce717b252f2575896a74462c8a277a2
+Ran 6 tests in 0.003s
 OK
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-Therefore explicit MARKET -> SECTOR dependency-DAG orchestration and the first descriptive SECTOR provider are trusted Full-green.
+Therefore the immutable point-in-time multi-symbol snapshot/evidence seam is trusted Full-green.
 
-## Multi-symbol authority correction
+MSA1 remains observation-only and has no Broker/deployment/provider authority.
 
-The repository already contains the earlier `core/multi_symbol.py` deterministic scenario/cohort vertical slice. The newer authoritative `MULTI_SYMBOL_ADDON_EXTENSION_POLICY.md` additionally requires future cross-symbol intelligence to be expressible as read-only analysis of immutable point-in-time per-instrument snapshots whenever possible.
-
-Therefore GROUP/Leader-Follower work is not being added directly to Instrument DSL or directly coupled to Broker/runtime state.
-
-## MSA1 executable boundary
+## MSA2 executable boundary
 
 New files:
 
 ```text
-core/multi_symbol_snapshot.py
-test_stage1_multi_symbol_snapshot.py
-MSA1_IMMUTABLE_MULTI_SYMBOL_SNAPSHOT_EVIDENCE_IMPLEMENTATION.md
+core/multi_symbol_group_evidence.py
+test_stage1_multi_symbol_group_evidence.py
+MSA2_BOUNDED_GROUP_LEADER_FOLLOWER_BREADTH_EVIDENCE_IMPLEMENTATION.md
 ```
 
-MSA1 introduces:
+MSA2 analyzes a bounded exact chronological frame of MSA1 snapshots under one stable explicit universe and tactic identity topology.
+
+Policy:
 
 ```text
-InstrumentSignalSnapshot
-SnapshotUniverse
-SnapshotComparisonAxis
-SnapshotAnalysisPolicy
-MultiSymbolSnapshotAnalyzer
+OBSERVATION_ONLY_BOUNDED_STATIC_UNIVERSE_LEADER_FOLLOWER_BREADTH_NO_HIDDEN_SCORE_NO_DEPLOYMENT_AUTHORITY
 ```
 
-Core policies:
+Evidence includes favorable/eligible breadth, explicit-axis leaders/followers, direction-normalized leader/follower spread, follower favorable rate and bounded leader persistence.
 
-```text
-POINT_IN_TIME_ONLY
-OBSERVATION_ONLY_PER_AXIS_LEADERBOARDS_AND_PARETO_NO_HIDDEN_SCORE_NO_DEPLOYMENT_AUTHORITY
-```
+The policy declares metric, direction, threshold, leader count, lookback, max symbols and max points. No hidden weighted score, universe discovery, nearest-time alignment or fill-forward is permitted.
 
-Every snapshot carries exact `as_of == knowledge_cutoff`, candidate/family/generation identity, tactic-trigger state, hard-guard state, local admissibility, finite declared comparison metrics and source/evidence identity.
+MSA2 returns `operational_authority=false` and does not produce allowed/blocked symbols, entry gates, allocation, DeploymentDecision or Broker orders.
 
-The universe is explicit. Missing/extra symbols, timestamp mismatch and missing policy metrics fail closed. The analyzer performs no symbol discovery and no nearest/fill-forward substitution.
+## Regression scope
 
-MSA1 returns deterministic per-axis leaderboards and a Pareto frontier. Local trigger/guard/admissibility only determines comparison eligibility. It returns `operational_authority=false` and has no allowed/blocked symbol list, max slots, allocation, entry gate, DeploymentDecision or Broker action.
+`test_stage1_multi_symbol_group_evidence.py` covers:
 
-The module does not import DSLRuntime, BacktestEngine, BrokerEmulator or ParentFeatureProvider.
+- exact breadth / leader / follower / persistence evidence;
+- snapshot input-order invariance;
+- strict chronological timeline;
+- static universe topology;
+- tactic identity drift rejection;
+- hard symbol/point bounds;
+- MAX/MIN favorable semantics;
+- no execution/provider/network imports;
+- no deployment-authority fields.
 
 ## Remote CI environment
 
-Recent GitHub Actions jobs have repeatedly ended before executable steps obtained a usable runner. Those incidents remain classified:
+Recent GitHub Actions jobs continue to terminate before executable steps receive a runner (`runner_id=0`, empty steps). Classification remains:
 
 ```text
 environment issue
@@ -95,11 +95,11 @@ No workflow/test/product guard has been weakened.
 
 ## Current validation status
 
-May claim E0-E8, PCTX1, PCTX2B, CTXDSL1+CTXBT1, PCTX2A, PCTX2C and PCTX2D trusted exact Full PASS at the SHAs above.
+May claim E0-E8, PCTX1, PCTX2B, CTXDSL1+CTXBT1, PCTX2A-PCTX2D and MSA1 trusted exact Full PASS at the SHAs above.
 
-MSA1 is implemented but remains untrusted until focused + Full local validation at one exact SHA.
+MSA2 remains untrusted until focused + Full local validation at one exact SHA.
 
-Do not claim production GROUP/Leader-Follower intelligence, Add-on-derived parent features, validated cross-symbol selection edge, operational symbol permission/allocation, parent-context OOS benefit, live readiness or repository-wide compliance PASS.
+Do not claim production GROUP/leader-follower edge, registered GROUP features from MSA2, cross-symbol deployment selection, portfolio allocation, parent-context OOS benefit, live readiness or repository-wide compliance PASS.
 
 `REMEDIATION_REQUIRED` remains broader repository status.
 
@@ -108,11 +108,11 @@ Do not claim production GROUP/Leader-Follower intelligence, Add-on-derived paren
 ```powershell
 git pull --ff-only origin main
 git rev-parse HEAD
-python -m unittest -v test_stage1_multi_symbol_snapshot.py
+python -m unittest -v test_stage1_multi_symbol_group_evidence.py
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
-If a failure occurs, classify it before editing as exactly:
+If a failure occurs, classify it before editing exactly as:
 
 ```text
 test defect
