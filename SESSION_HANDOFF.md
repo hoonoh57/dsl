@@ -14,66 +14,69 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / 2026-08-28 KST**
 
 ## 2. 최근 한 일
 
-- `GCANCEL1`, `GCANCEL2`, `VSLICE1`은 trusted Full PASS다.
+- `GCANCEL1`, `GCANCEL2`, `VSLICE1`, `LF2`, `LFVAL1`은 trusted Full PASS다.
 - VSLICE1 checkpoint `72445456e86b695dc7288ab3a48856fa560463dd`에서 generic mechanical vertical slice가 닫혔다.
-- LF2 initial checkpoint `14bf03f1f9473a607d4330e4d06f9d0ef9bdd219`의 source-level contract defect를 수정했다.
 - LF2 trusted executable checkpoint는 `5a6e6e53c089ed108d19fa729cba84874e856388`이다.
-- 사용자 로컬 검증은 `Ran 6 tests in 0.001s / OK` 및 `[PASS] Tactical P1 verification completed: mode=Full.`이다.
+- LFVAL1 trusted executable checkpoint는 `283af6e8ed046324698b9ff49e95f5044131f453`이다.
+- LFVAL1 사용자 로컬 검증은 `Ran 7 tests in 0.002s / OK` 및 `[PASS] Tactical P1 verification completed: mode=Full.`이다.
 
 ## 3. 현재 위치
 
-LF2는 이제 **TRUSTED FULL PASS**다.
+LF2는 trusted observation-only orchestration이고 LFVAL1은 그 frozen evidence를 TRAIN / VALIDATION / OOS / HARSH로 검증하는 trusted evidence-only 층이다.
 
 ```text
 LF1 OBSERVATION_ONLY relation result
-+ selected/local follower
-+ local setup pass/fail
-+ local hard-guard pass/fail
-+ explicit relation_still_valid
-+ active pending identity when present
- -> ARM_PENDING / HOLD / HOLD_PENDING / CANCEL_PENDING
++ local deterministic setup / hard guard
+ -> LF2 ARM_PENDING / HOLD / HOLD_PENDING / CANCEL_PENDING evidence
+ -> LFVAL1 TRAIN / VALIDATION / OOS / HARSH evidence validation
+```
+
+LFVAL1 explicit axes:
+
+```text
+selection qualified rate
+ARM rate
+hard-guard pass rate
+relation-valid rate
+invalid active pending cancellation safety
 ```
 
 Authority boundary:
 
 ```text
-mode = OBSERVATION_ONLY
-operational_authority = false
-execution_authority = false
+LF2:
+  mode = OBSERVATION_ONLY
+  operational_authority = false
+  execution_authority = false
+
+LFVAL1:
+  mode = EVIDENCE_ONLY
+  operational_authority = false
+  execution_authority = false
+  deployment_authority = false
 ```
 
-Hard guard는 deterministic veto다. 신규 ARM을 막고 active pending에는 `CANCEL_PENDING` 의도를 낼 수 있다.
-
-LF2 Full을 막았던 sibling Chart 문제는 local drift가 아니라 branch 내부의 stale test contract였다. `product-completion-mvp`에는 이미 `PrimaryPaneLayoutSurface`가 정식으로 들어가 있었고 `STABLE-PANE-003`만 이전 composition을 기대했다.
-
-분류: **test defect (stale Chart contract)**.
-
-Chart test만 수정한 checkpoint:
-
-```text
-258fd07ca76214819cec3822b02564e21a1c8680
-```
-
-그 뒤 같은 DSL checkout에서 Tactical P1 Full PASS를 확보했다.
+Hard guard는 deterministic veto다. unsafe ARM은 fail closed이며, invalid active pending evidence는 `CANCEL_PENDING`이어야 LFVAL1을 통과한다.
 
 broader repo compliance는 계속 **REMEDIATION_REQUIRED**다.
 
 ## 4. 바로 다음에 할 일
 
-LF2가 mechanically trusted됐다고 deployment authority를 바로 주지 않는다.
+LFVAL1 trust를 deployment authority로 확대하지 않는다.
 
-다음 tranche는 별도 evidence-validation 설계다.
+다음 후보 tranche는 **별도 bounded outcome/backtest evidence**다.
 
 ```text
 trusted LF1 relation evidence
-+ trusted LF2 observation-only intent evidence
- -> explicit Train / Validation / OOS / Harsh separation
- -> only then consider whether bounded deployment permission is justified
++ trusted LF2 intent evidence
++ trusted LFVAL1 partition stability evidence
+ -> bounded outcome/backtest measurement
+ -> only then decide whether any further permission is justified
 ```
 
-처음부터 큰 자동선별/포트폴리오/학습 시스템을 만들지 않는다. 한 개의 deterministic tactic/evidence slice만 검증한다.
+이 단계에서도 먼저 한 개의 deterministic evidence slice만 검증한다. 수익성/효용을 실제 outcome과 연결하더라도 Core DSL, Parser/Runtime/Broker semantics는 변경하지 않는 방향을 우선한다.
 
-adaptive learning, ranking 확대, allocation, live selection, 새 DSL grammar는 계속 보류한다.
+adaptive learning, ranking 확대, allocation, live selection, 새 DSL grammar, production deployment gate는 계속 보류한다.
 
 ## 5. 세션복구 규칙
 
