@@ -1,6 +1,6 @@
 # LF2 Follower Pending Intent Orchestration — Implementation Checkpoint
 
-Status: **REMOTE_UNVALIDATED_AFTER_FIX / AWAITING_LOCAL_FOCUSED_AND_FULL_PASS / 2026-08-28 KST**
+Status: **TRUSTED FULL PASS / 2026-08-28 KST**
 
 ## Purpose
 
@@ -82,7 +82,7 @@ execution_authority = false
 
 It has no execution, provider, network, database or persistence calls and emits no `broker_order`, `entry_gate`, `allocation`, `allowed_symbols` or `blocked_symbols` field.
 
-## Initial executable checkpoint and local failure
+## Executable checkpoints and defect history
 
 Initial executable checkpoint:
 
@@ -90,20 +90,16 @@ Initial executable checkpoint:
 14bf03f1f9473a607d4330e4d06f9d0ef9bdd219
 ```
 
-User-local focused result:
+Initial user-local focused result:
 
 ```text
 Ran 6 tests in 0.002s
 FAILED (failures=1)
 ```
 
-Full verification also failed because the same focused contract test was included in the Full boundary.
-
 Failure classification: **product defect (source-level contract defect)**.
 
-The authority-boundary regression intentionally rejects forbidden execution/provider tokens anywhere in the Add-on source. The module docstring named concrete forbidden execution classes while explaining that it did not call them. Runtime behavior had no execution-authority path, but the source still violated the explicit source-level boundary contract. The test was therefore correct and was not weakened.
-
-## Fix checkpoint
+The authority-boundary regression correctly rejected concrete forbidden execution-class names appearing in the module docstring. Runtime behavior had no execution-authority path, but the explicit source-level contract still failed. The guard/test was not weakened.
 
 Fixed executable checkpoint:
 
@@ -117,7 +113,7 @@ Fix scope:
 core/multi_symbol_follower_pending_orchestration.py
 ```
 
-Only the module docstring was neutralized to describe the boundary generically. No orchestration logic, policy, hashing, identity, intent decision, Parser, Semantic, Runtime, Backtest, Broker or provider behavior changed.
+Only the module docstring was neutralized. No orchestration logic, policy, hashing, identity, intent decision, Parser, Semantic, Runtime, Backtest, Broker or provider behavior changed.
 
 Executable files in LF2 remain:
 
@@ -126,33 +122,59 @@ core/multi_symbol_follower_pending_orchestration.py
 test_stage1_multi_symbol_follower_pending_orchestration.py
 ```
 
-## Focused regression
+## Trusted user-local validation
 
-The focused test covers:
+Focused validation after the fix:
 
-- qualified selected follower -> stable deterministic `ARM_PENDING` identity;
+```text
+Ran 6 tests in 0.001s
+OK
+```
+
+The first Full attempt after that focused PASS was blocked by a stale Chart SSOT contract in the sibling `cascading-feature-solution` repository. The branch already contained the intentional composition:
+
+```text
+Inspectable
+ -> StablePaneIdentity
+ -> PrimaryPaneLayout
+ -> Responsive
+```
+
+while `STABLE-PANE-003` still expected `Responsive(stablePanes)` directly.
+
+That blocker was classified as **test defect (stale Chart contract)** and fixed only in the Chart test at:
+
+```text
+258fd07ca76214819cec3822b02564e21a1c8680
+```
+
+After pulling that Chart checkpoint, user-local Full verification passed:
+
+```text
+[PASS] Tactical P1 verification completed: mode=Full.
+```
+
+Therefore LF2 at executable checkpoint `5a6e6e53c089ed108d19fa729cba84874e856388` is now trusted Full PASS.
+
+## Trusted claims
+
+LF2 now has trusted evidence for:
+
+- qualified selected follower -> deterministic `ARM_PENDING` identity;
 - explicit relation invalidation -> `CANCEL_PENDING` with the existing identity;
 - hard guard failure -> blocks new ARM and cancels active pending intent;
 - unselected/unqualified follower cannot ARM;
 - authority/identity mismatches fail closed;
-- no execution/provider/network/persistence authority in the module.
+- no execution/provider/network/persistence authority in the module;
+- repository-level Tactical P1 Full verification passes with the required Chart SSOT dependency contract synchronized.
 
-## Remote CI classification
+## Next boundary
 
-GitHub Actions for the pre-fix LF2 executable checkpoint failed before job steps were created (`steps=null`).
+Do not grant deployment authority merely because LF2 is trusted mechanically.
 
-Classification: **environment issue**.
+The next tranche must be a separate evidence-validation decision for this observation-only orchestration, with Train / Validation / OOS / Harsh separation if it is promoted beyond mechanics.
 
-That remote infrastructure failure is independent from the later user-local source-contract failure above.
-
-## Local trust gate after fix
-
-```powershell
-python -m unittest test_stage1_multi_symbol_follower_pending_orchestration.py
-powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
-```
-
-Only after both pass locally at or after fix checkpoint `5a6e6e53c089ed108d19fa729cba84874e856388` may LF2 become trusted.
+Adaptive learning, ranking expansion, automatic allocation, live selection and new DSL grammar remain deferred.
 
 ## Nonclaims
 
