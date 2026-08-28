@@ -1,6 +1,6 @@
 # Quant DSL Progress Checkpoint — through 2026-08-28 KST
 
-Status: **CTXINT1_TRUSTED_FULL_PASS / CTXINT2_BACKTEST_ENTRY_GATE_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / CORE_DSL_FREEZE_ACTIVE**
+Status: **CTXINT2_TRUSTED_FULL_PASS / CTXINT3_NEXT_OPEN_TIMING_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / CORE_DSL_FREEZE_ACTIVE**
 
 ## Trusted exact Full checkpoints
 
@@ -29,16 +29,17 @@ MSA3    02904728cb0a39669e6809ba21c4e2dd8eb947e3
 CTXVAL1 db9d9ddeeec55f2774d7a2d873ec2f19d77726b4
 CTXDEP1 804baea25f29d1c77f2984d67e37dbb5ebb1160e
 CTXINT1 81903641b2877e16a3bcdcbf7ed1c1bcf1864ad9
+CTXINT2 b3b547b9d2d0eaeee654790243f031a3bbb88198
 ```
 
 Recent operator evidence:
 
 ```text
-CTXDEP1: Ran 6 tests in 0.028s / OK / Full PASS
 CTXINT1: Ran 7 tests in 0.129s / OK / Full PASS
+CTXINT2: Ran 7 tests in 0.106s / OK / Full PASS
 ```
 
-## Trusted path to blocking-only integration
+## Trusted path through blocking-only integration
 
 ```text
 trusted neutral micro tactic
@@ -46,27 +47,33 @@ trusted neutral micro tactic
  -> bounded GROUP publication
  -> Train/Validation/OOS/Harsh validation
  -> validated deployment-policy evidence
- -> trusted preview proving context cannot create entry
- -> CTXINT2 existing Backtest entry-gate integration
+ -> trusted no-entry-creation composition proof
+ -> trusted bar_close entry-suppression integration
 ```
 
-## CTXINT2 active boundary
+## CTXINT3 active boundary
 
-CTXINT2 uses the already-existing Backtest `entry_gate` rather than adding new execution logic. It requires exact validated tactic identity, exact DEPLOYMENT frame/registry identity, exact market symbol/timeline and explicit local trigger/hard-guard evidence.
+CTXINT3 adds causal `next_open` timing without changing BacktestEngine:
 
-V1 is intentionally `bar_close` only. The gate can suppress an otherwise-valid entry but cannot create entry, bypass a failed local hard guard or block exits. BrokerEmulator remains the only execution authority.
+```text
+completed signal bar permission
+ -> shift one bar forward
+ -> next bar MARKET open entry gate
+```
 
-No Parser, Semantic, Runtime, Backtest implementation, Broker or provider calculation semantics are changed.
+The fill bar's unfinished context is not used. A blocked signal bar cannot be rescued by later context, and a failed local guard cannot be bypassed.
+
+The same tranche hardens CTXINT2/CTXINT3 to accept MARKET entries only. Deferred LIMIT/STOP/STOP_LIMIT orders remain rejected until a separate pending-order timing contract determines how original signal permission and later fill-time permission interact.
 
 ## Remote CI environment
 
-Recent GitHub Actions failures still occur before executable steps obtain a runner and remain classified `environment issue`. No workflow/test/product guard has been weakened.
+Recent GitHub Actions failures continue before executable steps obtain a runner and remain classified `environment issue`. No workflow/test/product guard has been weakened.
 
 ## Current validation status
 
-CTXINT2 remains untrusted until focused + Full local validation at one exact SHA.
+CTXINT3 and the post-trust deferred-order scope hardening remain untrusted until focused + Full local validation at one exact SHA.
 
-Do not claim validated `next_open` context semantics, production/live parent-context gating, real GROUP profitability, automatic cross-symbol allocation, live readiness or repository-wide compliance PASS.
+Do not claim validated pending-order semantics, live parent-context gating, real GROUP profitability, automatic cross-symbol allocation, live readiness or repository-wide compliance PASS.
 
 `REMEDIATION_REQUIRED` remains broader repository status.
 
@@ -75,6 +82,6 @@ Do not claim validated `next_open` context semantics, production/live parent-con
 ```powershell
 git pull --ff-only origin main
 git rev-parse HEAD
-python -m unittest -v test_stage1_tactical_context_backtest_integration.py
+python -m unittest -v test_stage1_tactical_context_next_open_integration.py
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
