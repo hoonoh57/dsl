@@ -8,50 +8,58 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / 2026-08-28 KST**
 
 1. **작고 검증된 전술부터 키운다.** 큰 자동매매 시스템을 한 번에 만들지 않는다.
 2. **DSL Core는 범용적이고 결정론적으로 유지한다.** 계산·신호·주문·취소 같은 재사용 기능만 Core에 둔다.
-3. **시장/섹터/대장·추종 판단은 Add-on/context 책임이다.** 이런 의미를 Parser/Runtime/Backtest/Broker에 넣지 않는다.
-4. **hard equipment / guard가 학습보다 우선한다.** 적응형 기능은 optional sidecar로 격리한다.
+3. **시장/섹터/대장·추종 판단과 orchestration은 Add-on/context 책임이다.** 이런 의미를 Parser/Runtime/Backtest/Broker에 넣지 않는다.
+4. **hard equipment / guard가 학습보다 우선한다.** hard guard 실패는 신규 진입/ARM을 막고 살아 있는 pending을 무효화할 수 있어야 한다.
 5. **micro-tranche 단위로 구현 → focused 검증 → Full 검증 → checkpoint 후 다음으로 간다.**
 
 ## 2. 최근 한 일
 
-- `GCANCEL1` trusted: 명시적 `client_order_id` 취소가 기존 Broker lifecycle에 위임된다.
-- `GCANCEL2` trusted: generic DSL `order.cancel(id="...")`가 Backtest timing을 거쳐 Broker cancellation primitive로 연결된다.
-- `VSLICE1` trusted: exact DEPLOYMENT `ctx.*` 무효화가 pending LIMIT 주문을 `bar_close`/`next_open` 모두에서 causal하게 취소하는 조합을 test-only로 검증했다.
-- VSLICE1 executable validation checkpoint는 `72445456e86b695dc7288ab3a48856fa560463dd`이다.
-- 사용자 로컬 검증은 `Ran 2 tests in 0.039s / OK` 및 `Tactical P1 Full PASS`다.
+- `GCANCEL1`, `GCANCEL2`, `VSLICE1`은 trusted Full PASS다.
+- VSLICE1 checkpoint `72445456e86b695dc7288ab3a48856fa560463dd`에서 generic mechanical vertical slice가 닫혔다.
+- 사용자 로컬 VSLICE1 증거는 `Ran 2 tests in 0.039s / OK` 및 `Tactical P1 Full PASS`다.
+- 그 다음 Core를 확장하지 않고 LF2 Add-on orchestration을 원격 구현했다.
+- LF2 executable checkpoint는 `14bf03f1f9473a607d4330e4d06f9d0ef9bdd219`이며 아직 local trust 전이다.
 
 ## 3. 현재 위치
 
-현재 generic mechanical vertical slice는 닫힌 것으로 간주한다.
+LF2는 trusted LF1 결과와 한 follower-local deterministic setup을 조합한다.
 
 ```text
-registered exact DEPLOYMENT ctx.* evidence
- + follower-local deterministic setup
- -> generic pending order with stable id
- -> later ctx.* invalidation
- -> order.cancel(id="...")
- -> BrokerEmulator
+LF1 OBSERVATION_ONLY relation result
++ selected/local follower
++ local setup pass/fail
++ local hard-guard pass/fail
++ explicit relation_still_valid
++ active pending identity when present
+ -> ARM_PENDING / HOLD / HOLD_PENDING / CANCEL_PENDING evidence
 ```
 
-VSLICE1은 `test_stage1_context_pending_order_cancel.py` 하나만 추가했고 제품 소스는 변경하지 않았다.
+중요한 authority boundary:
 
-따라서 현재 부족한 것은 새 Core primitive가 아니라 외부 Add-on에서 실제 evidence/tactic을 만드는 문제다.
+```text
+mode = OBSERVATION_ONLY
+operational_authority = false
+execution_authority = false
+```
 
-대장/추종, sector, peer-symbol, ranking, allocation, learned-policy 의미는 계속 Core 밖에 둔다.
+LF2는 Broker/Backtest/DSLRuntime/provider/network/database를 호출하지 않는다. 실제 주문/취소는 이미 trusted인 generic DSL/Broker 경계의 책임이다.
+
+Hard guard는 학습보다 우선하며 deterministic veto다. hard guard 실패는 신규 ARM을 막고 이미 active인 pending에 `CANCEL_PENDING` 의도를 낸다.
 
 broader repo compliance는 계속 **REMEDIATION_REQUIRED**다.
 
 ## 4. 바로 다음에 할 일
 
-다음 개발축은 Core 확장이 아니라 **작은 결정론적 Add-on evidence/tactic 실험**이다.
+LF2 local trust gate만 수행한다.
 
-1. 외부 evidence source 하나만 고른다.
-2. follower-local setup 하나만 정의한다.
-3. hard guard를 가장 먼저 적용한다.
-4. 이미 trusted인 `ctx.*` / pending order / `order.cancel(id=...)` / BrokerEmulator만 재사용한다.
-5. focused backtest evidence가 나온 뒤에만 다음 확장을 판단한다.
+```powershell
+python -m unittest test_stage1_multi_symbol_follower_pending_orchestration.py
+powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
+```
 
-adaptive learning, ranking 확대, portfolio allocation, 새 grammar는 현재 보류한다.
+둘 다 PASS하면 LF2를 trusted로 승격한다.
+
+그 다음에도 즉시 deployment authority를 주지 않는다. 별도 Train/Validation/OOS/Harsh evidence tranche가 필요한지 먼저 판단한다. adaptive learning, ranking 확대, allocation, live selection, 새 DSL grammar는 자동으로 열지 않는다.
 
 ## 5. 세션복구 규칙
 
@@ -68,6 +76,6 @@ adaptive learning, ranking 확대, portfolio allocation, 새 grammar는 현재 �
 
 ## 6. 금지된 과장
 
-현재 수익성 있는 leader/follower edge, 실전 자동선별, live trading readiness, repository-wide compliance PASS를 주장하지 않는다.
+현재 수익성 있는 leader/follower edge, 실전 자동선별, validated deployment gating, live trading readiness, repository-wide compliance PASS를 주장하지 않는다.
 
 `REMEDIATION_REQUIRED`가 broader compliance의 authoritative 상태다.
