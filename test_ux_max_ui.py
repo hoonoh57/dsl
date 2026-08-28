@@ -39,7 +39,7 @@ class UXMaxUIContractTests(unittest.TestCase):
             "2. LLM 요청 생성",
             "3. 인간 매개",
             "4. 로컬 DSL 검증",
-            "5. 백테스트",
+            "5. 데모 백테스트",
             "외부 LLM에 보낼 요청 프롬프트",
             "LLM 결과 붙여넣기",
         ):
@@ -69,10 +69,11 @@ class UXMaxUIContractTests(unittest.TestCase):
         self.assertEqual(result["parser"], "FAIL")
         self.assertEqual(result["semantic"], "NOT_RUN")
 
-    def test_existing_strategy_and_backtest_apis_are_reused(self):
+    def test_existing_strategy_and_demo_backtest_apis_are_reused(self):
         html = app_ui_ux.ux_index()
         self.assertIn("/api/strategies", html)
         self.assertIn("/api/backtest", html)
+        self.assertIn("고정 전략 데모 엔진", html)
         self.assertIn('href="/"', html)
         self.assertIn("기존 UI", html)
 
