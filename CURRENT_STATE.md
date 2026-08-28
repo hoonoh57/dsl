@@ -1,7 +1,21 @@
 # Quant DSL Current State
 
-Status: **CTXINT3_TRUSTED_FULL_PASS / LF1_LEADER_FOLLOWER_RELATION_EVIDENCE_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / REMEDIATION_REQUIRED**  
+Status: **LF1_TRUSTED_FULL_PASS / SESSION_RECOVERY_ACTIVE / NEXT_GENERIC_PENDING_ORDER_CANCEL / REMEDIATION_REQUIRED**  
 Updated: 2026-08-28 KST
+
+## Session recovery entrypoint
+
+`SESSION_RECOVERY.md` is the permanent recovery protocol for this project. It is procedural and does not supersede architecture authority.
+
+When the user sends `세션복구` in a new project chat:
+
+1. use available ChatGPT Project previous-conversation context to recover intent and unfinished reasoning;
+2. read `SESSION_RECOVERY.md` and this `CURRENT_STATE.md` from current `main`;
+3. do not ask the user for a recap;
+4. answer briefly in Korean with only: **개발철학(5개 이내) / 최근 한 일 / 앞으로 할 일**;
+5. speak at human product level and omit machine-level detail unless needed.
+
+If old conversation and current repository status differ, current repository state wins for implementation status and trusted checkpoints.
 
 ## Authority order
 
@@ -52,13 +66,14 @@ CTXDEP1 804baea25f29d1c77f2984d67e37dbb5ebb1160e
 CTXINT1 81903641b2877e16a3bcdcbf7ed1c1bcf1864ad9
 CTXINT2 b3b547b9d2d0eaeee654790243f031a3bbb88198
 CTXINT3 7f77694658d7155806e97bdafcc543e2c7bfeae8
+LF1     5ec230c8bbada60f0e4b9fe945a5380d7c405fe2
 ```
 
 Recent operator evidence:
 
 ```text
-CTXINT2: Ran 7 tests in 0.106s / OK / Full PASS
 CTXINT3: Ran 7 tests in 0.150s / OK / Full PASS
+LF1:     Ran 7 tests in 0.058s / OK / Full PASS
 ```
 
 ## Governing architecture
@@ -67,8 +82,8 @@ Core DSL stays deterministic and single-instrument. Cross-symbol intelligence re
 
 ```text
 single-instrument causal snapshots
- -> MSA2 bounded group evidence
- -> LF1 explicit leader/follower relationship evidence
+ -> bounded group evidence
+ -> leader/follower relationship evidence
  -> later validated orchestration
  -> generic DSL order intent/cancel primitives
  -> common execution policy
@@ -77,48 +92,41 @@ single-instrument causal snapshots
 
 The DSL must not calculate leader/follower roles, discover peers, rank symbols or allocate capital. Those remain Add-on responsibilities.
 
-## CTXINT3 trusted state
+## LF1 trusted state
 
 Exact trusted checkpoint:
 
 ```text
-7f77694658d7155806e97bdafcc543e2c7bfeae8
-Ran 7 tests in 0.150s
+5ec230c8bbada60f0e4b9fe945a5380d7c405fe2
+Ran 7 tests in 0.058s
 OK
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-This proves `next_open` MARKET entry gating uses only prior-completed-bar validated context. Deferred LIMIT/STOP/STOP_LIMIT context semantics remain intentionally unvalidated.
+Human meaning: LF1 can identify one qualified leader and measure which followers tend to react after it, including follow rate and lag, while keeping those observations separate and non-operational.
 
-## LF1 current executable tranche
+LF1 still has no order, allocation, entry-gate or live-selection authority.
 
-New executable/regression:
+## Immediate next boundary
+
+The next executable tranche is a **generic pending-order cancellation capability** for Instrument DSL.
+
+First-operation scope must stay minimal:
+
+- cancel by explicit stable order/client identity;
+- deterministic Backtest/Broker lifecycle;
+- no leader/follower, sector or peer-symbol syntax in DSL;
+- independent regression before any cross-symbol orchestration consumes it.
+
+Only after this generic cancel capability is trusted should a later story compose:
 
 ```text
-core/multi_symbol_leader_follower_relation.py
-test_stage1_multi_symbol_leader_follower_relation.py
-LF1_LEADER_FOLLOWER_RELATION_EVIDENCE_IMPLEMENTATION.md
+leader rebounds
+ -> follower setup appears
+ -> pending follower order exists
+ -> leader/sector invalidates
+ -> cancel pending order
 ```
-
-LF1 v1 is intentionally small:
-
-- one explicit leader only;
-- leader qualification by current MSA2 leadership + minimum persistence + minimum leader/follower spread;
-- explicit leader-impulse threshold;
-- follower response search over the next `1..N` points;
-- separate `follow_rate`, `mean_lag_points`, response strength and current metric axes;
-- explicit `top_follow_rate_follower` observation only;
-- incomplete trailing leader impulses are censored rather than counted as follower failures;
-- no hidden weighted score;
-- `operational_authority=false`.
-
-LF1 does not publish parent context, create an entry gate, allocate capital, or call Backtest/Runtime/Broker/provider/network/database code.
-
-## Planned next boundary
-
-After LF1 is trusted, add a **generic DSL pending-order cancellation primitive** as a separate Core DSL capability tranche. It must be cancel-by-explicit-order/client identity with deterministic Backtest/Broker semantics; no leader/follower concept enters Parser or Runtime.
-
-Only after both pieces are independently trusted should a later orchestration tranche compose leader/follower evidence with follower local setup and pending-order invalidation.
 
 ## Remote CI environment
 
@@ -126,17 +134,12 @@ GitHub Actions has repeatedly failed before executable steps receive a runner. S
 
 ## Nonclaims
 
-Do not claim yet LF1 trusted Full PASS, profitable leader/follower edge, production leader/follower stock selection, validated generic DSL cancellation, live trading readiness or repository-wide compliance PASS.
+Do not claim profitable leader/follower edge, production leader/follower selection, validated generic DSL cancellation, live trading readiness or repository-wide compliance PASS.
 
 `REMEDIATION_REQUIRED` remains authoritative for broader repository compliance.
 
-## Immediate validation boundary
+## Current validation boundary
 
-```powershell
-git pull --ff-only origin main
-git rev-parse HEAD
-python -m unittest -v test_stage1_multi_symbol_leader_follower_relation.py
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
-```
+There is no new executable code after trusted LF1 in the session-recovery documentation tranche. Before the next executable tranche, re-read the authority files relevant to Core order semantics and pending-order lifecycle.
 
-Any executable failure must first be classified exactly as `test defect`, `product defect`, `authority drift`, `environment issue`, or `unknown`.
+Any later executable failure must first be classified exactly as `test defect`, `product defect`, `authority drift`, `environment issue`, or `unknown`.
