@@ -6,8 +6,10 @@ Runtime, Broker, or DSL semantics. The adapter builds a trusted CTXINT1 preview,
 converts only its effective-entry evidence into the existing higher-layer gate,
 and delegates execution to BacktestEngine.
 
-V1 intentionally supports bar_close integration only. Context may suppress an
-entry; it may never create one, bypass a local hard guard, or block an exit.
+V1 intentionally supports bar_close MARKET-entry integration only. Context may
+suppress an entry; it may never create one, bypass a local hard guard, or block
+an exit. Deferred LIMIT/STOP/STOP_LIMIT entry orders remain fail-closed until a
+separate signal-time/fill-time authority contract is validated.
 """
 from __future__ import annotations
 
@@ -21,6 +23,7 @@ from core.parent_context_frame import ParentContextFrame
 from core.parent_feature_provider import ParentFeatureRegistry
 from core.tactical_context_deployment_evidence import ValidatedContextDeploymentPolicyEvidence
 from core.tactical_context_gate_preview import ValidatedContextGatePreviewBuilder
+from core.tactical_context_integration_scope import require_market_entry_orders_only
 from core.tactical_discovery import TacticCandidate
 
 
@@ -117,6 +120,7 @@ class ValidatedContextBacktestIntegration:
         if not isinstance(candidate, TacticCandidate):
             raise ValueError("CTXINT2 candidate는 TacticCandidate여야 합니다.")
         candidate.validate()
+        require_market_entry_orders_only(candidate.dsl_code, label="CTXINT2")
         policy_evidence.validate()
         frame.validate()
         registry.validate()
@@ -180,6 +184,7 @@ class ValidatedContextBacktestIntegration:
             "entry_gate": entry_gate,
             "gate_hash": gate_hash,
             "gate_authority": GATE_AUTHORITY,
+            "entry_order_scope": "MARKET_ONLY_DEFERRED_FAIL_CLOSED",
             "can_create_entry": False,
             "can_bypass_local_hard_guard": False,
             "can_block_exit": False,
