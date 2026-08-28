@@ -1,6 +1,6 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / ACTIVE / 2026-08-28 KST**
+Status: **PRIMARY HUMAN HANDOFF / ACTIVE / 2026-08-29 KST**
 
 이 문서는 새 세션이 가장 먼저 읽는 사람 중심 인수인계 문서다. 갑작스러운 종료를 고려해 이전 프로젝트 대화의 마지막 exact local evidence와 GitHub 최신 상태를 함께 대조한다.
 
@@ -14,11 +14,11 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / 2026-08-28 KST**
 
 ## 2. 최근 한 일
 
-- `GCANCEL1`, `GCANCEL2`, `VSLICE1`, `LF2`, `LFVAL1`은 trusted Full PASS다.
-- VSLICE1 checkpoint `72445456e86b695dc7288ab3a48856fa560463dd`에서 generic mechanical vertical slice가 닫혔다.
+- `GCANCEL1`, `GCANCEL2`, `VSLICE1`, `LF2`, `LFVAL1`, `LFOUT1`은 trusted Full PASS다.
 - LF2 trusted executable checkpoint는 `5a6e6e53c089ed108d19fa729cba84874e856388`이다.
 - LFVAL1 trusted executable checkpoint는 `283af6e8ed046324698b9ff49e95f5044131f453`이다.
-- 새 LFOUT1 remote executable checkpoint `f95d15f2f66533a616db5a86df9cbe9e1f7c418b`를 만들었지만 아직 local validation 전이다.
+- LFOUT1 initial executable `f95d15f2f66533a616db5a86df9cbe9e1f7c418b`의 signed MAE 방향 버그를 수정했다.
+- LFOUT1 trusted executable checkpoint는 `ca4d5309a658de02f970e341bbf86ad87ab327ae`이며 사용자 로컬 검증은 `Ran 7 tests in 0.003s / OK` 및 `[PASS] Tactical P1 verification completed: mode=Full.`이다.
 
 ## 3. 현재 위치
 
@@ -27,7 +27,7 @@ LF1 OBSERVATION_ONLY relation evidence
 + local deterministic setup / hard guard
  -> LF2 ARM_PENDING / HOLD / HOLD_PENDING / CANCEL_PENDING evidence
  -> LFVAL1 TRAIN / VALIDATION / OOS / HARSH stability validation
- -> LFOUT1 exact frozen outcome validation (REMOTE_UNVALIDATED)
+ -> LFOUT1 exact frozen outcome validation
 ```
 
 LFOUT1은 BacktestEngine을 직접 호출하지 않는다. 이미 생성된 LF2 evidence와 별도로 동결된 outcome row를 exact `evidence_hash`로 결합한다.
@@ -41,8 +41,6 @@ ARM MAE regression vs non-ARM
 CANCEL avoided-loss magnitude
 holdout ARM return-edge regression vs TRAIN
 ```
-
-TRAIN / VALIDATION / OOS는 정확히 하나씩, HARSH는 adverse_reason과 함께 최소 하나가 필요하다. nearest match, fill-forward, interpolation, silent default는 없다.
 
 Authority boundary:
 
@@ -59,28 +57,33 @@ LFVAL1 / LFOUT1:
   deployment_authority = false
 ```
 
+LFOUT1 initial focused failure classification:
+
+```text
+product defect — signed MAE direction bug
+```
+
+`mae_pct`는 더 음수일수록 더 나쁜 adverse excursion인데 initial 구현이 regression 방향을 반대로 계산했다. 테스트와 threshold는 그대로 유지하고 product logic만 수정했다.
+
 broader repo compliance는 계속 **REMEDIATION_REQUIRED**다.
 
 ## 4. 바로 다음에 할 일
 
-LFOUT1 local trust gate를 먼저 닫는다.
+LFOUT1 trust를 deployment authority로 확대하지 않는다.
 
-```powershell
-python -m unittest test_stage1_multi_symbol_follower_outcome_validation.py
-powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
-```
+다음 판단은 **실제 non-fixture frozen data를 이용한 evidence study를 할 준비가 되었는지**다.
 
-focused + Full이 모두 PASS해야 LFOUT1을 trusted로 승격한다.
-
-LFOUT1 PASS도 production profitability나 deployment authority를 의미하지 않는다. 다음 권한을 자동으로 열지 않는다:
+우선순위:
 
 ```text
-automatic selection
-allocation
-adaptive learning
-new DSL grammar
-live deployment gate
+real frozen LF1/LF2 evidence acquisition
++ exact matching frozen outcomes
++ same LFVAL1/LFOUT1 Train / Validation / OOS / Harsh separation
+-> real evidence study
+-> only then consider whether any bounded permission bridge is justified
 ```
+
+fixture PASS만으로 automatic selection, allocation, adaptive learning, new DSL grammar, live deployment gate를 열지 않는다.
 
 ## 5. 세션복구 규칙
 
