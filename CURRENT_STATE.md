@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **LF1_TRUSTED_FULL_PASS / HANDOFF_FIRST_CRASH_SAFE_RECOVERY_ACTIVE / NEXT_GENERIC_PENDING_ORDER_CANCEL / REMEDIATION_REQUIRED**  
+Status: **LF1_TRUSTED_FULL_PASS / GCANCEL1_REMOTE_UNVALIDATED / AWAITING_LOCAL_FOCUSED_AND_FULL_PASS / REMEDIATION_REQUIRED**  
 Updated: 2026-08-28 KST
 
 ## Session handoff and crash-safe recovery
@@ -112,18 +112,48 @@ Human meaning: LF1 can identify one qualified leader and measure which followers
 
 LF1 still has no order, allocation, entry-gate or live-selection authority.
 
+## GCANCEL1 remote-unvalidated state
+
+Executable remote checkpoint:
+
+```text
+583c5362ca5ea57e62353a963cd5a2cfb0addfad
+```
+
+`BrokerEmulator.cancel_client_order(...)` now resolves an explicit `client_order_id` fail-closed and delegates the actual `ACCEPTED/TRIGGERED -> CANCELED` transition to the existing broker-owned `cancel(...)` path.
+
+Focused regression file: `test_stage1_pending_order_cancel.py`.
+
+Change audit from pre-tranche HEAD `76134a4c565a52e965980799a76dcba127c00355` shows executable changes only in:
+
+```text
+core/broker.py
+test_stage1_pending_order_cancel.py
+```
+
+This is **not trusted yet** because no exact user-local focused + Full PASS has been reported.
+
 ## Immediate next boundary
 
-The next executable tranche is a **generic pending-order cancellation capability** for Instrument DSL.
+Do not begin Parser/Backtest integration until GCANCEL1 is locally trusted.
 
-First-operation scope must stay minimal:
+Required local validation after pull:
 
-- cancel by explicit stable order/client identity;
-- deterministic Backtest/Broker lifecycle;
-- no leader/follower, sector or peer-symbol syntax in DSL;
-- independent regression before any cross-symbol orchestration consumes it.
+```powershell
+python -m unittest test_stage1_pending_order_cancel.py
+powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
+```
 
-Only after this generic cancel capability is trusted should a later story compose:
+After both pass, the next executable micro-tranche is generic Instrument DSL / Backtest cancellation intent integration using explicit stable client identity.
+
+That integration must remain feature-blind:
+
+- no leader/follower syntax;
+- no sector or peer-symbol syntax;
+- no learned-policy authority;
+- no alternative cancellation lifecycle outside BrokerEmulator.
+
+Only after the generic cancel path is independently trusted should a later story compose:
 
 ```text
 leader rebounds
@@ -135,7 +165,7 @@ leader rebounds
 
 ## Remote CI environment
 
-GitHub Actions has repeatedly failed before executable steps receive a runner. Such failures remain `environment issue`; workflow/test/product guards are not weakened.
+GitHub Actions for GCANCEL1 again failed before any executable job step was created (`steps=[]`). Classification remains `environment issue`; workflow/test/product guards are not weakened.
 
 ## Nonclaims
 
@@ -145,6 +175,6 @@ Do not claim profitable leader/follower edge, production leader/follower selecti
 
 ## Current validation boundary
 
-There is no new executable code after trusted LF1 in the session-handoff/recovery documentation tranche. Before the next executable tranche, re-read the authority files relevant to Core order semantics and pending-order lifecycle.
+GCANCEL1 exists remotely but remains `REMOTE_UNVALIDATED`. Exact local focused + Full PASS is the trust gate.
 
 Any later executable failure must first be classified exactly as `test defect`, `product defect`, `authority drift`, `environment issue`, or `unknown`.
