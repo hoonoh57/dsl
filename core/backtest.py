@@ -171,10 +171,14 @@ class BacktestEngine:
         short_entry = np.zeros(size, dtype=bool)
         short_exit = np.zeros(size, dtype=bool)
         deferred_orders = []
+        cancel_orders = []
         if compiled.events:
             for event in compiled.events:
                 market_commands = set()
                 for order in event.orders:
+                    if order.command == "order.cancel":
+                        cancel_orders.append((event.condition, order))
+                        continue
                     order_type = str(order.arguments.get("type", "MARKET")).upper()
                     if order_type == "MARKET":
                         market_commands.add(order.command)
@@ -296,6 +300,18 @@ class BacktestEngine:
                 if active.origin == "DSL_PENDING" and active.side in {"BUY", "SELL_SHORT"}:
                     broker.cancel(active.id, "position occupied", event=event)
                     rejection_counts["pending_canceled_position_occupied"] += 1
+
+        def apply_cancel_orders(signal_index: int, event_index: int):
+            if signal_index < 0:
+                return
+            for condition, order in cancel_orders:
+                if not bool(condition[signal_index]):
+                    continue
+                broker.cancel_client_order(
+                    str(order.arguments["id"]),
+                    reason="DSL cancel",
+                    event=str(data["time"][event_index]),
+                )
 
         def update_excursion(bar_high: float, bar_low: float):
             nonlocal peak_price, trough_price, open_trade
@@ -547,6 +563,7 @@ class BacktestEngine:
                     closed_this_bar = True
 
             if config.signal_mode == "next_open":
+                apply_cancel_orders(prior_index, i)
                 submit_deferred(prior_index, entry_blocked=closed_this_bar)
 
             matched_entry_reserved = False
@@ -647,6 +664,7 @@ class BacktestEngine:
                 rejection_counts["same_bar_reentry"] += 1
 
             if config.signal_mode == "bar_close":
+                apply_cancel_orders(i, i)
                 submit_deferred(i, entry_blocked=closed_this_bar)
 
             if session_end:
