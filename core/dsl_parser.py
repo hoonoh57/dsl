@@ -45,7 +45,7 @@ class StrategyNode:
 
 
 class DSLParser:
-    ORDER_COMMANDS = {"order.buy", "order.sell_short", "order.close_long", "order.close_short", "order.close_position"}
+    ORDER_COMMANDS = {"order.buy", "order.sell_short", "order.close_long", "order.close_short", "order.close_position", "order.cancel"}
     ORDER_TYPES = {"MARKET", "LIMIT", "STOP", "STOP_LIMIT"}
     TIFS = {"GTC", "DAY"}
     IDENTIFIER = r"[A-Za-z_가-힣][\w가-힣]*"
@@ -189,6 +189,7 @@ class DSLParser:
         if not orders: raise DSLParseError("on 블록에는 하나 이상의 주문이 필요합니다.", line, code="EMPTY_EVENT")
         commands = {order.command for order in orders}
         if commands & {"order.buy","order.sell_short"} and commands & {"order.close_long","order.close_short","order.close_position"}: raise DSLParseError("하나의 on 블록에서 진입과 청산을 동시에 실행할 수 없습니다.", line, code="CONFLICTING_ORDERS")
+        if "order.cancel" in commands and len(commands) > 1: raise DSLParseError("order.cancel은 다른 주문 명령과 같은 on 블록에서 혼합할 수 없습니다.", line, code="CONFLICTING_CANCEL")
         return EventNode(condition.strip(), orders, line)
 
     @staticmethod
@@ -221,12 +222,21 @@ class DSLParser:
 
     @classmethod
     def _validate_order_arguments(cls, command: str, arguments: str, line: int):
-        if not arguments.strip(): return
+        if not arguments.strip():
+            if command == "order.cancel": raise DSLParseError("order.cancel에는 id가 필요합니다.", line, code="MISSING_CANCEL_ID")
+            return
         try: call = ast.parse(f"f({arguments})", mode="eval").body
         except SyntaxError as exc: raise DSLParseError(f"주문 인수 문법 오류: {exc.msg}", line, exc.offset or 1, "BAD_ORDER_ARGS") from exc
         if call.args: raise DSLParseError("주문 인수는 이름=값 형식만 허용합니다.", line, code="POSITIONAL_ORDER_ARG")
-        allowed = {"type", "id", "limit", "stop", "tif", "oco"}; names = [item.arg for item in call.keywords]
+        names = [item.arg for item in call.keywords]
         if len(names) != len(set(names)): raise DSLParseError("주문 인수가 중복되었습니다.", line, code="DUPLICATE_ORDER_ARG")
+        if command == "order.cancel":
+            if names != ["id"]: raise DSLParseError("order.cancel은 id 문자열 인수 하나만 허용합니다.", line, code="BAD_CANCEL_ARG")
+            value = call.keywords[0].value
+            if not isinstance(value, ast.Constant) or not isinstance(value.value, str) or not value.value.strip():
+                raise DSLParseError("order.cancel id는 비어 있지 않은 문자열 상수여야 합니다.", line, code="BAD_CANCEL_ID")
+            return
+        allowed = {"type", "id", "limit", "stop", "tif", "oco"}
         for item in call.keywords:
             if item.arg not in allowed: raise DSLParseError(f"지원하지 않는 주문 인수: {item.arg}", line, code="BAD_ORDER_ARG")
         if command.startswith("order.close") and call.keywords: raise DSLParseError(f"{command}은 현재 인수를 지원하지 않습니다.", line, code="BAD_CLOSE_ARG")
