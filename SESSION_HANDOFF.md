@@ -15,10 +15,10 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / 2026-08-29 KST**
 ## 2. 최근 한 일
 
 - `GCANCEL1`, `GCANCEL2`, `VSLICE1`, `LF2`, `LFVAL1`, `LFOUT1`, `LFREAL1`, `LFREAL2`는 trusted Full PASS다.
-- LFREAL1 trusted executable checkpoint는 `5aa1da3268f1f3e031aa6d607a4d3a5921f03e58`이다.
-- LFREAL2 trusted executable checkpoint는 `10861c232d03937c5ae77e2be32cd1873a5ff977`이다.
-- LFREAL2 사용자 로컬 검증은 `Ran 7 tests in 0.001s / OK` 및 `[PASS] Tactical P1 verification completed: mode=Full.`이다.
-- 저장소에는 여전히 authoritative real-market LF dataset이 없다. LFREAL2 trust는 external-byte freeze/content-hash contract trust이지 real-data study 완료가 아니다.
+- LFREAL2 trusted executable checkpoint는 `10861c232d03937c5ae77e2be32cd1873a5ff977`이며 로컬 검증은 `Ran 7 tests in 0.001s / OK` + Tactical P1 Full PASS다.
+- 저장소에는 authoritative real-market LF dataset이 없으므로 byte identity와 market authenticity를 계속 분리한다.
+- LFREAL3는 LFREAL2 manifest와 caller-parsed OHLCV rows를 결합하는 causal row admission/snapshot contract다.
+- LFREAL3 remote executable checkpoint는 `ab4d798c6648ee382e779af81e759cd11bf1cb13`이며 아직 local validation 전이다.
 
 ## 3. 현재 위치
 
@@ -30,66 +30,53 @@ LF1 OBSERVATION_ONLY relation evidence
  -> LFOUT1 exact frozen outcome validation
  -> LFREAL1 non-fixture provenance/admission contract
  -> LFREAL2 external caller-bytes immutable dataset manifest
+ -> LFREAL3 manifest-bound deterministic causal rows/snapshots (REMOTE_UNVALIDATED)
 ```
 
-LFREAL2는 file I/O나 provider를 소유하지 않는다. 외부에서 얻은 bytes를 caller가 넘기면 정확한 SHA-256 manifest만 생성한다.
+LFREAL3는 file I/O나 provider를 소유하지 않는다. caller가 parsed rows를 넘기면 다음만 검증한다.
 
 ```text
-non-empty bytes
-+ source_id/source_kind/media_format
-+ timeframe
-+ unique symbols
-+ first/last observation
-+ positive record_count
-+ optional expected SHA-256
- -> exact content SHA-256
- -> stable dataset_manifest_hash
+row_count == manifest.record_count
+row.symbol in manifest.symbols
+unique (symbol,time)
+exact first/last observation boundary
+finite/basic-valid OHLCV
 ```
 
-차단 source kind:
+snapshot은 오직 다음 causal prefix다.
 
 ```text
-SYNTHETIC
-FIXTURE
-GENERATED
-MOCK
-TEST
+row.time <= knowledge_cutoff
 ```
+
+future row, nearest lookup, fill-forward, interpolation, silent default는 허용하지 않는다.
 
 Authority/claim boundary:
 
 ```text
-LFREAL2:
-  mode = RESEARCH_DATASET_ONLY
+LFREAL3:
+  mode = RESEARCH_ROWS_ONLY / CAUSAL_RESEARCH_SNAPSHOT_ONLY
   operational_authority = false
   execution_authority = false
   deployment_authority = false
-  provider_authority = false
-  file_io_authority = false
-  content_hash_verified = true
   market_data_authenticity_verified = false
   real_data_claim = false
 ```
-
-`content_hash_verified=true`는 caller가 넘긴 bytes와 emitted SHA-256이 일치한다는 뜻뿐이다. 외부 시장데이터 출처의 진위까지 증명하지 않는다.
 
 broader repo compliance는 계속 **REMEDIATION_REQUIRED**다.
 
 ## 4. 바로 다음에 할 일
 
-이제 같은 종류의 contract를 더 만드는 것보다 **실제 externally obtained historical bytes 확보**가 우선이다.
+먼저 LFREAL3 local trust gate를 닫는다.
 
-```text
-external historical bytes
- -> LFREAL2 freeze/content hash
- -> source origin 별도 검증
- -> narrow causal row parser/producer
- -> exact as-of LF1/LF2 evidence
- -> strictly post-observation outcomes
- -> LFVAL1 / LFOUT1 / LFREAL1 real study
+```powershell
+python -m unittest test_stage1_multi_symbol_follower_causal_rows.py
+powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
-실제 source material이 없는데 parser/producer를 과도하게 설계하거나 fixture를 복제해 real study라고 부르지 않는다.
+focused + Full이 둘 다 PASS해야 LFREAL3를 trusted로 승격한다.
+
+그 뒤에도 real source material이 없으면 구조만 계속 늘리지 않는다. 실제 다음 연구 단계는 **진짜 external historical bytes → LFREAL2 freeze → LFREAL3 rows → exact-as-of LF1/LF2 producer → strictly post-observation outcome producer**다.
 
 automatic selection, allocation, adaptive learning, new DSL grammar, live deployment gate는 계속 보류한다.
 
