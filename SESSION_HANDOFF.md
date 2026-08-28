@@ -18,28 +18,31 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / 2026-08-28 KST**
 - VSLICE1 checkpoint `72445456e86b695dc7288ab3a48856fa560463dd`에서 generic mechanical vertical slice가 닫혔다.
 - LF2 trusted executable checkpoint는 `5a6e6e53c089ed108d19fa729cba84874e856388`이다.
 - LFVAL1 trusted executable checkpoint는 `283af6e8ed046324698b9ff49e95f5044131f453`이다.
-- LFVAL1 사용자 로컬 검증은 `Ran 7 tests in 0.002s / OK` 및 `[PASS] Tactical P1 verification completed: mode=Full.`이다.
+- 새 LFOUT1 remote executable checkpoint `f95d15f2f66533a616db5a86df9cbe9e1f7c418b`를 만들었지만 아직 local validation 전이다.
 
 ## 3. 현재 위치
 
-LF2는 trusted observation-only orchestration이고 LFVAL1은 그 frozen evidence를 TRAIN / VALIDATION / OOS / HARSH로 검증하는 trusted evidence-only 층이다.
-
 ```text
-LF1 OBSERVATION_ONLY relation result
+LF1 OBSERVATION_ONLY relation evidence
 + local deterministic setup / hard guard
  -> LF2 ARM_PENDING / HOLD / HOLD_PENDING / CANCEL_PENDING evidence
- -> LFVAL1 TRAIN / VALIDATION / OOS / HARSH evidence validation
+ -> LFVAL1 TRAIN / VALIDATION / OOS / HARSH stability validation
+ -> LFOUT1 exact frozen outcome validation (REMOTE_UNVALIDATED)
 ```
 
-LFVAL1 explicit axes:
+LFOUT1은 BacktestEngine을 직접 호출하지 않는다. 이미 생성된 LF2 evidence와 별도로 동결된 outcome row를 exact `evidence_hash`로 결합한다.
+
+검증 축:
 
 ```text
-selection qualified rate
-ARM rate
-hard-guard pass rate
-relation-valid rate
-invalid active pending cancellation safety
+ARM forward-return edge vs non-ARM
+ARM MFE edge vs non-ARM
+ARM MAE regression vs non-ARM
+CANCEL avoided-loss magnitude
+holdout ARM return-edge regression vs TRAIN
 ```
+
+TRAIN / VALIDATION / OOS는 정확히 하나씩, HARSH는 adverse_reason과 함께 최소 하나가 필요하다. nearest match, fill-forward, interpolation, silent default는 없다.
 
 Authority boundary:
 
@@ -49,34 +52,35 @@ LF2:
   operational_authority = false
   execution_authority = false
 
-LFVAL1:
+LFVAL1 / LFOUT1:
   mode = EVIDENCE_ONLY
   operational_authority = false
   execution_authority = false
   deployment_authority = false
 ```
 
-Hard guard는 deterministic veto다. unsafe ARM은 fail closed이며, invalid active pending evidence는 `CANCEL_PENDING`이어야 LFVAL1을 통과한다.
-
 broader repo compliance는 계속 **REMEDIATION_REQUIRED**다.
 
 ## 4. 바로 다음에 할 일
 
-LFVAL1 trust를 deployment authority로 확대하지 않는다.
+LFOUT1 local trust gate를 먼저 닫는다.
 
-다음 후보 tranche는 **별도 bounded outcome/backtest evidence**다.
-
-```text
-trusted LF1 relation evidence
-+ trusted LF2 intent evidence
-+ trusted LFVAL1 partition stability evidence
- -> bounded outcome/backtest measurement
- -> only then decide whether any further permission is justified
+```powershell
+python -m unittest test_stage1_multi_symbol_follower_outcome_validation.py
+powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
-이 단계에서도 먼저 한 개의 deterministic evidence slice만 검증한다. 수익성/효용을 실제 outcome과 연결하더라도 Core DSL, Parser/Runtime/Broker semantics는 변경하지 않는 방향을 우선한다.
+focused + Full이 모두 PASS해야 LFOUT1을 trusted로 승격한다.
 
-adaptive learning, ranking 확대, allocation, live selection, 새 DSL grammar, production deployment gate는 계속 보류한다.
+LFOUT1 PASS도 production profitability나 deployment authority를 의미하지 않는다. 다음 권한을 자동으로 열지 않는다:
+
+```text
+automatic selection
+allocation
+adaptive learning
+new DSL grammar
+live deployment gate
+```
 
 ## 5. 세션복구 규칙
 
