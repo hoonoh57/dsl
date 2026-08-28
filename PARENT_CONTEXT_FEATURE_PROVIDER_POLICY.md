@@ -1,38 +1,35 @@
 # Parent Context Feature Provider / Read-Only DSL Binding Policy
 
-Status: **AUTHORITATIVE CONTEXT-INHERITANCE POLICY / CTXVAL1 + CTXDEP1 + CTXINT1 TRUSTED / CTXINT2 ACTIVE / 2026-08-28 KST**
+Status: **AUTHORITATIVE CONTEXT-INHERITANCE POLICY / CTXINT2 TRUSTED / CTXINT3 ACTIVE / 2026-08-28 KST**
 
 ## Governing rule
 
-> Parent features are computed outside Instrument DSL, frozen as point-in-time evidence, consumed through registered read-only binding, validated out-of-sample, and may only restrict an already-valid local tactic opportunity.
+> Parent features are computed outside Instrument DSL, frozen as point-in-time evidence, validated out-of-sample, and may only restrict an already-valid local tactic opportunity.
 
-Instrument DSL remains deterministic and single-instrument. It may read stable registered `ctx.*` values, but it must not calculate parent features, call providers, discover peers/universes, rank symbols, allocate capital or create trades from macro context alone.
+Instrument DSL remains deterministic and single-instrument. Parent context may never create an entry, bypass a local hard guard, change exit authority or submit Broker orders directly.
 
-## Trusted context and evidence path
+## Trusted evidence and integration path
 
 ```text
-PCTX1 typed/versioned provider contract
- -> PCTX2B exact ParentContextFrame
- -> CTXDSL1 registered read-only ctx.*
- -> CTXBT1 exact Backtest binding
- -> PCTX2A/PCTX2C/PCTX2D MARKET/SECTOR production
- -> MSA1/MSA2/MSA3 bounded GROUP evidence/publication
- -> CTXVAL1 Train/Validation/OOS/Harsh validation
+PCTX provider / exact frame / registered binding
+ -> MSA bounded GROUP publication
+ -> CTXVAL1 Train / Validation / OOS / Harsh validation
  -> CTXDEP1 validated deployment-policy evidence
- -> CTXINT1 trusted block-only composition preview
- -> CTXINT2 blocking-only Backtest entry-gate integration (active)
+ -> CTXINT1 block-only composition proof
+ -> CTXINT2 trusted bar_close Backtest entry suppression
+ -> CTXINT3 next_open causal timing validation (active)
 ```
 
 Recent trusted checkpoints:
 
 ```text
-MSA3    02904728cb0a39669e6809ba21c4e2dd8eb947e3
 CTXVAL1 db9d9ddeeec55f2774d7a2d873ec2f19d77726b4
 CTXDEP1 804baea25f29d1c77f2984d67e37dbb5ebb1160e
 CTXINT1 81903641b2877e16a3bcdcbf7ed1c1bcf1864ad9
+CTXINT2 b3b547b9d2d0eaeee654790243f031a3bbb88198
 ```
 
-Each received focused regression PASS and Tactical P1 Full PASS at the exact SHA.
+Each received focused regression PASS and Tactical P1 Full PASS at its exact SHA.
 
 ## Exact evidence rules
 
@@ -49,41 +46,35 @@ NO provider call from Parser / Runtime / Backtest / Broker
 
 Feature IDs and provider manifests are versioned identities. Missing, stale, future or semantically mismatched evidence is rejected rather than guessed.
 
-## GROUP publication and validation
-
-MSA3 may publish only bounded aggregate GROUP context. It does not publish peer identities, rankings, allowed/blocked symbol lists, allocation, entry gates or Broker instructions.
-
-CTXVAL1 requires independent TRAIN, VALIDATION, OOS and HARSH survival under explicit no-hidden-score tolerances. CTXDEP1 may create a policy document only from a validated PASS slice while preserving exact tactic, rule, feature, manifest and holdout identities.
-
-## CTXINT1 trusted composition rule
+## CTXINT2 trusted bar-close integration
 
 Trusted checkpoint:
 
 ```text
-81903641b2877e16a3bcdcbf7ed1c1bcf1864ad9
-Ran 7 tests in 0.129s
+b3b547b9d2d0eaeee654790243f031a3bbb88198
+Ran 7 tests in 0.106s
 OK
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-CTXINT1 proves:
+CTXINT2 reuses the existing Backtest `entry_gate` and proves blocking-only `bar_close` integration. BrokerEmulator remains execution authority and exits are not controlled by parent context.
+
+During subsequent timing review, deferred entry orders were identified as a separate authority problem. Current CTXINT2 source is therefore narrowed to MARKET entries only; that post-trust hardening is revalidated with CTXINT3.
+
+## CTXINT3 active next-open timing rule
+
+`next_open` may use only evidence already known at the prior completed bar:
 
 ```text
-effective entry eligibility
- = tactic trigger
- AND local hard-guard pass
- AND validated parent-context permission
+bar t completes
+ -> tactic trigger / local hard guard / validated context permission are known
+ -> permission is shifted forward
+ -> may gate an existing MARKET entry at bar t+1 open
 ```
 
-Parent context may only remove an existing local opportunity. It may never create entry or bypass a failed hard guard.
+The unfinished context of bar t+1 may not be used to rescue or alter the t+1 open decision. The first bar has no prior completed-bar authority.
 
-## CTXINT2 active integration boundary
-
-CTXINT2 is the first blocking-only Backtest integration. It reuses the existing `BacktestEngine.run(..., entry_gate=...)` seam instead of adding execution semantics.
-
-V1 requires exact validated tactic identity, exact DEPLOYMENT frame/registry, exact market symbol/full timeline, explicit tactic-trigger/local-hard-guard evidence, and `signal_mode=bar_close`.
-
-Authority is deliberately narrow:
+CTXINT3 retains the same narrow authority:
 
 ```text
 gate_authority = ENTRY_SUPPRESSION_ONLY
@@ -94,29 +85,22 @@ broker_order_authority = false
 execution_authority = BrokerEmulator
 ```
 
-`next_open` is rejected in v1 until signal-time/fill-time context semantics receive separate validation.
+## Deferred-order boundary
 
-## Core and execution boundary
+LIMIT/STOP/STOP_LIMIT validated-context integration remains fail-closed.
 
-Instrument DSL must not directly implement provider/network/database calls, universe discovery, peer-symbol runtime reads, cross-sectional ranking, leader/follower selection, portfolio allocation or arbitrary dynamic context discovery.
+A deferred order may live beyond its originating signal bar, so a separate contract must decide whether fill authority comes from the original signal-time context, the latest completed pre-fill context, continuous permission, explicit cancellation on context change, or another declared rule.
 
-A context policy may never force an entry, change exit/risk behavior or submit Broker orders directly. BrokerEmulator remains execution authority.
+Until that contract is independently validated, generic DSL/Broker deferred-order capability does not imply validated parent-context authority for those orders.
 
-## Required progression
+## Core boundary
 
-```text
-robust NEUTRAL micro tactic
- -> causal OBSERVED parent evidence
- -> attribution
- -> Train/Validation/OOS/Harsh validation
- -> validated deployment-policy evidence
- -> trusted block-only composition proof
- -> blocking-only Backtest integration
- -> separately validated additional execution modes / production integration
-```
+Instrument DSL must not directly implement provider/network/database calls, universe discovery, peer-symbol runtime reads, ranking, leader/follower selection, allocation or arbitrary dynamic context discovery.
+
+Parent allow is permission only, never forced entry. Macro context must amplify a valid micro tactic rather than become life support for one.
 
 ## Current nonclaims
 
-Do not claim yet trusted Full PASS for CTXINT2, validated `next_open` or pending-order context semantics, production/live parent-context gating, empirical GROUP profitability, automatic cross-symbol allocation, live readiness or repository-wide compliance PASS.
+Do not claim trusted Full PASS for CTXINT3, validated pending-order context semantics, production/live parent-context gating, empirical GROUP profitability/generalization, automatic cross-symbol allocation, live readiness or repository-wide compliance PASS.
 
 `REMEDIATION_REQUIRED` remains broader repository status.
