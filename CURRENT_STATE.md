@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_TRUSTED_FULL_PASS / LFVAL1_TRUSTED_FULL_PASS / LFOUT1_TRUSTED_FULL_PASS / LFREAL1_TRUSTED_FULL_PASS / LFREAL2_REMOTE_UNVALIDATED / REMEDIATION_REQUIRED**  
+Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_TRUSTED_FULL_PASS / LFVAL1_TRUSTED_FULL_PASS / LFOUT1_TRUSTED_FULL_PASS / LFREAL1_TRUSTED_FULL_PASS / LFREAL2_TRUSTED_FULL_PASS / REMEDIATION_REQUIRED**  
 Updated: 2026-08-29 KST
 
 ## Recovery
@@ -37,12 +37,7 @@ LF2               5a6e6e53c089ed108d19fa729cba84874e856388
 LFVAL1            283af6e8ed046324698b9ff49e95f5044131f453
 LFOUT1            ca4d5309a658de02f970e341bbf86ad87ab327ae
 LFREAL1           5aa1da3268f1f3e031aa6d607a4d3a5921f03e58
-```
-
-LFREAL2 remote executable checkpoint awaiting local validation:
-
-```text
-10861c232d03937c5ae77e2be32cd1873a5ff977
+LFREAL2           10861c232d03937c5ae77e2be32cd1873a5ff977
 ```
 
 Relevant external Chart contract checkpoint used by trusted Full runs:
@@ -67,51 +62,15 @@ LFOUT1:       Ran 7 tests in 0.003s / OK
 LFOUT1 Full:  [PASS] Tactical P1 verification completed: mode=Full.
 LFREAL1:      Ran 7 tests in 0.002s / OK
 LFREAL1 Full: [PASS] Tactical P1 verification completed: mode=Full.
+LFREAL2:      Ran 7 tests in 0.001s / OK
+LFREAL2 Full: [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-## Generic mechanical vertical slice — closed
+## Trusted research boundary
 
-VSLICE1 proved that existing generic exact `ctx.*`, stable pending ids, generic `order.cancel`, and BrokerEmulator semantics are sufficient for the deterministic mechanical slice. No missing Core primitive was demonstrated.
+LF2 remains observation-only orchestration. LFVAL1 validates frozen intent evidence. LFOUT1 validates exact frozen outcomes. LFREAL1 validates non-fixture provenance/timing admission. LFREAL2 freezes caller-provided external historical bytes into a deterministic SHA-256 manifest.
 
-## LF2 / LFVAL1 / LFOUT1 trusted boundary
-
-LF2 remains observation-only orchestration with no execution authority. LFVAL1 validates frozen LF2 evidence across explicit TRAIN / VALIDATION / OOS / HARSH partitions. LFOUT1 joins separately frozen outcomes by exact `evidence_hash` and evaluates explicit outcome axes without replaying tactics or calling execution infrastructure.
-
-LFOUT1 remains evidence-only with no operational, execution, or deployment authority.
-
-## LFREAL1 trusted admission tranche
-
-LFREAL1 validates exact non-fixture provenance declarations, exact observation cutoff alignment, and strictly post-observation outcome timing before delegating outcome axes to LFOUT1.
-
-It deliberately keeps:
-
-```text
-mode = RESEARCH_EVIDENCE_ONLY
-operational_authority = false
-execution_authority = false
-deployment_authority = false
-source_content_verified = false
-real_data_claim = false
-```
-
-LFREAL1 is trusted at `5aa1da3268f1f3e031aa6d607a4d3a5921f03e58` after local focused 7/7 PASS and Tactical P1 Full PASS.
-
-## LFREAL2 remote-unvalidated external dataset freeze tranche
-
-The repository still contains no authoritative real-market LF research dataset. LFREAL2 therefore only freezes caller-provided external bytes into an immutable research manifest.
-
-```text
-caller-provided bytes
-+ explicit non-fixture source declaration
-+ symbols / timeframe / time range / record count
-+ optional expected SHA-256
- -> exact SHA-256 content identity
- -> immutable dataset manifest
-```
-
-LFREAL2 performs no file I/O, provider lookup, network access, parsing, tactic replay, execution, stock selection, or allocation.
-
-It deliberately outputs:
+LFREAL2 deliberately remains research-only:
 
 ```text
 mode = RESEARCH_DATASET_ONLY
@@ -125,9 +84,7 @@ market_data_authenticity_verified = false
 real_data_claim = false
 ```
 
-`content_hash_verified=true` proves only identity of the exact bytes supplied by the caller. It does not authenticate the market-data origin.
-
-LFREAL2 is **not trusted** until user-local focused tests and Tactical P1 Full both pass.
+`content_hash_verified=true` proves only that the manifest identifies the exact caller-provided bytes. It does not prove those bytes came from a genuine exchange/vendor source.
 
 ## Defect history preserved
 
@@ -137,15 +94,25 @@ Initial LF2 checkpoint `14bf03f1f9473a607d4330e4d06f9d0ef9bdd219` had a source-l
 
 ## Next boundary
 
-First close the LFREAL2 local trust gate.
+Do not add more architecture merely to simulate progress.
 
-Even a trusted LFREAL2 does not mean an external real dataset has been acquired. After trust, useful progress requires actual externally obtained historical bytes. Those bytes should be frozen by LFREAL2, their origin separately verified, and only then should a narrow causal parser/producer be considered for LF1/LF2 and strictly post-observation outcomes.
+The next useful step requires **actual externally obtained historical bytes**. Once available:
 
-Do not add automatic allocation, adaptive learning, new DSL grammar, live selection, broader ranking, or deployment permission merely because the dataset-freeze contract passes.
+```text
+external historical bytes
+ -> LFREAL2 freeze/content hash
+ -> independent source-origin verification
+ -> narrow causal row parser/producer
+ -> LF1/LF2 evidence at exact as-of
+ -> strictly post-observation outcomes
+ -> LFVAL1 / LFOUT1 / LFREAL1 real study
+```
+
+Until real source material exists, automatic allocation, adaptive learning, new DSL grammar, live selection, broader ranking, and deployment permission remain closed.
 
 ## Nonclaims
 
-No external real-market dataset has been collected by LFREAL2. No real-data LF study, profitable leader/follower edge, production leader selection, validated deployment gating, live provider/broker readiness, or repository-wide compliance PASS is claimed.
+No external real-market dataset has yet been collected or authenticated by this repository. No real-data LF study, profitable leader/follower edge, production leader selection, validated deployment gating, live provider/broker readiness, or repository-wide compliance PASS is claimed.
 
 `REMEDIATION_REQUIRED` remains authoritative for broader repository compliance.
 
