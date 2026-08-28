@@ -1,10 +1,9 @@
 """Observation-only pending-intent orchestration over trusted LF1 evidence.
 
-This module is an optional multi-symbol Add-on seam. It composes already-frozen
-leader/follower relation evidence with one follower-local deterministic setup,
-local hard-guard state and an explicit relation-validity flag. It emits intent
-evidence only; it never calls DSLRuntime, BacktestEngine, BrokerEmulator,
-providers, network or persistence.
+This optional multi-symbol Add-on seam composes already-frozen leader/follower
+relation evidence with one follower-local deterministic setup, local hard-guard
+state and an explicit relation-validity flag. It emits intent evidence only and
+has no execution, provider, network or persistence authority.
 """
 from __future__ import annotations
 
