@@ -1,12 +1,30 @@
 # LFVAL1 Follower Evidence Validation — Implementation Checkpoint
 
-Status: **REMOTE_UNVALIDATED / AWAITING_LOCAL_FOCUSED_AND_FULL_PASS / 2026-08-28 KST**
+Status: **TRUSTED FULL PASS / EVIDENCE_ONLY / 2026-08-28 KST**
 
 ## Purpose
 
 LFVAL1 validates frozen LF2 observation-only evidence across explicit TRAIN / VALIDATION / OOS / HARSH partitions.
 
 It does not replay tactics, calculate profitability, submit/cancel orders, publish deployment gates, or acquire operational authority.
+
+## Trusted checkpoint
+
+Executable checkpoint:
+
+```text
+283af6e8ed046324698b9ff49e95f5044131f453
+```
+
+Exact user-local trust evidence:
+
+```text
+Ran 7 tests in 0.002s
+OK
+[PASS] Tactical P1 verification completed: mode=Full.
+```
+
+Therefore LFVAL1 is trusted Full-green at that executable checkpoint.
 
 ## Validation axes
 
@@ -35,13 +53,7 @@ deployment_authority = false
 
 A PASS means only that the declared observation-evidence contract remains stable across the supplied partitions. It does not prove a profitable edge or authorize trading.
 
-## Executable remote checkpoint
-
-```text
-283af6e8ed046324698b9ff49e95f5044131f453
-```
-
-Executable files:
+## Executable files
 
 ```text
 core/multi_symbol_follower_validation.py
@@ -62,14 +74,13 @@ Seven tests cover:
 6. partition order does not alter validation identity;
 7. LF2 policy mismatch fails closed.
 
-## Local trust gate
+## Next boundary
 
-```powershell
-python -m unittest test_stage1_multi_symbol_follower_validation.py
-powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
-```
+LFVAL1 being trusted does not grant deployment authority.
 
-Only after both pass locally may LFVAL1 become trusted.
+The next authorized question is whether a separate, bounded outcome/backtest evidence tranche should be attached to this already-trusted observation-only evidence. That tranche must remain separate from Core DSL and must not infer deployment permission merely from LFVAL1 PASS.
+
+Do not open automatic stock selection, allocation, adaptive learning, new DSL grammar, or live execution authority as a consequence of this checkpoint.
 
 ## Nonclaims
 
