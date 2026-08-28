@@ -1,26 +1,22 @@
 # Quant DSL Current State
 
-Status: **LF1_TRUSTED_FULL_PASS / GCANCEL1_REMOTE_UNVALIDATED / AWAITING_LOCAL_FOCUSED_AND_FULL_PASS / REMEDIATION_REQUIRED**  
+Status: **GCANCEL1_TRUSTED_FULL_PASS / GCANCEL2_REMOTE_UNVALIDATED / AWAITING_LOCAL_FOCUSED_AND_FULL_PASS / REMEDIATION_REQUIRED**  
 Updated: 2026-08-28 KST
 
 ## Session handoff and crash-safe recovery
 
-`SESSION_HANDOFF.md` is the **primary human-readable handoff document** for this project.
+`SESSION_HANDOFF.md` is the primary human-readable handoff document. `SESSION_RECOVERY.md` is the detailed recovery procedure.
 
-`SESSION_RECOVERY.md` is the detailed crash-safe reconstruction procedure.
+When the user sends `세션복구`, recover in this order:
 
-When the user sends `세션복구` in a new `dsl` project chat:
+1. read `SESSION_HANDOFF.md`;
+2. inspect the tail of previous project conversations for newer exact local evidence or decisions;
+3. compare the latest trusted local checkpoint with current GitHub `main`;
+4. inspect intervening executable changes;
+5. apply the authority documents below;
+6. report briefly as 개발철학 / 최근 한 일 / 앞으로 할 일.
 
-1. read `SESSION_HANDOFF.md` first for the human-level project story and next boundary;
-2. inspect the tail of previous ChatGPT Project conversations for anything newer than the handoff;
-3. recover the latest user-reported local SHA / focused test / Full test evidence from those conversations;
-4. compare that point with current GitHub `main` and inspect intervening commits/files;
-5. use this file and the authority documents to enforce architecture/permission boundaries;
-6. reply briefly with only **개발철학(5개 이내) / 최근 한 일 / 앞으로 할 일**.
-
-Important crash rule: neither the handoff nor this file is assumed to have been updated before an abrupt context-limit termination. Recovered exact local PASS evidence outranks stale `AWAITING_LOCAL_VALIDATION` text, while newer remote executable commits without local PASS remain untrusted.
-
-The assistant cannot directly inspect unshared local-only filesystem state. Only when such state materially blocks recovery should a minimal `git status` / `git rev-parse HEAD` confirmation be requested.
+Recovered exact user-local focused + Full PASS evidence outranks stale `AWAITING_LOCAL_VALIDATION` text. Newer remote executable commits without local PASS remain untrusted.
 
 ## Authority order
 
@@ -41,8 +37,9 @@ The assistant cannot directly inspect unshared local-only filesystem state. Only
 15. `CTXINT1_VALIDATED_CONTEXT_GATE_PREVIEW_IMPLEMENTATION.md`
 16. `CTXINT2_VALIDATED_CONTEXT_BACKTEST_ENTRY_GATE_INTEGRATION.md`
 17. `CTXINT3_VALIDATED_CONTEXT_NEXT_OPEN_TIMING_INTEGRATION.md`
-18. earlier product/execution/playbook/audit checkpoints
-19. `PROGRESS_CHECKPOINT_2026-08-26.md`
+18. `GCANCEL1_BROKER_CLIENT_ID_CANCEL_IMPLEMENTATION.md`
+19. `GCANCEL2_DSL_BACKTEST_CANCEL_INTEGRATION.md`
+20. earlier product/execution/playbook/audit checkpoints
 
 ## Trusted exact Full checkpoints
 
@@ -72,13 +69,15 @@ CTXINT1 81903641b2877e16a3bcdcbf7ed1c1bcf1864ad9
 CTXINT2 b3b547b9d2d0eaeee654790243f031a3bbb88198
 CTXINT3 7f77694658d7155806e97bdafcc543e2c7bfeae8
 LF1     5ec230c8bbada60f0e4b9fe945a5380d7c405fe2
+GCANCEL1 583c5362ca5ea57e62353a963cd5a2cfb0addfad
 ```
 
 Recent operator evidence:
 
 ```text
-CTXINT3: Ran 7 tests in 0.150s / OK / Full PASS
-LF1:     Ran 7 tests in 0.058s / OK / Full PASS
+CTXINT3:  Ran 7 tests in 0.150s / OK / Full PASS
+LF1:      Ran 7 tests in 0.058s / OK / Full PASS
+GCANCEL1: Ran 5 tests in 0.000s / OK / Full PASS
 ```
 
 ## Governing architecture
@@ -95,86 +94,83 @@ single-instrument causal snapshots
  -> BrokerEmulator
 ```
 
-The DSL must not calculate leader/follower roles, discover peers, rank symbols or allocate capital. Those remain Add-on responsibilities.
+The DSL must not calculate leader/follower roles, discover peers, rank symbols or allocate capital.
 
-## LF1 trusted state
+## GCANCEL1 trusted state
 
-Exact trusted checkpoint:
+Executable checkpoint:
 
 ```text
-5ec230c8bbada60f0e4b9fe945a5380d7c405fe2
-Ran 7 tests in 0.058s
+583c5362ca5ea57e62353a963cd5a2cfb0addfad
+Ran 5 tests in 0.000s
 OK
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-Human meaning: LF1 can identify one qualified leader and measure which followers tend to react after it, including follow rate and lag, while keeping those observations separate and non-operational.
+`BrokerEmulator.cancel_client_order(...)` resolves explicit `client_order_id` fail-closed and delegates the authoritative `ACCEPTED/TRIGGERED -> CANCELED` transition to existing `BrokerEmulator.cancel(...)`.
 
-LF1 still has no order, allocation, entry-gate or live-selection authority.
+GCANCEL1 changes only the Broker lifecycle primitive and its focused regression. It contains no DSL syntax and no feature-specific semantics.
 
-## GCANCEL1 remote-unvalidated state
+## GCANCEL2 remote-unvalidated state
 
 Executable remote checkpoint:
 
 ```text
-583c5362ca5ea57e62353a963cd5a2cfb0addfad
+3cd5731a1702f7bfb11878dfd6e34339baa5f163
 ```
 
-`BrokerEmulator.cancel_client_order(...)` now resolves an explicit `client_order_id` fail-closed and delegates the actual `ACCEPTED/TRIGGERED -> CANCELED` transition to the existing broker-owned `cancel(...)` path.
-
-Focused regression file: `test_stage1_pending_order_cancel.py`.
-
-Change audit from pre-tranche HEAD `76134a4c565a52e965980799a76dcba127c00355` shows executable changes only in:
+GCANCEL2 adds generic Instrument DSL / Backtest integration:
 
 ```text
-core/broker.py
-test_stage1_pending_order_cancel.py
+order.cancel(id="stable-client-order-id")
 ```
 
-This is **not trusted yet** because no exact user-local focused + Full PASS has been reported.
+Parser is fail-closed: mandatory non-empty literal `id`, no mixed entry/exit command in the same cancel event.
 
-## Immediate next boundary
+Timing is causal:
 
-Do not begin Parser/Backtest integration until GCANCEL1 is locally trusted.
+- `next_open`: prior completed-bar cancel intent is applied at the next bar before price matching;
+- `bar_close`: current close-confirmed cancel intent is applied after that bar's matching and before newly submitted close-confirmed deferred orders.
+
+The actual lifecycle still routes only through the trusted Broker cancellation primitive.
+
+Focused regression file:
+
+```text
+test_stage1_dsl_pending_order_cancel.py
+```
+
+Change audit since trusted GCANCEL1 shows new executable changes only in:
+
+```text
+core/dsl_parser.py
+core/backtest.py
+test_stage1_dsl_pending_order_cancel.py
+```
+
+GCANCEL2 is **not trusted yet**.
+
+## Immediate validation boundary
 
 Required local validation after pull:
 
 ```powershell
-python -m unittest test_stage1_pending_order_cancel.py
+python -m unittest test_stage1_dsl_pending_order_cancel.py
 powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
-After both pass, the next executable micro-tranche is generic Instrument DSL / Backtest cancellation intent integration using explicit stable client identity.
+Only after both pass may GCANCEL2 become trusted.
 
-That integration must remain feature-blind:
-
-- no leader/follower syntax;
-- no sector or peer-symbol syntax;
-- no learned-policy authority;
-- no alternative cancellation lifecycle outside BrokerEmulator.
-
-Only after the generic cancel path is independently trusted should a later story compose:
-
-```text
-leader rebounds
- -> follower setup appears
- -> pending follower order exists
- -> leader/sector invalidates
- -> cancel pending order
-```
+After trust, the next decision is not automatic feature expansion. First confirm whether generic cancellation is sufficient for the minimal vertical slice before composing any leader/follower orchestration.
 
 ## Remote CI environment
 
-GitHub Actions for GCANCEL1 again failed before any executable job step was created (`steps=[]`). Classification remains `environment issue`; workflow/test/product guards are not weakened.
+GitHub Actions has repeatedly failed before executable job steps receive a runner. Such cases remain `environment issue`; workflow/test/product guards are not weakened.
 
 ## Nonclaims
 
-Do not claim profitable leader/follower edge, production leader/follower selection, validated generic DSL cancellation, live trading readiness or repository-wide compliance PASS.
+Do not claim profitable leader/follower edge, production leader/follower selection, trusted GCANCEL2, live trading readiness, or repository-wide compliance PASS.
 
 `REMEDIATION_REQUIRED` remains authoritative for broader repository compliance.
-
-## Current validation boundary
-
-GCANCEL1 exists remotely but remains `REMOTE_UNVALIDATED`. Exact local focused + Full PASS is the trust gate.
 
 Any later executable failure must first be classified exactly as `test defect`, `product defect`, `authority drift`, `environment issue`, or `unknown`.
