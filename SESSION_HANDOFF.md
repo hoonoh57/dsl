@@ -16,13 +16,13 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / 2026-08-28 KST**
 
 - `GCANCEL1` trusted: 명시적 `client_order_id` 취소가 기존 Broker lifecycle에 위임된다.
 - `GCANCEL2` trusted: generic DSL `order.cancel(id="...")`가 Backtest timing을 거쳐 Broker cancellation primitive로 연결된다.
-- GCANCEL2 executable checkpoint는 `3cd5731a1702f7bfb11878dfd6e34339baa5f163`이다.
-- 사용자 로컬 검증은 `Ran 5 tests in 0.004s / OK` 및 `Tactical P1 Full PASS`다.
-- 최소 vertical-slice 검토 결과, 현재 부족한 것은 새 Core 기능보다 **context→pending→cancel 조합 검증**으로 판정했다.
+- `VSLICE1` trusted: exact DEPLOYMENT `ctx.*` 무효화가 pending LIMIT 주문을 `bar_close`/`next_open` 모두에서 causal하게 취소하는 조합을 test-only로 검증했다.
+- VSLICE1 executable validation checkpoint는 `72445456e86b695dc7288ab3a48856fa560463dd`이다.
+- 사용자 로컬 검증은 `Ran 2 tests in 0.039s / OK` 및 `Tactical P1 Full PASS`다.
 
 ## 3. 현재 위치
 
-기존 trusted 기능은 이미 다음 구조를 지원한다.
+현재 generic mechanical vertical slice는 닫힌 것으로 간주한다.
 
 ```text
 registered exact DEPLOYMENT ctx.* evidence
@@ -33,32 +33,25 @@ registered exact DEPLOYMENT ctx.* evidence
  -> BrokerEmulator
 ```
 
-`PARENT_CONTEXT_FEATURE_PROVIDER_POLICY.md`가 deferred-order context orchestration을 별도 검증 대상으로 남겨 두었으므로, 이번에는 제품 코드를 늘리지 않고 test-only tranche로 닫는다.
+VSLICE1은 `test_stage1_context_pending_order_cancel.py` 하나만 추가했고 제품 소스는 변경하지 않았다.
 
-VSLICE1 remote executable validation checkpoint:
+따라서 현재 부족한 것은 새 Core primitive가 아니라 외부 Add-on에서 실제 evidence/tactic을 만드는 문제다.
 
-```text
-72445456e86b695dc7288ab3a48856fa560463dd
-```
-
-새 실행 파일은 `test_stage1_context_pending_order_cancel.py` 하나뿐이며 제품 소스 변경은 없다.
-
-테스트는 `bar_close`와 `next_open`에서 exact DEPLOYMENT context 무효화가 pending LIMIT 주문을 이후 체결 전에 취소하고, 실행 권한이 계속 BrokerEmulator에 있음을 확인한다.
+대장/추종, sector, peer-symbol, ranking, allocation, learned-policy 의미는 계속 Core 밖에 둔다.
 
 broader repo compliance는 계속 **REMEDIATION_REQUIRED**다.
 
 ## 4. 바로 다음에 할 일
 
-VSLICE1 local trust gate:
+다음 개발축은 Core 확장이 아니라 **작은 결정론적 Add-on evidence/tactic 실험**이다.
 
-```powershell
-python -m unittest test_stage1_context_pending_order_cancel.py
-powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
-```
+1. 외부 evidence source 하나만 고른다.
+2. follower-local setup 하나만 정의한다.
+3. hard guard를 가장 먼저 적용한다.
+4. 이미 trusted인 `ctx.*` / pending order / `order.cancel(id=...)` / BrokerEmulator만 재사용한다.
+5. focused backtest evidence가 나온 뒤에만 다음 확장을 판단한다.
 
-두 검증이 모두 PASS하면 VSLICE1을 trusted로 승격하고 **generic mechanical vertical slice가 닫힌 것으로 간주**한다.
-
-그 뒤에는 새 Core grammar/학습/랭킹/allocation을 추가하지 않고, 바깥 Add-on에서 한 개의 결정론적 evidence/tactic 실험으로 이동한다.
+adaptive learning, ranking 확대, portfolio allocation, 새 grammar는 현재 보류한다.
 
 ## 5. 세션복구 규칙
 
