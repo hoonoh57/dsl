@@ -1,170 +1,131 @@
 # Multi-Symbol Add-on Extension Policy
 
-Status: **AUTHORITATIVE OPTIONAL EXTENSION POLICY / MSA1-MSA3 TRUSTED / CTXVAL1 VALIDATION ACTIVE / 2026-08-27 KST**
+Status: **AUTHORITATIVE OPTIONAL EXTENSION POLICY / MSA1-MSA3 + CTXVAL1 + CTXDEP1 TRUSTED / CTXINT1 ACTIVE / 2026-08-28 KST**
 
 ## 1. Governing rule
 
 > **Multi-symbol capability is an optional Add-on, not an Instrument DSL responsibility.**
 
-Instrument DSL remains single-instrument. Multi-symbol chart display, cohort analysis, leader/follower evidence, GROUP publication or context validation does not create peer-symbol execution authority.
+Instrument DSL remains single-instrument. Cross-symbol research may inform bounded registered parent context, but it must not directly read peers, discover universes, rank symbols, allocate capital or create orders.
 
-Instrument DSL must not directly perform arbitrary cross-symbol requests, peer-symbol runtime reads, universe enumeration, cross-symbol ranking, leader/follower selection, slot/capital allocation or hidden dependence on displayed chart panes.
-
-## 2. Existing scenario vertical slice
-
-`core/multi_symbol.py` remains the earlier deterministic scenario/cohort vertical slice. MSA1-MSA3 do not rewrite or remove it.
-
-New cross-symbol research should use immutable point-in-time snapshot evidence whenever the requirement can be represented without direct peer-symbol access from Instrument DSL.
-
-## 3. Trusted MSA evidence/publication chain
-
-Trusted checkpoints:
+## 2. Trusted evidence/publication chain
 
 ```text
-MSA1  adaef963dce717b252f2575896a74462c8a277a2
-MSA2  3a5a2ece658ead28a1822ef7482a3d284d12e2d6
-MSA3  02904728cb0a39669e6809ba21c4e2dd8eb947e3
+MSA1 immutable per-symbol snapshots
+ -> MSA2 bounded chronological GROUP evidence
+ -> MSA3 bounded aggregate registered GROUP features
+ -> CTXVAL1 Train / Validation / OOS / Harsh context validation
+ -> CTXDEP1 validated deployment-policy evidence
 ```
 
-Each exact checkout received its focused regression PASS and Tactical P1 Full PASS.
-
-The trusted chain is:
+Trusted exact checkpoints:
 
 ```text
-single-instrument causal state @ exact t
- -> MSA1 immutable InstrumentSignalSnapshot
- -> explicit SnapshotUniverse
- -> MSA2 bounded exact chronological GROUP evidence
- -> MSA3 bounded aggregate registered GROUP parent features
+MSA1    adaef963dce717b252f2575896a74462c8a277a2
+MSA2    3a5a2ece658ead28a1822ef7482a3d284d12e2d6
+MSA3    02904728cb0a39669e6809ba21c4e2dd8eb947e3
+CTXVAL1 db9d9ddeeec55f2774d7a2d873ec2f19d77726b4
+CTXDEP1 804baea25f29d1c77f2984d67e37dbb5ebb1160e
 ```
 
-MSA1/MSA2 remain observation-only. MSA3 remains research-only publication. None has operational authority.
+Each received focused regression PASS and Tactical P1 Full PASS at its exact SHA.
 
-## 4. MSA1 immutable snapshot seam
+## 3. MSA1/MSA2 observation boundary
 
-MSA1 requires exact `as_of == knowledge_cutoff`, explicit universe membership, finite declared comparison metrics and stable tactic/evidence identity. Missing/extra symbols, time mismatch or undeclared comparison axes fail closed.
+MSA1 freezes exact per-symbol causal snapshots under an explicit universe. MSA2 derives bounded leader/follower/breadth/persistence observation evidence from those snapshots.
 
-Analysis is deterministic per-axis/Pareto evidence with no hidden universal score:
+Both remain:
 
 ```text
 mode = OBSERVATION_ONLY
 operational_authority = false
 ```
 
-## 5. MSA2 bounded group evidence
+Leader/follower labels are descriptive evidence, not symbol permission.
 
-MSA2 consumes a bounded chronological sequence of exact MSA1 points under one stable explicit universe and stable tactic identity topology.
+## 4. MSA3 GROUP publication boundary
 
-Policy explicitly declares metric, MAX/MIN direction, favorable threshold, leader count, lookback, max symbols and max points.
+MSA3 may publish only bounded aggregate GROUP values through the registered Parent Feature Provider seam. It does not publish peer identities, rank lists, allowed/blocked symbols, slot counts, allocation, entry gates or Broker instructions.
 
-It may describe eligible/favorable breadth, current leaders/followers, direction-normalized spread, follower favorable rate and bounded leader persistence. Leader/follower labels are observation evidence only; missing follower aggregates remain explicit null.
+Publication remains research-only and exact-time. Missing follower evidence remains absent rather than being manufactured as zero.
 
-## 6. MSA3 registered GROUP publication — trusted research boundary
+## 5. CTXVAL1 usefulness validation
 
-MSA3 publishes only aggregate values through the Parent Feature Provider seam:
+A published GROUP feature must survive explicit TRAIN / VALIDATION / OOS / HARSH checks before any deployment-policy evidence is allowed.
 
-```text
-group.<namespace>_comparison_eligible_rate
-group.<namespace>_favorable_breadth_rate
-group.<namespace>_leader_persistence_rate
-group.<namespace>_leader_follower_spread       optional
-group.<namespace>_follower_favorable_rate      optional
-```
+A condition that looks favorable only on TRAIN is rejected. There is no hidden weighted score.
 
-It does not publish peer symbol identities, rank lists, allowed/blocked symbols, max slots, allocation, entry gate, DeploymentDecision or Broker orders.
-
-The source timeline verifies exact MSA2 `result_hash` evidence and forbids nearest/fill-forward. The GROUP result requires an exact configured SECTOR dependency and records its result hash, preserving:
+CTXVAL1 is trusted at:
 
 ```text
-MARKET -> SECTOR -> GROUP
+db9d9ddeeec55f2774d7a2d873ec2f19d77726b4
+Ran 7 tests in 0.073s
+OK
+[PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-MSA3 remains:
+## 6. CTXDEP1 policy evidence
+
+CTXDEP1 converts only a validated CTXVAL1 PASS condition into a non-operational deployment-policy evidence bundle while preserving exact tactic, rule, feature, manifest and holdout provenance.
+
+CTXDEP1 is trusted at:
 
 ```text
-publication_state = RESEARCH_ONLY
-operational_authority = false
+804baea25f29d1c77f2984d67e37dbb5ebb1160e
+Ran 6 tests in 0.028s
+OK
+[PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-## 7. CTXVAL1 validation before deployment — active
+A validated policy document still does not have execution authority.
 
-Registered publication is not evidence of usefulness. Before any Add-on-derived GROUP feature can become deployment-policy evidence, it must pass the registered context holdout gate.
+## 7. CTXINT1 active pre-integration proof
 
-CTXVAL1 requires:
+Before any Add-on-derived context may influence the existing entry gate, CTXINT1 must prove the composition rule:
 
 ```text
-trusted NEUTRAL micro profiles
-exact registered PCTX1 OBSERVED context
-registered feature_id + exact manifest_hash
-explicit E8 ContextSliceRule
-TRAIN
-VALIDATION
-OOS
-HARSH (>=1, adverse_reason required)
+effective entry eligibility
+ = tactic trigger
+ AND local hard-guard pass
+ AND validated context permission
 ```
 
-Each slice is evaluated independently with declared retained-case, return, drawdown, profitable-rate, cost and MFE-giveback tolerances. There is no hidden score.
+This means Add-on context may only remove an existing local opportunity. It may never create one or bypass a hard guard.
 
-A slice that looks favorable on TRAIN but regresses on OOS/HARSH is rejected. Passing evidence receives a slice-specific `validation_evidence_hash`, but CTXVAL1 still has:
+CTXINT1 remains preview-only and does not call or modify BacktestEngine or BrokerEmulator.
 
-```text
-operational_authority = false
-execution_integration = EVIDENCE_ONLY_NOT_WIRED_TO_ENTRY_GATE_OR_BROKER
-```
+## 8. Universe and causality
 
-## 8. Explicit universe and causality
+Every cross-symbol run must declare its universe and source authority. Future-close information, later winner labels, revised future data, nearest-time substitution and fill-forward are prohibited as earlier inputs.
 
-Every cross-symbol research run declares its opportunity set and source authority. The Add-on must not silently discover or guess the universe.
+## 9. Default disabled and replaceable
 
-Future-close, later winner information, revised future data, nearest-time substitution and fill-forward are prohibited as earlier comparison inputs.
+The Add-on remains optional and disabled by default during neutral micro discovery. A neutral tactic must remain independently runnable without cross-symbol intelligence.
 
-## 9. Observation/publication/validation is still not deployment selection
+The Add-on must remain removable without changing Instrument DSL syntax, Parser/Runtime, indicator semantics, Backtest accounting, BrokerEmulator or historical single-instrument evidence.
 
-The required progression is:
+## 10. Eventual authority relationship
 
-```text
-immutable observation evidence
- -> bounded registered parent feature
- -> E8 attribution
- -> CTXVAL1 Train / Validation / OOS / Harsh evidence
- -> explicit E8 deployment policy evidence
- -> separately validated execution integration
-```
-
-The eventual authority relationship remains:
+Only after separately validated integration may the relationship become:
 
 ```text
 single-instrument tactic trigger
 AND local hard guards
-AND optional separately validated Add-on permission
+AND optional validated Add-on/context permission
 AND common execution policy
  -> BrokerEmulator
 ```
 
-An Add-on can never bypass local hard guards, execution settings, accounting or Broker authority.
+The Add-on can never bypass local guards, execution settings, accounting or Broker authority.
 
-## 10. Default disabled and replaceable
+## 11. Change control
 
-The Add-on remains optional and disabled by default during neutral micro-tactic discovery. Neutral baselines must run independently without it.
+If a cross-symbol requirement can be expressed as read-only analysis of immutable per-symbol snapshots, it stays in the Add-on. If a conclusion is needed by Instrument DSL, expose only a bounded registered point-in-time parent feature.
 
-The Add-on must be removable or replaceable without changing Instrument DSL syntax, Parser/Runtime, indicator semantics, Backtest accounting, BrokerEmulator or historical single-instrument TacticalProfiles.
-
-## 11. Change-control rule
-
-If a cross-symbol requirement can be expressed as read-only analysis of immutable per-symbol snapshots, keep it in the Add-on. If its conclusion is intended for Instrument DSL consumption, publish only a bounded registered point-in-time parent feature.
-
-Direct peer-symbol syntax in Instrument DSL is not authorized.
+Direct peer-symbol syntax in Instrument DSL remains unauthorized.
 
 ## 12. Current nonclaims
 
-Do not claim yet:
+Do not claim operational Add-on selection, parent-context entry gating, portfolio allocation authority, empirical GROUP profitability/generalization, live readiness or repository-wide compliance PASS.
 
-- trusted Full PASS for CTXVAL1;
-- empirical GROUP parent-feature OOS benefit;
-- validated production Add-on deployment selection;
-- GROUP feature operational DEPLOYMENT eligibility;
-- portfolio allocation authority;
-- live-trading readiness;
-- repository-wide compliance PASS.
-
-`REMEDIATION_REQUIRED` remains the broader repository status.
+`REMEDIATION_REQUIRED` remains broader repository status.
