@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **GCANCEL1_TRUSTED_FULL_PASS / GCANCEL2_REMOTE_UNVALIDATED / AWAITING_LOCAL_FOCUSED_AND_FULL_PASS / REMEDIATION_REQUIRED**  
+Status: **GCANCEL1_TRUSTED_FULL_PASS / GCANCEL2_TRUSTED_FULL_PASS / MINIMAL_VERTICAL_SLICE_REVIEW / REMEDIATION_REQUIRED**  
 Updated: 2026-08-28 KST
 
 ## Session handoff and crash-safe recovery
@@ -70,6 +70,7 @@ CTXINT2 b3b547b9d2d0eaeee654790243f031a3bbb88198
 CTXINT3 7f77694658d7155806e97bdafcc543e2c7bfeae8
 LF1     5ec230c8bbada60f0e4b9fe945a5380d7c405fe2
 GCANCEL1 583c5362ca5ea57e62353a963cd5a2cfb0addfad
+GCANCEL2 3cd5731a1702f7bfb11878dfd6e34339baa5f163
 ```
 
 Recent operator evidence:
@@ -78,6 +79,7 @@ Recent operator evidence:
 CTXINT3:  Ran 7 tests in 0.150s / OK / Full PASS
 LF1:      Ran 7 tests in 0.058s / OK / Full PASS
 GCANCEL1: Ran 5 tests in 0.000s / OK / Full PASS
+GCANCEL2: Ran 5 tests in 0.004s / OK / Full PASS
 ```
 
 ## Governing architecture
@@ -109,14 +111,15 @@ OK
 
 `BrokerEmulator.cancel_client_order(...)` resolves explicit `client_order_id` fail-closed and delegates the authoritative `ACCEPTED/TRIGGERED -> CANCELED` transition to existing `BrokerEmulator.cancel(...)`.
 
-GCANCEL1 changes only the Broker lifecycle primitive and its focused regression. It contains no DSL syntax and no feature-specific semantics.
+## GCANCEL2 trusted state
 
-## GCANCEL2 remote-unvalidated state
-
-Executable remote checkpoint:
+Executable checkpoint:
 
 ```text
 3cd5731a1702f7bfb11878dfd6e34339baa5f163
+Ran 5 tests in 0.004s
+OK
+[PASS] Tactical P1 verification completed: mode=Full.
 ```
 
 GCANCEL2 adds generic Instrument DSL / Backtest integration:
@@ -125,22 +128,16 @@ GCANCEL2 adds generic Instrument DSL / Backtest integration:
 order.cancel(id="stable-client-order-id")
 ```
 
-Parser is fail-closed: mandatory non-empty literal `id`, no mixed entry/exit command in the same cancel event.
+Parser is fail-closed: mandatory non-empty literal `id`; cancel events cannot mix with other order commands.
 
-Timing is causal:
+Timing is causal and deterministic:
 
 - `next_open`: prior completed-bar cancel intent is applied at the next bar before price matching;
 - `bar_close`: current close-confirmed cancel intent is applied after that bar's matching and before newly submitted close-confirmed deferred orders.
 
 The actual lifecycle still routes only through the trusted Broker cancellation primitive.
 
-Focused regression file:
-
-```text
-test_stage1_dsl_pending_order_cancel.py
-```
-
-Change audit since trusted GCANCEL1 shows new executable changes only in:
+Change audit since trusted GCANCEL1 shows executable changes only in:
 
 ```text
 core/dsl_parser.py
@@ -148,20 +145,30 @@ core/backtest.py
 test_stage1_dsl_pending_order_cancel.py
 ```
 
-GCANCEL2 is **not trusted yet**.
+No leader/follower, sector, peer-symbol, learned-policy, or alternate lifecycle semantics were added.
 
-## Immediate validation boundary
+## Immediate next boundary: minimal vertical-slice review
 
-Required local validation after pull:
+Do not automatically expand features after GCANCEL2.
 
-```powershell
-python -m unittest test_stage1_dsl_pending_order_cancel.py
-powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
+First review whether the already-trusted components are sufficient for a minimal vertical slice:
+
+```text
+external leader/sector evidence
+ -> follower-local setup
+ -> generic pending LIMIT/STOP/STOP_LIMIT intent with stable id
+ -> generic order.cancel(id=...)
+ -> BrokerEmulator lifecycle
 ```
 
-Only after both pass may GCANCEL2 become trusted.
+Review questions:
 
-After trust, the next decision is not automatic feature expansion. First confirm whether generic cancellation is sufficient for the minimal vertical slice before composing any leader/follower orchestration.
+1. Can the existing external Add-on/context path express a simple invalidate/not-invalidate condition without adding leader/follower syntax to DSL?
+2. Can one deterministic follower setup submit one pending order and later cancel it through the trusted generic identity path?
+3. Is any missing piece truly a generic primitive, or is it merely orchestration that belongs outside Core DSL?
+4. Can the first operation be demonstrated without adaptive learning, ranking expansion, allocation logic, or new grammar?
+
+Only a demonstrated generic gap may justify another Core tranche.
 
 ## Remote CI environment
 
@@ -169,7 +176,7 @@ GitHub Actions has repeatedly failed before executable job steps receive a runne
 
 ## Nonclaims
 
-Do not claim profitable leader/follower edge, production leader/follower selection, trusted GCANCEL2, live trading readiness, or repository-wide compliance PASS.
+Do not claim profitable leader/follower edge, production leader/follower selection, live trading readiness, or repository-wide compliance PASS.
 
 `REMEDIATION_REQUIRED` remains authoritative for broader repository compliance.
 
