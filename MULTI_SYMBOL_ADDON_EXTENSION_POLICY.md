@@ -1,12 +1,12 @@
 # Multi-Symbol Add-on Extension Policy
 
-Status: **AUTHORITATIVE OPTIONAL EXTENSION POLICY / CTXINT2 TRUSTED / CTXINT3 ACTIVE / 2026-08-28 KST**
+Status: **AUTHORITATIVE OPTIONAL EXTENSION POLICY / CTXINT3 TRUSTED / LF1 ACTIVE / 2026-08-28 KST**
 
 ## 1. Governing rule
 
 > Multi-symbol capability is an optional Add-on, not an Instrument DSL responsibility.
 
-Instrument DSL remains single-instrument. Cross-symbol research may inform bounded registered parent context, but it must not directly read peers, discover universes, rank symbols, allocate capital or create orders.
+Instrument DSL remains single-instrument. Cross-symbol analysis may calculate sector, leader/follower and lag relationships outside DSL, but Instrument DSL must not discover peers, rank symbols, allocate capital or calculate leader/follower roles itself.
 
 ## 2. Trusted evidence path
 
@@ -17,11 +17,11 @@ MSA1 immutable per-symbol snapshots
  -> CTXVAL1 Train / Validation / OOS / Harsh validation
  -> CTXDEP1 validated deployment-policy evidence
  -> CTXINT1 block-only composition proof
- -> CTXINT2 trusted bar_close Backtest entry suppression
- -> CTXINT3 next_open causal timing validation (active)
+ -> CTXINT2 trusted bar_close entry suppression
+ -> CTXINT3 trusted next_open prior-completed-bar timing
 ```
 
-Recent trusted checkpoints:
+Trusted recent checkpoints:
 
 ```text
 MSA1    adaef963dce717b252f2575896a74462c8a277a2
@@ -31,61 +31,73 @@ CTXVAL1 db9d9ddeeec55f2774d7a2d873ec2f19d77726b4
 CTXDEP1 804baea25f29d1c77f2984d67e37dbb5ebb1160e
 CTXINT1 81903641b2877e16a3bcdcbf7ed1c1bcf1864ad9
 CTXINT2 b3b547b9d2d0eaeee654790243f031a3bbb88198
+CTXINT3 7f77694658d7155806e97bdafcc543e2c7bfeae8
 ```
 
-## 3. Observation/publication boundary
-
-MSA1 and MSA2 remain observation-only. MSA3 publishes only bounded aggregate GROUP values and does not publish peer identities, rank lists, allowed/blocked symbols, allocation, entry gates or Broker instructions.
-
-Cross-symbol evidence does not become execution authority merely because it is available as registered context.
-
-## 4. Validation and policy evidence
-
-CTXVAL1 requires explicit TRAIN / VALIDATION / OOS / HARSH survival with no hidden weighted score. CTXDEP1 creates policy evidence only from a validated PASS condition while preserving tactic/rule/feature/manifest/holdout provenance.
-
-CTXINT1 proves the only allowed composition:
+CTXINT3 operator evidence:
 
 ```text
-effective entry eligibility
- = tactic trigger
- AND local hard-guard pass
- AND validated context permission
-```
-
-The Add-on may only remove an existing local opportunity.
-
-## 5. CTXINT2 trusted blocking-only integration
-
-Trusted exact checkout:
-
-```text
-b3b547b9d2d0eaeee654790243f031a3bbb88198
-Ran 7 tests in 0.106s
+Ran 7 tests in 0.150s
 OK
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-CTXINT2 uses the existing Backtest `entry_gate`; BrokerEmulator remains execution authority. This trusted checkpoint covers the validated `bar_close` MARKET-entry path exercised by its regression.
+## 3. Observation/publication boundary
 
-The current source is additionally hardened to reject deferred entry orders until their timing contract is validated.
+MSA1 and MSA2 remain observation-only. MSA3 publishes only bounded aggregate GROUP values and does not publish peer identities, allocation, entry gates or Broker instructions.
 
-## 6. CTXINT3 active next-open timing
+Cross-symbol evidence does not become execution authority merely because it exists.
 
-For `next_open`, Add-on/context permission must come only from the prior completed bar. The next bar's unfinished context cannot influence its own open.
+## 4. LF1 active leader/follower relation evidence
+
+LF1 is a new observation-only branch over exact MSA1/MSA2 evidence.
+
+Its first version deliberately supports:
+
+- one explicit current leader;
+- leader qualification from minimum persistence and minimum leader/follower spread;
+- explicit leader impulse threshold;
+- follower reaction search over a declared `1..N` point lag window;
+- separate follow-rate, mean-lag, response-strength and current-metric evidence;
+- explicit follow-rate ordering with deterministic tie-break;
+- censored trailing impulses rather than silently treating unavailable future response windows as failures;
+- no hidden universal score.
+
+LF1 may expose leader/follower symbol identities because it is an Add-on research artifact, but it declares `operational_authority=false` and cannot create allowed/blocked lists, allocation, entry gates or Broker actions.
+
+## 5. Core DSL relationship
+
+The intended product boundary is:
 
 ```text
-completed bar t context
- -> shifted gate
- -> bar t+1 MARKET open
+Add-on decides/describes market relationship
+ -> generic frozen evidence / later validated orchestration
+ -> Instrument DSL uses ordinary local signals and generic order primitives
 ```
 
-This remains entry suppression only. It cannot create entry, bypass local guards, block exits or submit Broker orders.
+Leader/follower, sector ranking or peer-symbol syntax must not be added to Instrument DSL merely to make one story convenient.
+
+A future generic `order.cancel(...)`-style primitive is allowed only as a separately validated Core order capability with deterministic Backtest/Broker semantics. It must remain useful without any multi-symbol Add-on.
+
+## 6. Existing validated context integration
+
+CTXINT2/CTXINT3 context permission can only suppress an existing local opportunity. It cannot create entry, bypass local hard guards, block exits or submit Broker orders.
+
+For `next_open`, only the prior completed bar's validated context may govern the next open.
 
 ## 7. Deferred-order boundary
 
-LIMIT/STOP/STOP_LIMIT context gating is not inferred from bar-close or next-open MARKET semantics. A pending order can survive across multiple context changes, so original-signal permission and later fill permission require a separate explicit contract.
+Generic LIMIT/STOP/STOP_LIMIT support exists in the Broker/Backtest engine, but validated cross-symbol/context pending-order orchestration is not yet authorized.
 
-Until then validated-context integration rejects deferred entry orders. Generic Broker support for pending orders remains unchanged.
+The planned progression is:
+
+```text
+LF1 relation evidence trusted
+ -> generic DSL cancel semantics trusted
+ -> conditional pending-intent orchestration
+ -> separate Train/Validation/OOS/Harsh evidence
+ -> only then consider operational selection/gating
+```
 
 ## 8. Universe and causality
 
@@ -95,10 +107,10 @@ Every cross-symbol run must declare its universe and source authority. Future-cl
 
 The Add-on remains optional and disabled by default during neutral micro discovery. A neutral tactic must remain independently runnable without cross-symbol intelligence.
 
-The Add-on must remain removable without changing Instrument DSL syntax, Parser/Runtime, indicator semantics, Backtest accounting, BrokerEmulator or historical single-instrument evidence.
+The Add-on must remain removable without changing Instrument DSL syntax, indicator semantics, Backtest accounting or BrokerEmulator.
 
 ## 10. Current nonclaims
 
-Do not claim trusted Full PASS for CTXINT3, validated pending-order context semantics, production/live Add-on gating, portfolio allocation authority, empirical GROUP profitability/generalization, live readiness or repository-wide compliance PASS.
+Do not claim LF1 trusted Full PASS, profitable leader/follower selection, validated pending-order cancellation/orchestration, portfolio allocation authority, live readiness or repository-wide compliance PASS.
 
 `REMEDIATION_REQUIRED` remains broader repository status.
