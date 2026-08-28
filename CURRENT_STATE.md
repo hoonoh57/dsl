@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_TRUSTED_FULL_PASS / REMEDIATION_REQUIRED**  
+Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_TRUSTED_FULL_PASS / LFVAL1_TRUSTED_FULL_PASS / REMEDIATION_REQUIRED**  
 Updated: 2026-08-28 KST
 
 ## Recovery
@@ -16,8 +16,8 @@ single-instrument causal snapshots
  -> bounded external LF1 evidence
  -> local deterministic setup + hard guards
  -> LF2 observation-only ARM/CANCEL/HOLD intent evidence
- -> existing generic DSL pending/cancel machinery
- -> BrokerEmulator
+ -> LFVAL1 partitioned evidence validation
+ -> later bounded outcome evidence only if separately justified
 ```
 
 Hard equipment/guards remain authoritative before optional adaptive intelligence. No peer discovery, ranking, allocation, provider calls, learning authority or leader/follower semantics belongs in Parser/Runtime/Backtest/Broker.
@@ -32,6 +32,7 @@ GCANCEL1          583c5362ca5ea57e62353a963cd5a2cfb0addfad
 GCANCEL2          3cd5731a1702f7bfb11878dfd6e34339baa5f163
 VSLICE1           72445456e86b695dc7288ab3a48856fa560463dd
 LF2               5a6e6e53c089ed108d19fa729cba84874e856388
+LFVAL1             283af6e8ed046324698b9ff49e95f5044131f453
 ```
 
 Relevant external Chart contract checkpoint used by the trusted Full run:
@@ -50,6 +51,8 @@ GCANCEL2: Ran 5 tests in 0.004s / OK / Full PASS
 VSLICE1:  Ran 2 tests in 0.039s / OK / Full PASS
 LF2:      Ran 6 tests in 0.001s / OK
 LF2 Full: [PASS] Tactical P1 verification completed: mode=Full.
+LFVAL1:   Ran 7 tests in 0.002s / OK
+LFVAL1 Full: [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
 ## Generic mechanical vertical slice — closed
@@ -96,7 +99,34 @@ Trusted deterministic behavior:
 - identity and authority mismatches fail closed;
 - LF2 itself has no execution/provider/network/persistence authority.
 
-### Defect history preserved
+## LFVAL1 trusted evidence-validation tranche
+
+LFVAL1 validates frozen LF2 observation-only evidence across explicit TRAIN / VALIDATION / OOS / HARSH partitions.
+
+Explicit axes:
+
+```text
+selection qualified rate
+ARM rate
+hard-guard pass rate
+relation-valid rate
+invalid active pending cancellation safety
+```
+
+There is no hidden weighted score. Unsafe ARM fails closed. Invalid active pending evidence must already be `CANCEL_PENDING` or validation fails closed. All partitions must share one LF2 policy identity and evidence identities must be globally disjoint.
+
+LFVAL1 remains:
+
+```text
+mode = EVIDENCE_ONLY
+operational_authority = false
+execution_authority = false
+deployment_authority = false
+```
+
+A LFVAL1 PASS proves only that the declared observation-evidence contract remains stable across the supplied partitions. It does not prove profitability or authorize trading.
+
+## Defect history preserved
 
 Initial LF2 checkpoint `14bf03f1f9473a607d4330e4d06f9d0ef9bdd219` failed one focused source-level boundary contract because its docstring named forbidden execution classes. Classification: **product defect (source-level contract defect)**. The test was kept intact; only the docstring was neutralized at `5a6e6e53c089ed108d19fa729cba84874e856388`.
 
@@ -104,22 +134,15 @@ The first post-fix Full run was blocked by a sibling Chart stale contract. Local
 
 ## Next boundary
 
-LF2 being mechanically trusted does **not** grant deployment authority.
+LFVAL1 being trusted does **not** grant deployment authority.
 
-The next tranche is a separate evidence-validation decision for the observation-only orchestration:
+The next tranche, if justified, is a separate bounded outcome/backtest evidence layer attached to the already-trusted LF1/LF2/LFVAL1 observation evidence. It must answer whether the relation/orchestration evidence has measurable value without altering Core DSL or granting live selection/execution authority.
 
-```text
-trusted LF1 relation evidence
- + trusted LF2 deterministic intent evidence
- -> explicit Train / Validation / OOS / Harsh evidence design
- -> only then consider whether any bounded deployment permission is justified
-```
-
-Do not add live selection, automatic allocation, adaptive learning, new DSL grammar or additional Core authority merely because LF2 is trusted.
+Do not add automatic allocation, adaptive learning, new DSL grammar, live selection, or broader ranking merely because LFVAL1 is trusted.
 
 ## Remote CI environment
 
-GitHub Actions for LF2 previously failed before executable job steps were created (`steps=null`). Classification remains `environment issue`; it is independent from the user-local defects that were separately classified and fixed.
+GitHub Actions for earlier LF2 work previously failed before executable job steps were created (`steps=null`). Classification remains `environment issue`; it is independent from the user-local defects that were separately classified and fixed.
 
 ## Nonclaims
 
