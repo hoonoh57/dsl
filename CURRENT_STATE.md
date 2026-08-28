@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_TRUSTED_FULL_PASS / LFVAL1_TRUSTED_FULL_PASS / LFOUT1_TRUSTED_FULL_PASS / REMEDIATION_REQUIRED**  
+Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_TRUSTED_FULL_PASS / LFVAL1_TRUSTED_FULL_PASS / LFOUT1_TRUSTED_FULL_PASS / LFREAL1_REMOTE_UNVALIDATED / REMEDIATION_REQUIRED**  
 Updated: 2026-08-29 KST
 
 ## Recovery
@@ -18,6 +18,7 @@ single-instrument causal snapshots
  -> LF2 observation-only ARM/CANCEL/HOLD intent evidence
  -> LFVAL1 partitioned evidence validation
  -> LFOUT1 exact frozen-outcome validation
+ -> LFREAL1 non-fixture provenance/admission contract
 ```
 
 Hard equipment/guards remain authoritative before optional adaptive intelligence. No peer discovery, ranking, allocation, provider calls, learning authority or leader/follower semantics belongs in Parser/Runtime/Backtest/Broker.
@@ -32,8 +33,14 @@ GCANCEL1          583c5362ca5ea57e62353a963cd5a2cfb0addfad
 GCANCEL2          3cd5731a1702f7bfb11878dfd6e34339baa5f163
 VSLICE1           72445456e86b695dc7288ab3a48856fa560463dd
 LF2               5a6e6e53c089ed108d19fa729cba84874e856388
-LFVAL1             283af6e8ed046324698b9ff49e95f5044131f453
-LFOUT1             ca4d5309a658de02f970e341bbf86ad87ab327ae
+LFVAL1            283af6e8ed046324698b9ff49e95f5044131f453
+LFOUT1            ca4d5309a658de02f970e341bbf86ad87ab327ae
+```
+
+LFREAL1 remote executable checkpoint awaiting local validation:
+
+```text
+5aa1da3268f1f3e031aa6d607a4d3a5921f03e58
 ```
 
 Relevant external Chart contract checkpoint used by trusted Full runs:
@@ -46,83 +53,27 @@ cascading-feature-solution/product-completion-mvp
 ## Recent operator evidence
 
 ```text
-LF1:       Ran 7 tests in 0.058s / OK / Full PASS
-GCANCEL1:  Ran 5 tests in 0.000s / OK / Full PASS
-GCANCEL2:  Ran 5 tests in 0.004s / OK / Full PASS
-VSLICE1:   Ran 2 tests in 0.039s / OK / Full PASS
-LF2:       Ran 6 tests in 0.001s / OK
-LF2 Full:  [PASS] Tactical P1 verification completed: mode=Full.
-LFVAL1:    Ran 7 tests in 0.002s / OK
+LF1:         Ran 7 tests in 0.058s / OK / Full PASS
+GCANCEL1:    Ran 5 tests in 0.000s / OK / Full PASS
+GCANCEL2:    Ran 5 tests in 0.004s / OK / Full PASS
+VSLICE1:     Ran 2 tests in 0.039s / OK / Full PASS
+LF2:         Ran 6 tests in 0.001s / OK
+LF2 Full:    [PASS] Tactical P1 verification completed: mode=Full.
+LFVAL1:      Ran 7 tests in 0.002s / OK
 LFVAL1 Full: [PASS] Tactical P1 verification completed: mode=Full.
-LFOUT1:    Ran 7 tests in 0.003s / OK
+LFOUT1:      Ran 7 tests in 0.003s / OK
 LFOUT1 Full: [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
 ## Generic mechanical vertical slice — closed
 
-VSLICE1 trusted proof:
+VSLICE1 proved that existing generic exact `ctx.*`, stable pending ids, generic `order.cancel`, and BrokerEmulator semantics are sufficient for the deterministic mechanical slice. No missing Core primitive was demonstrated.
 
-```text
-exact registered ctx.* permission
- + follower-local deterministic setup
- -> pending LIMIT with stable id
- -> later exact ctx.* invalidation
- -> order.cancel(id=...)
- -> BrokerEmulator
-```
+## LF2 / LFVAL1 / LFOUT1 trusted boundary
 
-No missing Core primitive was demonstrated. Do not expand Core merely to support leader/follower convenience.
+LF2 remains observation-only orchestration with no execution authority. LFVAL1 validates frozen LF2 evidence across explicit TRAIN / VALIDATION / OOS / HARSH partitions. LFOUT1 joins separately frozen outcomes by exact `evidence_hash` and evaluates explicit outcome axes without replaying tactics or calling execution infrastructure.
 
-## LF2 trusted Add-on tranche
-
-LF2 consumes frozen LF1 evidence + local setup/hard-guard state + explicit relation validity and emits only:
-
-```text
-ARM_PENDING
-HOLD
-HOLD_PENDING
-CANCEL_PENDING
-```
-
-It remains:
-
-```text
-mode = OBSERVATION_ONLY
-operational_authority = false
-execution_authority = false
-```
-
-## LFVAL1 trusted evidence-validation tranche
-
-LFVAL1 validates frozen LF2 evidence across explicit TRAIN / VALIDATION / OOS / HARSH partitions on declared no-hidden-score axes:
-
-```text
-selection qualified rate
-ARM rate
-hard-guard pass rate
-relation-valid rate
-invalid active pending cancellation safety
-```
-
-LFVAL1 remains evidence-only and grants no deployment authority.
-
-## LFOUT1 trusted outcome-validation tranche
-
-LFOUT1 attaches separately frozen outcomes to LF2 evidence by exact `evidence_hash` only. It does not replay tactics or call execution infrastructure.
-
-Exact outcome axes:
-
-```text
-ARM forward-return edge vs non-ARM
-ARM MFE edge vs non-ARM
-ARM MAE regression vs non-ARM
-CANCEL avoided-loss magnitude
-holdout ARM return-edge regression vs TRAIN
-```
-
-TRAIN, VALIDATION and OOS are required exactly once; at least one HARSH partition requires an explicit adverse reason. All evidence across partitions must be globally disjoint and use one LF2 `policy_hash`.
-
-Authority remains:
+LFOUT1 authority remains:
 
 ```text
 mode = EVIDENCE_ONLY
@@ -135,25 +86,56 @@ LFOUT1 is trusted at `ca4d5309a658de02f970e341bbf86ad87ab327ae` after local focu
 
 ### LFOUT1 defect history
 
-Initial LFOUT1 executable `f95d15f2f66533a616db5a86df9cbe9e1f7c418b` failed two focused tests. Classification: **product defect — signed MAE direction bug**. `mae_pct` is signed adverse excursion, so more negative is worse. The implementation had the regression direction reversed. Only product logic was corrected; tests and thresholds were unchanged.
+Initial LFOUT1 executable `f95d15f2f66533a616db5a86df9cbe9e1f7c418b` failed two focused tests. Classification: **product defect — signed MAE direction bug**. `mae_pct` is signed adverse excursion, so more negative is worse. Only product logic was corrected; tests and thresholds were unchanged.
+
+## LFREAL1 remote-unvalidated admission tranche
+
+The repository does not currently contain an authoritative real-market LF research dataset. LFREAL1 therefore does not pretend that unit-test fixtures are real evidence. It establishes the admission contract for later externally frozen data.
+
+Required flow:
+
+```text
+trusted LF2 evidence
++ exact non-fixture provenance
++ exact post-observation frozen outcome
+ -> observation_cutoff == evidence.as_of
+ -> outcome_start > evidence.as_of
+ -> trusted LFOUT1 outcome validation
+ -> RESEARCH_EVIDENCE_ONLY admissibility
+```
+
+Blocked provenance declarations include `SYNTHETIC`, `FIXTURE`, `GENERATED`, `MOCK`, and `TEST`. Evidence/provenance/outcome coverage must be exact by `evidence_hash`.
+
+LFREAL1 deliberately outputs:
+
+```text
+mode = RESEARCH_EVIDENCE_ONLY
+operational_authority = false
+execution_authority = false
+deployment_authority = false
+source_content_verified = false
+real_data_claim = false
+```
+
+A future PASS means only that the supplied bundle is structurally admissible under the declared provenance/timing/outcome contract. It does not prove that an external source hash corresponds to genuine market data unless such source material is separately supplied and verified.
+
+LFREAL1 is **not trusted** until the user-local focused test and Tactical P1 Full both pass.
 
 ## Earlier defect history preserved
 
-Initial LF2 checkpoint `14bf03f1f9473a607d4330e4d06f9d0ef9bdd219` failed one focused source-level boundary contract because its docstring named forbidden execution classes. Classification: **product defect (source-level contract defect)**. The test was kept intact; only the docstring was neutralized at `5a6e6e53c089ed108d19fa729cba84874e856388`.
-
-The first post-fix Full run was blocked by a sibling Chart stale contract. Classification: **test defect (stale Chart contract)**. Only the Chart test was updated at `258fd07ca76214819cec3822b02564e21a1c8680`; after pull, Tactical P1 Full passed.
+Initial LF2 checkpoint `14bf03f1f9473a607d4330e4d06f9d0ef9bdd219` had a source-level boundary contract defect; the test was kept and only the product docstring was corrected. A later sibling Chart failure was classified as a stale Chart test contract and fixed only in the Chart test at `258fd07ca76214819cec3822b02564e21a1c8680`.
 
 ## Next boundary
 
-LFOUT1 being trusted still does **not** justify automatic deployment authority.
+First close the LFREAL1 local trust gate. Even then, do not create a fake "real" dataset in tests.
 
-The next decision should be whether there is enough real, non-fixture frozen data to run LFOUT1 as a real evidence study. Prefer data/evidence acquisition and replay-free evaluation before any deployment bridge.
+The next useful work requires an actual externally sourced, frozen, hash-identified historical dataset plus a reproducible causal producer for LF1/LF2 evidence and post-observation outcomes. Only then should a real study bundle pass through LFVAL1/LFOUT1/LFREAL1.
 
-Do not add automatic allocation, adaptive learning, new DSL grammar, live selection, or broader ranking merely because LFOUT1 passes.
+Do not add automatic allocation, adaptive learning, new DSL grammar, live selection, or broader ranking merely because the admission contract passes.
 
 ## Nonclaims
 
-No profitable leader/follower edge, production leader selection, validated deployment gating, live provider/broker readiness, or repository-wide compliance PASS is claimed.
+No real-data LF study, profitable leader/follower edge, production leader selection, validated deployment gating, live provider/broker readiness, or repository-wide compliance PASS is claimed.
 
 `REMEDIATION_REQUIRED` remains authoritative for broader repository compliance.
 
