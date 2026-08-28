@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_TRUSTED_FULL_PASS / LFVAL1_TRUSTED_FULL_PASS / LFOUT1_TRUSTED_FULL_PASS / LFREAL1_REMOTE_UNVALIDATED / REMEDIATION_REQUIRED**  
+Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_TRUSTED_FULL_PASS / LFVAL1_TRUSTED_FULL_PASS / LFOUT1_TRUSTED_FULL_PASS / LFREAL1_TRUSTED_FULL_PASS / REMEDIATION_REQUIRED**  
 Updated: 2026-08-29 KST
 
 ## Recovery
@@ -35,12 +35,7 @@ VSLICE1           72445456e86b695dc7288ab3a48856fa560463dd
 LF2               5a6e6e53c089ed108d19fa729cba84874e856388
 LFVAL1            283af6e8ed046324698b9ff49e95f5044131f453
 LFOUT1            ca4d5309a658de02f970e341bbf86ad87ab327ae
-```
-
-LFREAL1 remote executable checkpoint awaiting local validation:
-
-```text
-5aa1da3268f1f3e031aa6d607a4d3a5921f03e58
+LFREAL1           5aa1da3268f1f3e031aa6d607a4d3a5921f03e58
 ```
 
 Relevant external Chart contract checkpoint used by trusted Full runs:
@@ -63,6 +58,8 @@ LFVAL1:      Ran 7 tests in 0.002s / OK
 LFVAL1 Full: [PASS] Tactical P1 verification completed: mode=Full.
 LFOUT1:      Ran 7 tests in 0.003s / OK
 LFOUT1 Full: [PASS] Tactical P1 verification completed: mode=Full.
+LFREAL1:     Ran 7 tests in 0.002s / OK
+LFREAL1 Full: [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
 ## Generic mechanical vertical slice — closed
@@ -88,9 +85,9 @@ LFOUT1 is trusted at `ca4d5309a658de02f970e341bbf86ad87ab327ae` after local focu
 
 Initial LFOUT1 executable `f95d15f2f66533a616db5a86df9cbe9e1f7c418b` failed two focused tests. Classification: **product defect — signed MAE direction bug**. `mae_pct` is signed adverse excursion, so more negative is worse. Only product logic was corrected; tests and thresholds were unchanged.
 
-## LFREAL1 remote-unvalidated admission tranche
+## LFREAL1 trusted admission tranche
 
-The repository does not currently contain an authoritative real-market LF research dataset. LFREAL1 therefore does not pretend that unit-test fixtures are real evidence. It establishes the admission contract for later externally frozen data.
+The repository still does not contain an authoritative real-market LF research dataset. LFREAL1 does not pretend that unit-test fixtures are real evidence; it establishes and now validates the admission contract for later externally frozen data.
 
 Required flow:
 
@@ -117,9 +114,9 @@ source_content_verified = false
 real_data_claim = false
 ```
 
-A future PASS means only that the supplied bundle is structurally admissible under the declared provenance/timing/outcome contract. It does not prove that an external source hash corresponds to genuine market data unless such source material is separately supplied and verified.
+LFREAL1 is trusted at `5aa1da3268f1f3e031aa6d607a4d3a5921f03e58` after local focused 7/7 PASS and Tactical P1 Full PASS.
 
-LFREAL1 is **not trusted** until the user-local focused test and Tactical P1 Full both pass.
+A PASS means only that the supplied bundle is structurally admissible under the declared provenance/timing/outcome contract. It does not prove that an external source hash corresponds to genuine market data unless such source material is separately supplied and verified.
 
 ## Earlier defect history preserved
 
@@ -127,11 +124,11 @@ Initial LF2 checkpoint `14bf03f1f9473a607d4330e4d06f9d0ef9bdd219` had a source-l
 
 ## Next boundary
 
-First close the LFREAL1 local trust gate. Even then, do not create a fake "real" dataset in tests.
+Do not create a fake "real" dataset in tests.
 
 The next useful work requires an actual externally sourced, frozen, hash-identified historical dataset plus a reproducible causal producer for LF1/LF2 evidence and post-observation outcomes. Only then should a real study bundle pass through LFVAL1/LFOUT1/LFREAL1.
 
-Do not add automatic allocation, adaptive learning, new DSL grammar, live selection, or broader ranking merely because the admission contract passes.
+Until that exists, automatic allocation, adaptive learning, new DSL grammar, live selection, broader ranking, and deployment permission remain closed.
 
 ## Nonclaims
 
