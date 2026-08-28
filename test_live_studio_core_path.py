@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 import live_studio_main
 
@@ -16,7 +17,7 @@ SAMPLE = '''strategy "T" {
 
 class LiveStudioCorePathTests(unittest.TestCase):
     def test_does_not_reuse_legacy_app(self):
-        source = open("live_studio_main.py", "r", encoding="utf-8").read()
+        source = Path("live_studio_main.py").read_text(encoding="utf-8")
         self.assertNotIn("from app_ui import", source)
         self.assertNotIn("Engine.run_backtest", source)
 
