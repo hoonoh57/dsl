@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **CTXINT2_TRUSTED_FULL_PASS / CTXINT3_NEXT_OPEN_TIMING_INTEGRATION_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / REMEDIATION_REQUIRED**  
+Status: **CTXINT3_TRUSTED_FULL_PASS / LF1_LEADER_FOLLOWER_RELATION_EVIDENCE_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / REMEDIATION_REQUIRED**  
 Updated: 2026-08-28 KST
 
 ## Authority order
@@ -16,17 +16,16 @@ Updated: 2026-08-28 KST
 9. PCTX1/PCTX2B/CTXDSL1/CTXBT1 checkpoints
 10. PCTX2A/PCTX2C/PCTX2D checkpoints
 11. MSA1/MSA2/MSA3 checkpoints
-12. `CTXVAL1_REGISTERED_PARENT_CONTEXT_VALIDATION_ARENA_IMPLEMENTATION.md`
-13. `CTXDEP1_VALIDATED_CONTEXT_DEPLOYMENT_POLICY_EVIDENCE_IMPLEMENTATION.md`
-14. `CTXINT1_VALIDATED_CONTEXT_GATE_PREVIEW_IMPLEMENTATION.md`
-15. `CTXINT2_VALIDATED_CONTEXT_BACKTEST_ENTRY_GATE_INTEGRATION.md`
-16. `CTXINT3_VALIDATED_CONTEXT_NEXT_OPEN_TIMING_INTEGRATION.md`
-17. earlier product/execution/playbook/audit checkpoints
-18. `PROGRESS_CHECKPOINT_2026-08-26.md`
+12. `LF1_LEADER_FOLLOWER_RELATION_EVIDENCE_IMPLEMENTATION.md`
+13. `CTXVAL1_REGISTERED_PARENT_CONTEXT_VALIDATION_ARENA_IMPLEMENTATION.md`
+14. `CTXDEP1_VALIDATED_CONTEXT_DEPLOYMENT_POLICY_EVIDENCE_IMPLEMENTATION.md`
+15. `CTXINT1_VALIDATED_CONTEXT_GATE_PREVIEW_IMPLEMENTATION.md`
+16. `CTXINT2_VALIDATED_CONTEXT_BACKTEST_ENTRY_GATE_INTEGRATION.md`
+17. `CTXINT3_VALIDATED_CONTEXT_NEXT_OPEN_TIMING_INTEGRATION.md`
+18. earlier product/execution/playbook/audit checkpoints
+19. `PROGRESS_CHECKPOINT_2026-08-26.md`
 
 ## Trusted exact Full checkpoints
-
-Every checkout below received Tactical P1 Full PASS at the exact SHA:
 
 ```text
 E0     ac01525223f897f155de63f02529b0a6429a0882
@@ -52,89 +51,82 @@ CTXVAL1 db9d9ddeeec55f2774d7a2d873ec2f19d77726b4
 CTXDEP1 804baea25f29d1c77f2984d67e37dbb5ebb1160e
 CTXINT1 81903641b2877e16a3bcdcbf7ed1c1bcf1864ad9
 CTXINT2 b3b547b9d2d0eaeee654790243f031a3bbb88198
+CTXINT3 7f77694658d7155806e97bdafcc543e2c7bfeae8
 ```
 
 Recent operator evidence:
 
 ```text
-CTXINT1: Ran 7 tests in 0.129s / OK / Full PASS
 CTXINT2: Ran 7 tests in 0.106s / OK / Full PASS
+CTXINT3: Ran 7 tests in 0.150s / OK / Full PASS
 ```
 
 ## Governing architecture
 
-Core remains deterministic and single-instrument.
+Core DSL stays deterministic and single-instrument. Cross-symbol intelligence remains an optional Add-on.
 
 ```text
-registered causal parent evidence
- -> Train/Validation/OOS/Harsh validation
- -> validated policy evidence
- -> block-only composition proof
- -> existing Backtest entry-gate seam
+single-instrument causal snapshots
+ -> MSA2 bounded group evidence
+ -> LF1 explicit leader/follower relationship evidence
+ -> later validated orchestration
+ -> generic DSL order intent/cancel primitives
  -> common execution policy
  -> BrokerEmulator
 ```
 
-Parent context may remove an entry opportunity. It may not create one, bypass local guards, alter exits or submit Broker orders directly.
+The DSL must not calculate leader/follower roles, discover peers, rank symbols or allocate capital. Those remain Add-on responsibilities.
 
-## CTXINT2 trusted state
+## CTXINT3 trusted state
 
 Exact trusted checkpoint:
 
 ```text
-b3b547b9d2d0eaeee654790243f031a3bbb88198
-Ran 7 tests in 0.106s
+7f77694658d7155806e97bdafcc543e2c7bfeae8
+Ran 7 tests in 0.150s
 OK
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-This proves blocking-only `bar_close` Backtest integration through the existing `entry_gate` seam while BrokerEmulator remains execution authority.
+This proves `next_open` MARKET entry gating uses only prior-completed-bar validated context. Deferred LIMIT/STOP/STOP_LIMIT context semantics remain intentionally unvalidated.
 
-During CTXINT3 design, deferred entry orders were recognized as a separate signal-time/fill-time authority problem. Current CTXINT2 source is therefore hardened to reject LIMIT/STOP/STOP_LIMIT until that problem receives its own validation. The original exact trusted checkpoint remains the SHA above; the hardened source is part of the current untrusted CTXINT3 checkout.
-
-## CTXINT3 current executable tranche
+## LF1 current executable tranche
 
 New executable/regression:
 
 ```text
-core/tactical_context_integration_scope.py
-core/tactical_context_next_open_integration.py
-test_stage1_tactical_context_next_open_integration.py
+core/multi_symbol_leader_follower_relation.py
+test_stage1_multi_symbol_leader_follower_relation.py
+LF1_LEADER_FOLLOWER_RELATION_EVIDENCE_IMPLEMENTATION.md
 ```
 
-Detailed checkpoint:
+LF1 v1 is intentionally small:
 
-```text
-CTXINT3_VALIDATED_CONTEXT_NEXT_OPEN_TIMING_INTEGRATION.md
-```
+- one explicit leader only;
+- leader qualification by current MSA2 leadership + minimum persistence + minimum leader/follower spread;
+- explicit leader-impulse threshold;
+- follower response search over the next `1..N` points;
+- separate `follow_rate`, `mean_lag_points`, response strength and current metric axes;
+- explicit `top_follow_rate_follower` observation only;
+- incomplete trailing leader impulses are censored rather than counted as follower failures;
+- no hidden weighted score;
+- `operational_authority=false`.
 
-CTXINT3 authorizes only the following causal timing for MARKET entries:
+LF1 does not publish parent context, create an entry gate, allocate capital, or call Backtest/Runtime/Broker/provider/network/database code.
 
-```text
-completed bar t trigger + local guard + validated context permission
- -> shifted one bar
- -> may suppress/allow the already-existing next_open entry at bar t+1 open
-```
+## Planned next boundary
 
-The fill bar's unfinished context is never used to rescue the fill. First bar has no prior completed-bar authority. Exits remain outside the context gate.
+After LF1 is trusted, add a **generic DSL pending-order cancellation primitive** as a separate Core DSL capability tranche. It must be cancel-by-explicit-order/client identity with deterministic Backtest/Broker semantics; no leader/follower concept enters Parser or Runtime.
 
-Deferred entry orders remain fail-closed because a multi-bar pending order needs a separately declared rule for original signal permission versus later fill-time permission.
+Only after both pieces are independently trusted should a later orchestration tranche compose leader/follower evidence with follower local setup and pending-order invalidation.
 
 ## Remote CI environment
 
-GitHub Actions has repeatedly failed before executable steps receive a runner. Such failures remain classified `environment issue`; workflow/test/product guards are not weakened.
+GitHub Actions has repeatedly failed before executable steps receive a runner. Such failures remain `environment issue`; workflow/test/product guards are not weakened.
 
-## Still not implemented / nonclaims
+## Nonclaims
 
-Do not claim yet:
-
-- trusted Full PASS for CTXINT3;
-- validated LIMIT/STOP/STOP_LIMIT context timing;
-- production/live parent-context gating;
-- empirical profitability of a real GROUP context rule;
-- automatic cross-symbol allocation;
-- live-trading readiness;
-- repository-wide Chart/overall compliance PASS.
+Do not claim yet LF1 trusted Full PASS, profitable leader/follower edge, production leader/follower stock selection, validated generic DSL cancellation, live trading readiness or repository-wide compliance PASS.
 
 `REMEDIATION_REQUIRED` remains authoritative for broader repository compliance.
 
@@ -143,7 +135,7 @@ Do not claim yet:
 ```powershell
 git pull --ff-only origin main
 git rev-parse HEAD
-python -m unittest -v test_stage1_tactical_context_next_open_integration.py
+python -m unittest -v test_stage1_multi_symbol_leader_follower_relation.py
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
