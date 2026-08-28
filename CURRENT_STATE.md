@@ -1,21 +1,26 @@
 # Quant DSL Current State
 
-Status: **LF1_TRUSTED_FULL_PASS / SESSION_RECOVERY_ACTIVE / NEXT_GENERIC_PENDING_ORDER_CANCEL / REMEDIATION_REQUIRED**  
+Status: **LF1_TRUSTED_FULL_PASS / CRASH_SAFE_SESSION_RECOVERY_ACTIVE / NEXT_GENERIC_PENDING_ORDER_CANCEL / REMEDIATION_REQUIRED**  
 Updated: 2026-08-28 KST
 
-## Session recovery entrypoint
+## Crash-safe session recovery entrypoint
 
 `SESSION_RECOVERY.md` is the permanent recovery protocol for this project. It is procedural and does not supersede architecture authority.
 
-When the user sends `세션복구` in a new project chat:
+When the user sends `세션복구` in a new `dsl` project chat, recovery must **reconstruct** the latest state rather than assume this document is current.
 
-1. use available ChatGPT Project previous-conversation context to recover intent and unfinished reasoning;
-2. read `SESSION_RECOVERY.md` and this `CURRENT_STATE.md` from current `main`;
-3. do not ask the user for a recap;
-4. answer briefly in Korean with only: **개발철학(5개 이내) / 최근 한 일 / 앞으로 할 일**;
-5. speak at human product level and omit machine-level detail unless needed.
+Required sources:
 
-If old conversation and current repository status differ, current repository state wins for implementation status and trusted checkpoints.
+1. previous ChatGPT Project conversations, especially the tail of the last session;
+2. the latest user-reported local SHA / focused test / Full test evidence found in those conversations;
+3. current GitHub `main` HEAD and commits/changed files after that local checkpoint;
+4. `SESSION_RECOVERY.md`, this file and the authority/checkpoint documents.
+
+Important crash rule: this file may be stale because the prior session can end from context limits before any final documentation write. A recovered exact local PASS from previous project conversation outranks stale `AWAITING_LOCAL_VALIDATION` text. A newer GitHub commit without recovered local PASS remains remote/unvalidated rather than trusted.
+
+The assistant cannot directly inspect the user's live local filesystem. Unpushed/unshared local edits are unknowable; only if such a local-only divergence materially blocks the next action should a minimal `git status` / `git rev-parse HEAD` check be requested.
+
+The first `세션복구` reply remains concise Korean with only: **개발철학(5개 이내) / 최근 한 일 / 앞으로 할 일**. Do not ask the user to recap the previous session.
 
 ## Authority order
 
