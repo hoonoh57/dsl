@@ -14,11 +14,11 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / 2026-08-29 KST**
 
 ## 2. 최근 한 일
 
-- `GCANCEL1`, `GCANCEL2`, `VSLICE1`, `LF2`, `LFVAL1`, `LFOUT1`, `LFREAL1`은 trusted Full PASS다.
-- LFREAL1 trusted executable checkpoint는 `5aa1da3268f1f3e031aa6d607a4d3a5921f03e58`이고 local evidence는 `Ran 7 tests in 0.002s / OK` + Tactical P1 Full PASS다.
-- 저장소에 authoritative real-market LF dataset이 없으므로 fixture를 real data로 가장하지 않기로 유지했다.
-- LFREAL2는 caller-provided bytes를 SHA-256으로 동결하는 external-dataset manifest contract다.
-- LFREAL2 remote executable checkpoint는 `10861c232d03937c5ae77e2be32cd1873a5ff977`이며 아직 local validation 전이다.
+- `GCANCEL1`, `GCANCEL2`, `VSLICE1`, `LF2`, `LFVAL1`, `LFOUT1`, `LFREAL1`, `LFREAL2`는 trusted Full PASS다.
+- LFREAL1 trusted executable checkpoint는 `5aa1da3268f1f3e031aa6d607a4d3a5921f03e58`이다.
+- LFREAL2 trusted executable checkpoint는 `10861c232d03937c5ae77e2be32cd1873a5ff977`이다.
+- LFREAL2 사용자 로컬 검증은 `Ran 7 tests in 0.001s / OK` 및 `[PASS] Tactical P1 verification completed: mode=Full.`이다.
+- 저장소에는 여전히 authoritative real-market LF dataset이 없다. LFREAL2 trust는 external-byte freeze/content-hash contract trust이지 real-data study 완료가 아니다.
 
 ## 3. 현재 위치
 
@@ -29,10 +29,10 @@ LF1 OBSERVATION_ONLY relation evidence
  -> LFVAL1 TRAIN / VALIDATION / OOS / HARSH stability validation
  -> LFOUT1 exact frozen outcome validation
  -> LFREAL1 non-fixture provenance/admission contract
- -> LFREAL2 external caller-bytes immutable dataset manifest (REMOTE_UNVALIDATED)
+ -> LFREAL2 external caller-bytes immutable dataset manifest
 ```
 
-LFREAL2는 file I/O나 provider를 소유하지 않는다. 외부에서 얻은 bytes를 caller가 넘기면 다음만 수행한다.
+LFREAL2는 file I/O나 provider를 소유하지 않는다. 외부에서 얻은 bytes를 caller가 넘기면 정확한 SHA-256 manifest만 생성한다.
 
 ```text
 non-empty bytes
@@ -77,18 +77,21 @@ broader repo compliance는 계속 **REMEDIATION_REQUIRED**다.
 
 ## 4. 바로 다음에 할 일
 
-먼저 LFREAL2 local trust gate를 닫는다.
+이제 같은 종류의 contract를 더 만드는 것보다 **실제 externally obtained historical bytes 확보**가 우선이다.
 
-```powershell
-python -m unittest test_stage1_multi_symbol_follower_external_dataset.py
-powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
+```text
+external historical bytes
+ -> LFREAL2 freeze/content hash
+ -> source origin 별도 검증
+ -> narrow causal row parser/producer
+ -> exact as-of LF1/LF2 evidence
+ -> strictly post-observation outcomes
+ -> LFVAL1 / LFOUT1 / LFREAL1 real study
 ```
 
-focused + Full이 둘 다 PASS해야 LFREAL2를 trusted로 승격한다.
+실제 source material이 없는데 parser/producer를 과도하게 설계하거나 fixture를 복제해 real study라고 부르지 않는다.
 
-그 뒤에도 자동선별이나 deployment를 열지 않는다. 실제 다음 연구 단계는 **진짜 외부 historical bytes를 확보 → LFREAL2로 freeze → source origin 별도 검증 → 그 다음에만 좁은 causal parser/producer 설계**다.
-
-fixture 복제, automatic selection, allocation, adaptive learning, new DSL grammar, live deployment gate는 계속 보류한다.
+automatic selection, allocation, adaptive learning, new DSL grammar, live deployment gate는 계속 보류한다.
 
 ## 5. 세션복구 규칙
 
@@ -105,6 +108,6 @@ fixture 복제, automatic selection, allocation, adaptive learning, new DSL gram
 
 ## 6. 금지된 과장
 
-현재 external real-market dataset 확보, real-data LF study, 수익성 있는 leader/follower edge, 실전 자동선별, validated deployment gating, live trading readiness, repository-wide compliance PASS를 주장하지 않는다.
+현재 external real-market dataset 확보/인증, real-data LF study, 수익성 있는 leader/follower edge, 실전 자동선별, validated deployment gating, live trading readiness, repository-wide compliance PASS를 주장하지 않는다.
 
 `REMEDIATION_REQUIRED`가 broader compliance의 authoritative 상태다.
