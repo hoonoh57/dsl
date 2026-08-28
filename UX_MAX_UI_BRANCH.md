@@ -6,14 +6,20 @@ Branch: `ux-max-ui`
 
 Maximize user convenience around the original product flow without replacing or contaminating the existing UI or deterministic DSL Core.
 
+Natural-language mode is explicitly human-mediated:
+
 ```text
-user idea
- -> prompt / imported source
- -> DSL draft
- -> user review/edit
- -> existing DSL/backend contracts
- -> backtest/chart/result
+natural-language idea
+ -> generate LLM request prompt
+ -> human copies prompt to external LLM
+ -> human pastes LLM result back
+ -> strip optional code fence
+ -> local DSL candidate
+ -> actual DSL Parser + Semantic validation
+ -> only on PASS enable the final backtest step
 ```
+
+The application does not automatically call an external LLM in this branch.
 
 ## Preservation rule
 
@@ -21,7 +27,9 @@ The existing UI in `app_ui.py` is preserved unchanged.
 
 - Legacy UI: `/`
 - UX-max UI: `/ux`
-- Existing API contracts reused: `/api/strategies`, `/api/transpile`, `/api/backtest`
+- New UX-only validation API: `/api/ux/validate`
+- Existing strategy CRUD reused: `/api/strategies`
+- Existing legacy demo chart endpoint reused: `/api/backtest`
 - New entrypoint: `app_ui_ux.py`
 
 Run:
@@ -42,20 +50,31 @@ The legacy screen remains available at:
 http://127.0.0.1:8000/
 ```
 
-## UX priorities
+## Human-mediated LLM contract
 
-1. Make the primary workflow obvious: idea -> DSL -> save -> backtest -> result.
-2. Keep natural language, Pine Script and Kiwoom inputs in one composer instead of separate product mental models.
-3. Keep the final DSL visible and editable as the execution control point.
-4. Keep deterministic Core/guard messaging visible; prompt generation does not get execution authority.
-5. Add strategy search, draft recovery, keyboard shortcuts, copy/format actions and one-screen metrics/chart feedback.
-6. Preserve a direct link back to the legacy UI.
+The UI performs these stages explicitly:
+
+1. user writes the strategy in natural language;
+2. UI creates a copyable LLM request prompt;
+3. user manually sends that prompt to an external LLM and receives the response;
+4. user pastes the response into the UI;
+5. the UI admits only the pasted text as a local DSL candidate, removing an optional markdown code fence;
+6. `DSLParser.parse(...)` and `DSLSemanticAnalyzer.analyze(...)` must both PASS;
+7. any edit to the DSL invalidates the PASS and disables the final button until re-validation.
+
+LLM output therefore has no execution authority.
+
+## Important current limitation
+
+`/api/backtest` belongs to the preserved legacy `app_ui.py` demo engine. It currently calculates a fixed demonstration strategy and does not execute the validated DSL text itself.
+
+For that reason the UX labels this stage **demo backtest** and explicitly does not claim that its chart/metrics are the execution result of the validated DSL.
+
+A later, separately validated tranche should connect the already validated DSL to the repository's real deterministic DSL BacktestEngine rather than silently pretending that the legacy demo endpoint does so.
 
 ## Authority boundary
 
-This branch changes presentation/workflow only. It does not add leader/follower syntax, adaptive execution authority, allocation authority, provider authority, or hard-guard bypasses.
-
-The UI can request DSL drafting or existing transformations, but execution remains behind the existing DSL/backend contracts.
+This branch changes presentation/workflow and adds fail-closed local validation only. It does not add leader/follower syntax, adaptive execution authority, allocation authority, provider authority, hard-guard bypasses, or automatic external-LLM authority.
 
 ## Focused test
 
@@ -63,4 +82,13 @@ The UI can request DSL drafting or existing transformations, but execution remai
 python -m unittest test_ux_max_ui.py
 ```
 
-The test fixes the preservation contract: `/` and `/ux` must coexist, both share the same existing FastAPI app, the legacy root must not be replaced, and the UX surface must continue to use the existing API endpoints.
+The focused tests pin these boundaries:
+
+- `/` and `/ux` coexist on the same existing FastAPI app;
+- legacy root is not replaced;
+- natural-language flow explicitly contains the human relay;
+- prompt mode does not use the legacy heuristic PROMPT transpiler;
+- LLM output must pass real Parser + Semantic validation;
+- invalid DSL fails closed;
+- final chart stage is explicitly identified as the legacy demo backtest;
+- external LLM output has no execution authority.
