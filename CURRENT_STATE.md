@@ -1,26 +1,26 @@
 # Quant DSL Current State
 
-Status: **LF1_TRUSTED_FULL_PASS / CRASH_SAFE_SESSION_RECOVERY_ACTIVE / NEXT_GENERIC_PENDING_ORDER_CANCEL / REMEDIATION_REQUIRED**  
+Status: **LF1_TRUSTED_FULL_PASS / HANDOFF_FIRST_CRASH_SAFE_RECOVERY_ACTIVE / NEXT_GENERIC_PENDING_ORDER_CANCEL / REMEDIATION_REQUIRED**  
 Updated: 2026-08-28 KST
 
-## Crash-safe session recovery entrypoint
+## Session handoff and crash-safe recovery
 
-`SESSION_RECOVERY.md` is the permanent recovery protocol for this project. It is procedural and does not supersede architecture authority.
+`SESSION_HANDOFF.md` is the **primary human-readable handoff document** for this project.
 
-When the user sends `세션복구` in a new `dsl` project chat, recovery must **reconstruct** the latest state rather than assume this document is current.
+`SESSION_RECOVERY.md` is the detailed crash-safe reconstruction procedure.
 
-Required sources:
+When the user sends `세션복구` in a new `dsl` project chat:
 
-1. previous ChatGPT Project conversations, especially the tail of the last session;
-2. the latest user-reported local SHA / focused test / Full test evidence found in those conversations;
-3. current GitHub `main` HEAD and commits/changed files after that local checkpoint;
-4. `SESSION_RECOVERY.md`, this file and the authority/checkpoint documents.
+1. read `SESSION_HANDOFF.md` first for the human-level project story and next boundary;
+2. inspect the tail of previous ChatGPT Project conversations for anything newer than the handoff;
+3. recover the latest user-reported local SHA / focused test / Full test evidence from those conversations;
+4. compare that point with current GitHub `main` and inspect intervening commits/files;
+5. use this file and the authority documents to enforce architecture/permission boundaries;
+6. reply briefly with only **개발철학(5개 이내) / 최근 한 일 / 앞으로 할 일**.
 
-Important crash rule: this file may be stale because the prior session can end from context limits before any final documentation write. A recovered exact local PASS from previous project conversation outranks stale `AWAITING_LOCAL_VALIDATION` text. A newer GitHub commit without recovered local PASS remains remote/unvalidated rather than trusted.
+Important crash rule: neither the handoff nor this file is assumed to have been updated before an abrupt context-limit termination. Recovered exact local PASS evidence outranks stale `AWAITING_LOCAL_VALIDATION` text, while newer remote executable commits without local PASS remain untrusted.
 
-The assistant cannot directly inspect the user's live local filesystem. Unpushed/unshared local edits are unknowable; only if such a local-only divergence materially blocks the next action should a minimal `git status` / `git rev-parse HEAD` check be requested.
-
-The first `세션복구` reply remains concise Korean with only: **개발철학(5개 이내) / 최근 한 일 / 앞으로 할 일**. Do not ask the user to recap the previous session.
+The assistant cannot directly inspect unshared local-only filesystem state. Only when such state materially blocks recovery should a minimal `git status` / `git rev-parse HEAD` confirmation be requested.
 
 ## Authority order
 
@@ -145,6 +145,6 @@ Do not claim profitable leader/follower edge, production leader/follower selecti
 
 ## Current validation boundary
 
-There is no new executable code after trusted LF1 in the session-recovery documentation tranche. Before the next executable tranche, re-read the authority files relevant to Core order semantics and pending-order lifecycle.
+There is no new executable code after trusted LF1 in the session-handoff/recovery documentation tranche. Before the next executable tranche, re-read the authority files relevant to Core order semantics and pending-order lifecycle.
 
 Any later executable failure must first be classified exactly as `test defect`, `product defect`, `authority drift`, `environment issue`, or `unknown`.
