@@ -1,10 +1,8 @@
 # Quant DSL Progress Checkpoint — through 2026-08-28 KST
 
-Status: **CTXINT2_TRUSTED_FULL_PASS / CTXINT3_NEXT_OPEN_TIMING_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / CORE_DSL_FREEZE_ACTIVE**
+Status: **CTXINT3_TRUSTED_FULL_PASS / LF1_LEADER_FOLLOWER_RELATION_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / CORE_DSL_FREEZE_ACTIVE**
 
 ## Trusted exact Full checkpoints
-
-Each exact checkout below received Tactical P1 Full PASS:
 
 ```text
 E0     ac01525223f897f155de63f02529b0a6429a0882
@@ -30,58 +28,39 @@ CTXVAL1 db9d9ddeeec55f2774d7a2d873ec2f19d77726b4
 CTXDEP1 804baea25f29d1c77f2984d67e37dbb5ebb1160e
 CTXINT1 81903641b2877e16a3bcdcbf7ed1c1bcf1864ad9
 CTXINT2 b3b547b9d2d0eaeee654790243f031a3bbb88198
+CTXINT3 7f77694658d7155806e97bdafcc543e2c7bfeae8
 ```
 
-Recent operator evidence:
+Recent evidence:
 
 ```text
-CTXINT1: Ran 7 tests in 0.129s / OK / Full PASS
 CTXINT2: Ran 7 tests in 0.106s / OK / Full PASS
+CTXINT3: Ran 7 tests in 0.150s / OK / Full PASS
 ```
 
-## Trusted path through blocking-only integration
+## Current first-operation target
+
+The project now prioritizes a minimal but reusable leader/follower capability without putting leader/follower semantics into Instrument DSL.
 
 ```text
-trusted neutral micro tactic
- -> causal registered parent context
- -> bounded GROUP publication
- -> Train/Validation/OOS/Harsh validation
- -> validated deployment-policy evidence
- -> trusted no-entry-creation composition proof
- -> trusted bar_close entry-suppression integration
+explicit sector/group universe
+ -> exact per-symbol snapshots
+ -> MSA2 leader/follower breadth
+ -> LF1 leader persistence + lagged follower response evidence
+ -> later generic pending-order cancel primitive
+ -> later story/orchestration composition
 ```
 
-## CTXINT3 active boundary
+LF1 measures leader qualification, follower follow-rate, lag and response strength as separate axes. It emits an explicit follow-rate ordering for research only and has no deployment or Broker authority.
 
-CTXINT3 adds causal `next_open` timing without changing BacktestEngine:
+## Core freeze boundary
 
-```text
-completed signal bar permission
- -> shift one bar forward
- -> next bar MARKET open entry gate
-```
-
-The fill bar's unfinished context is not used. A blocked signal bar cannot be rescued by later context, and a failed local guard cannot be bypassed.
-
-The same tranche hardens CTXINT2/CTXINT3 to accept MARKET entries only. Deferred LIMIT/STOP/STOP_LIMIT orders remain rejected until a separate pending-order timing contract determines how original signal permission and later fill-time permission interact.
-
-## Remote CI environment
-
-Recent GitHub Actions failures continue before executable steps obtain a runner and remain classified `environment issue`. No workflow/test/product guard has been weakened.
+The planned cancellation tranche is a generic order primitive only. It must not add `leader`, `follower`, `sector ranking` or peer-symbol reads to Parser/Runtime. Cross-symbol judgement remains in the Add-on.
 
 ## Current validation status
 
-CTXINT3 and the post-trust deferred-order scope hardening remain untrusted until focused + Full local validation at one exact SHA.
+LF1 is implemented but untrusted until its focused regression and Tactical P1 Full verifier pass at one exact SHA.
 
-Do not claim validated pending-order semantics, live parent-context gating, real GROUP profitability, automatic cross-symbol allocation, live readiness or repository-wide compliance PASS.
+Do not claim profitable leader/follower edge, validated production stock selection, generic DSL cancel semantics, live readiness or repository-wide compliance PASS.
 
 `REMEDIATION_REQUIRED` remains broader repository status.
-
-## Immediate validation
-
-```powershell
-git pull --ff-only origin main
-git rev-parse HEAD
-python -m unittest -v test_stage1_tactical_context_next_open_integration.py
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
-```
