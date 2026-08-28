@@ -1,6 +1,6 @@
 # Quant DSL Progress Checkpoint — through 2026-08-28 KST
 
-Status: **CTXDEP1_TRUSTED_FULL_PASS / CTXINT1_GATE_PREVIEW_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / CORE_DSL_FREEZE_ACTIVE**
+Status: **CTXINT1_TRUSTED_FULL_PASS / CTXINT2_BACKTEST_ENTRY_GATE_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / CORE_DSL_FREEZE_ACTIVE**
 
 ## Trusted exact Full checkpoints
 
@@ -28,63 +28,45 @@ MSA2    3a5a2ece658ead28a1822ef7482a3d284d12e2d6
 MSA3    02904728cb0a39669e6809ba21c4e2dd8eb947e3
 CTXVAL1 db9d9ddeeec55f2774d7a2d873ec2f19d77726b4
 CTXDEP1 804baea25f29d1c77f2984d67e37dbb5ebb1160e
+CTXINT1 81903641b2877e16a3bcdcbf7ed1c1bcf1864ad9
 ```
 
 Recent operator evidence:
 
 ```text
-CTXVAL1: Ran 7 tests in 0.073s / OK / Full PASS
 CTXDEP1: Ran 6 tests in 0.028s / OK / Full PASS
+CTXINT1: Ran 7 tests in 0.129s / OK / Full PASS
 ```
 
-## Trusted path through deployment-policy evidence
+## Trusted path to blocking-only integration
 
 ```text
 trusted neutral micro tactic
  -> causal registered parent context
  -> bounded GROUP publication
- -> Train/Validation/OOS/Harsh context validation
+ -> Train/Validation/OOS/Harsh validation
  -> validated deployment-policy evidence
+ -> trusted preview proving context cannot create entry
+ -> CTXINT2 existing Backtest entry-gate integration
 ```
 
-CTXDEP1 is non-operational. It proves provenance and eligibility of a policy document; it does not install a gate or submit orders.
+## CTXINT2 active boundary
 
-## CTXINT1 active boundary
+CTXINT2 uses the already-existing Backtest `entry_gate` rather than adding new execution logic. It requires exact validated tactic identity, exact DEPLOYMENT frame/registry identity, exact market symbol/timeline and explicit local trigger/hard-guard evidence.
 
-CTXINT1 adds a preview-only composition layer:
+V1 is intentionally `bar_close` only. The gate can suppress an otherwise-valid entry but cannot create entry, bypass a failed local hard guard or block exits. BrokerEmulator remains the only execution authority.
 
-```text
-tactic trigger
-AND local hard-guard pass
-AND validated parent-context permission
--> effective entry eligibility preview
-```
-
-The preview requires exact DEPLOYMENT frame/registry/policy identities and exact full-timeline alignment. It records point-level context, binding and policy-decision hashes.
-
-Its purpose is to prove before operational wiring that parent context:
-
-- cannot create a trade when the tactic has no trigger;
-- cannot bypass a failed local hard guard;
-- can only remove an otherwise-valid local entry opportunity.
-
-It remains `operational_authority=false` and does not call or modify BacktestEngine or BrokerEmulator.
+No Parser, Semantic, Runtime, Backtest implementation, Broker or provider calculation semantics are changed.
 
 ## Remote CI environment
 
-Recent GitHub Actions failures continue to occur before executable steps obtain a runner. Classification remains:
-
-```text
-environment issue
-```
-
-No workflow/test/product guard has been weakened.
+Recent GitHub Actions failures still occur before executable steps obtain a runner and remain classified `environment issue`. No workflow/test/product guard has been weakened.
 
 ## Current validation status
 
-CTXINT1 remains untrusted until focused + Full local validation at one exact SHA.
+CTXINT2 remains untrusted until focused + Full local validation at one exact SHA.
 
-Do not claim operational parent-context gating, actual Broker suppression, real GROUP profitability, automatic cross-symbol selection/allocation, live readiness or repository-wide compliance PASS.
+Do not claim validated `next_open` context semantics, production/live parent-context gating, real GROUP profitability, automatic cross-symbol allocation, live readiness or repository-wide compliance PASS.
 
 `REMEDIATION_REQUIRED` remains broader repository status.
 
@@ -93,6 +75,6 @@ Do not claim operational parent-context gating, actual Broker suppression, real 
 ```powershell
 git pull --ff-only origin main
 git rev-parse HEAD
-python -m unittest -v test_stage1_tactical_context_gate_preview.py
+python -m unittest -v test_stage1_tactical_context_backtest_integration.py
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
