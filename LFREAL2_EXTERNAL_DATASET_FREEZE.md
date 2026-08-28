@@ -1,6 +1,6 @@
-# LFREAL2 External Frozen Dataset Producer — Implementation Checkpoint
+# LFREAL2 External Frozen Dataset Producer — Trusted Checkpoint
 
-Status: **REMOTE_UNVALIDATED / AWAITING_LOCAL_FOCUSED_AND_FULL_PASS / 2026-08-29 KST**
+Status: **TRUSTED_FULL_PASS / 2026-08-29 KST**
 
 ## Purpose
 
@@ -20,7 +20,7 @@ caller-provided external historical bytes
  -> later provenance input for LFREAL1
 ```
 
-LFREAL2 deliberately does not parse or semantically validate OHLCV contents yet. This keeps the tranche narrow: content freezing first, causal producer/parser later if justified.
+LFREAL2 deliberately does not parse or semantically validate OHLCV contents. Content freezing is separated from causal parsing/production.
 
 ## Fail-closed declaration contract
 
@@ -62,9 +62,9 @@ real_data_claim = false
 
 `content_hash_verified=true` means only that the emitted SHA-256 corresponds to the exact caller-provided bytes.
 
-`market_data_authenticity_verified=false` and `real_data_claim=false` are deliberate. LFREAL2 cannot prove that those bytes came from a genuine exchange/vendor source merely by hashing them.
+`market_data_authenticity_verified=false` and `real_data_claim=false` remain deliberate. LFREAL2 cannot prove that bytes came from a genuine exchange/vendor source merely by hashing them.
 
-## Executable remote checkpoint
+## Trusted executable checkpoint
 
 ```text
 10861c232d03937c5ae77e2be32cd1873a5ff977
@@ -79,32 +79,21 @@ test_stage1_multi_symbol_follower_external_dataset.py
 
 No Parser, Semantic, Runtime, Backtest, Broker, provider, Chart, LF1, LF2, LFVAL1, LFOUT1 or LFREAL1 trusted semantics were modified.
 
-## Focused regression
+## Local trust evidence
 
-Seven tests cover:
+```text
+Ran 7 tests in 0.001s
+OK
+[PASS] Tactical P1 verification completed: mode=Full.
+```
 
-1. deterministic manifest identity and research-only authority;
-2. fixture/synthetic/generated/mock/test source rejection;
-3. empty/non-bytes payload rejection;
-4. observation range ordering;
-5. symbol uniqueness and positive record count;
-6. exact expected SHA-256 verification;
-7. byte changes alter content and manifest identity.
+Seven focused tests cover deterministic manifest identity, fixture-source rejection, invalid payload rejection, observation range ordering, symbol/record-count validation, expected SHA-256 verification, and byte-change identity changes.
 
 The focused test bytes are contract fixtures only; they are not real-market evidence.
 
-## Local trust gate
+## Next boundary
 
-```powershell
-python -m unittest test_stage1_multi_symbol_follower_external_dataset.py
-powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
-```
-
-Only after both pass locally may the LFREAL2 producer contract become trusted.
-
-## Next boundary after trust
-
-A trusted LFREAL2 contract still does not create a real study. The next useful step requires an actual externally obtained historical dataset file. Once such bytes exist, the project can freeze them with LFREAL2, verify source provenance outside this contract, and only then design a causal row parser/producer that creates LF1/LF2 evidence and strictly post-observation outcomes without leakage.
+LFREAL2 trust still does not create a real study. The next useful step requires an actual externally obtained historical dataset file/bytes. Once such bytes exist, freeze them with LFREAL2, verify source provenance separately, then design a causal row parser/producer that creates LF1/LF2 evidence and strictly post-observation outcomes without leakage.
 
 Do not fabricate data merely to advance the architecture.
 
