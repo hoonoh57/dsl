@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **CTXVAL1_TRUSTED_FULL_PASS / CTXDEP1_VALIDATED_CONTEXT_DEPLOYMENT_POLICY_EVIDENCE_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / REMEDIATION_REQUIRED**  
+Status: **CTXDEP1_TRUSTED_FULL_PASS / CTXINT1_VALIDATED_CONTEXT_GATE_PREVIEW_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / REMEDIATION_REQUIRED**  
 Updated: 2026-08-28 KST
 
 ## Authority order
@@ -18,8 +18,9 @@ Updated: 2026-08-28 KST
 11. MSA1/MSA2/MSA3 checkpoints
 12. `CTXVAL1_REGISTERED_PARENT_CONTEXT_VALIDATION_ARENA_IMPLEMENTATION.md`
 13. `CTXDEP1_VALIDATED_CONTEXT_DEPLOYMENT_POLICY_EVIDENCE_IMPLEMENTATION.md`
-14. earlier product/execution/playbook/audit checkpoints
-15. `PROGRESS_CHECKPOINT_2026-08-26.md`
+14. `CTXINT1_VALIDATED_CONTEXT_GATE_PREVIEW_IMPLEMENTATION.md`
+15. earlier product/execution/playbook/audit checkpoints
+16. `PROGRESS_CHECKPOINT_2026-08-26.md`
 
 ## Trusted exact Full checkpoints
 
@@ -46,101 +47,105 @@ MSA1    adaef963dce717b252f2575896a74462c8a277a2
 MSA2    3a5a2ece658ead28a1822ef7482a3d284d12e2d6
 MSA3    02904728cb0a39669e6809ba21c4e2dd8eb947e3
 CTXVAL1 db9d9ddeeec55f2774d7a2d873ec2f19d77726b4
+CTXDEP1 804baea25f29d1c77f2984d67e37dbb5ebb1160e
 ```
 
-Recent focused evidence:
+Recent operator evidence:
 
 ```text
-MSA3:   Ran 7 tests in 0.078s / OK
-CTXVAL1: Ran 7 tests in 0.073s / OK
+CTXVAL1: Ran 7 tests in 0.073s / OK / Full PASS
+CTXDEP1: Ran 6 tests in 0.028s / OK / Full PASS
 ```
-
-Both were followed by Full PASS at their exact trusted SHA.
 
 ## Governing architecture
 
 Core remains deterministic and single-instrument.
 
 ```text
-PCTX provider calculation/precompute outside DSL
+PCTX provider calculation outside DSL
  -> exact frozen parent context
- -> read-only registered ctx.*
- -> Backtest exact binding
- -> existing execution policy
+ -> registered read-only ctx.*
+ -> existing single-instrument tactic
+ -> common execution policy
  -> BrokerEmulator
 ```
 
-Cross-symbol research remains outside Instrument DSL:
+Cross-symbol and macro intelligence remain staged outside Instrument DSL:
 
 ```text
-MSA1 immutable per-symbol snapshots
+MSA1 immutable snapshots
  -> MSA2 bounded group evidence
- -> MSA3 research-only aggregate GROUP publication
- -> CTXVAL1 Train/Validation/OOS/Harsh evidence
- -> CTXDEP1 explicit validated deployment-policy evidence
+ -> MSA3 research-only GROUP publication
+ -> CTXVAL1 Train/Validation/OOS/Harsh validation
+ -> CTXDEP1 validated deployment-policy evidence
+ -> CTXINT1 preview-only gate composition
 ```
 
-No peer-symbol runtime reads, universe discovery, ranking, allocation or provider calls are added to Instrument DSL.
-
-## CTXVAL1 trusted state
+## CTXDEP1 trusted state
 
 Exact trusted checkpoint:
 
 ```text
-db9d9ddeeec55f2774d7a2d873ec2f19d77726b4
-Ran 7 tests in 0.073s
+804baea25f29d1c77f2984d67e37dbb5ebb1160e
+Ran 6 tests in 0.028s
 OK
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-CTXVAL1 proves the registered-context validation machinery is executable across explicit TRAIN, VALIDATION, OOS and HARSH partitions. It produces slice-specific validation evidence only and remains non-operational.
+CTXDEP1 proves that only an independently validated CTXVAL1 condition can be converted into deployment-policy evidence while preserving tactic/rule/manifest/holdout provenance. It remains non-operational.
 
-The initial failure at `d2abaeed...` was classified `test defect`; only the malformed regression fixture was corrected before the final trusted PASS.
+The initial source-scan failure at `ec1f5cef...` was classified `test defect`; only the regression/checkpoint was corrected before the trusted PASS.
 
-## CTXDEP1 current executable tranche
+## CTXINT1 current executable tranche
 
-New module/regression:
+New files:
 
 ```text
-core/tactical_context_deployment_evidence.py
-test_stage1_tactical_context_deployment_evidence.py
+core/tactical_context_gate_preview.py
+test_stage1_tactical_context_gate_preview.py
+CTXINT1_VALIDATED_CONTEXT_GATE_PREVIEW_IMPLEMENTATION.md
 ```
 
-Detailed checkpoint:
+CTXINT1 verifies the intended composition before any operational gate is installed:
 
 ```text
-CTXDEP1_VALIDATED_CONTEXT_DEPLOYMENT_POLICY_EVIDENCE_IMPLEMENTATION.md
+effective entry eligibility
+ = tactic trigger
+ AND local hard-guard pass
+ AND validated parent-context permission
 ```
 
-CTXDEP1 accepts only an intact CTXVAL1 arena and one independently validated PASS slice. It verifies arena identity, slice status, registered feature/manifest identity and partition attribution consistency, then creates an E8 `ContextDeploymentPolicy` anchored to the exact CTXVAL1 `validation_evidence_hash`.
+It requires an exact DEPLOYMENT parent-context frame, exact registry/manifest/feature identity and the validated CTXDEP1 tactic/policy identity.
 
-Output remains:
+The preview explicitly proves:
 
 ```text
-policy_evidence_validated = true
+parent context cannot create a new entry opportunity
+parent context cannot bypass a failed local hard guard
+parent context may only remove an existing local opportunity
+```
+
+CTXINT1 remains:
+
+```text
 operational_authority = false
-execution_integration = POLICY_EVIDENCE_ONLY_NOT_WIRED_TO_ENTRY_GATE_OR_BROKER
+execution_integration = PREVIEW_ONLY_NOT_INSTALLED_AS_BACKTEST_ENTRY_GATE_OR_BROKER
 ```
 
-It does not install an entry gate or call Backtest/Broker.
+Parser, Semantic, Runtime, BacktestEngine and BrokerEmulator are not changed by this tranche.
 
 ## Remote CI environment
 
-Recent GitHub Actions runs have repeatedly terminated before executable steps received a runner. Those failures are classified:
-
-```text
-environment issue
-```
-
-No workflow/test/product guard has been weakened.
+GitHub Actions has repeatedly failed before executable steps receive a runner. Such failures are classified `environment issue`; workflow/test/product guards are not weakened.
 
 ## Still not implemented / nonclaims
 
 Do not claim yet:
 
-- trusted Full PASS for CTXDEP1;
-- empirical profitability of a real GROUP deployment rule;
-- operational parent-context entry gate;
+- trusted Full PASS for CTXINT1;
+- operational parent-context entry gating;
+- actual Broker order suppression from validated context policy;
+- empirical profitability of a real GROUP context rule;
 - automatic cross-symbol selection/allocation;
 - live-trading readiness;
 - repository-wide Chart/overall compliance PASS.
@@ -152,7 +157,7 @@ Do not claim yet:
 ```powershell
 git pull --ff-only origin main
 git rev-parse HEAD
-python -m unittest -v test_stage1_tactical_context_deployment_evidence.py
+python -m unittest -v test_stage1_tactical_context_gate_preview.py
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
