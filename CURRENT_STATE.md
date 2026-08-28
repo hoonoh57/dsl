@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_REMOTE_UNVALIDATED_AFTER_FIX / AWAITING_LOCAL_FOCUSED_AND_FULL_PASS / REMEDIATION_REQUIRED**  
+Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_FOCUSED_PASS_FULL_BLOCKED_EXTERNAL_CHART / REMEDIATION_REQUIRED**  
 Updated: 2026-08-28 KST
 
 ## Recovery
@@ -40,7 +40,9 @@ LF1:      Ran 7 tests in 0.058s / OK / Full PASS
 GCANCEL1: Ran 5 tests in 0.000s / OK / Full PASS
 GCANCEL2: Ran 5 tests in 0.004s / OK / Full PASS
 VSLICE1:  Ran 2 tests in 0.039s / OK / Full PASS
-LF2 pre-fix: Ran 6 tests in 0.002s / FAILED (failures=1); Full FAILED on same contract test
+LF2 pre-fix: Ran 6 tests in 0.002s / FAILED (failures=1); Full FAILED on same source contract
+LF2 post-fix focused: Ran 6 tests in 0.001s / OK
+LF2 post-fix Full: BLOCKED by scoped Chart SSOT contract outside DSL repository
 ```
 
 ## Generic mechanical vertical slice — closed
@@ -66,32 +68,22 @@ Initial executable checkpoint:
 14bf03f1f9473a607d4330e4d06f9d0ef9bdd219
 ```
 
-User-local validation found one source-level authority-boundary contract failure. The regression correctly rejected a forbidden execution-class token appearing only in the module docstring. Runtime behavior had no execution path, but the source contract still failed.
-
-Failure classification: **product defect (source-level contract defect)**.
-
-The guard/test was not weakened.
-
-Fix executable checkpoint:
+The initial LF2 source-level contract defect was fixed at:
 
 ```text
 5a6e6e53c089ed108d19fa729cba84874e856388
 ```
 
-Fix scope:
-
-```text
-core/multi_symbol_follower_pending_orchestration.py
-```
-
 Only the module docstring was neutralized. No orchestration logic, policy, intent decision, hashing, identity, Parser, Runtime, Backtest, Broker or provider behavior changed.
 
-Executable LF2 files remain:
+Post-fix focused validation is now exact user-local PASS:
 
 ```text
-core/multi_symbol_follower_pending_orchestration.py
-test_stage1_multi_symbol_follower_pending_orchestration.py
+Ran 6 tests in 0.001s
+OK
 ```
+
+LF2 therefore passes its focused regression after the fix, but is **not yet trusted Full PASS** because the required Full verifier is blocked by an external Chart dependency contract.
 
 LF2 consumes frozen LF1 evidence + local setup/hard-guard state + explicit relation validity and emits only:
 
@@ -104,20 +96,49 @@ CANCEL_PENDING
 
 It remains `operational_authority=false` and `execution_authority=false`.
 
-## LF2 trust gate after fix
+## Current Full blocker: external Chart SSOT dependency drift
 
-```powershell
+The Full verifier failed in the sibling Chart repository `cascading-feature-solution`, specifically `tests/stable_pane_identity_surface.test.mjs` case `STABLE-PANE-003`.
+
+Remote Chart `main` is internally consistent:
+
+```text
+BrowserChartSurfaceFactory.mjs:
+  new StablePaneIdentitySurface(inspectable, ...)
+  -> new ResponsiveChartSurface(stablePanes, host)
+
+tests/stable_pane_identity_surface.test.mjs:
+  expects new ResponsiveChartSurface(stablePanes, ...)
+```
+
+User-local Chart source instead contains an additional `PrimaryPaneLayoutSurface` layer and returns:
+
+```text
+new ResponsiveChartSurface(primaryLayout, host)
+```
+
+while the local test still expects `stablePanes` directly.
+
+Current classification for the DSL Full failure: **environment issue — local external dependency drift**. It is not evidence of an LF2/DSL product defect. Do not weaken the Chart SSOT contract or the DSL Full verifier.
+
+Before deciding whether the Chart source or test should change, inspect the local Chart repository status/diff and determine whether `PrimaryPaneLayoutSurface` is an intentional uncommitted/unpushed architecture change or accidental drift.
+
+## LF2 trust gate
+
+LF2 can become trusted only after the same post-fix checkout receives:
+
+```text
 python -m unittest test_stage1_multi_symbol_follower_pending_orchestration.py
 powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
-Do not mark LF2 trusted until both pass locally at or after fix checkpoint `5a6e6e53c089ed108d19fa729cba84874e856388`.
+with both PASS.
 
 After LF2 trust, do not immediately grant deployment authority. First decide whether this observation-only orchestration should enter a separate Train/Validation/OOS/Harsh evidence tranche.
 
 ## Remote CI environment
 
-GitHub Actions for the pre-fix LF2 checkpoint failed before executable job steps were created (`steps=null`). Classification: `environment issue`. This is independent from the later user-local product defect.
+GitHub Actions for LF2 failed before executable job steps were created (`steps=null`). Classification: `environment issue`.
 
 ## Nonclaims
 
