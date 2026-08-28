@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **GCANCEL1_TRUSTED_FULL_PASS / GCANCEL2_TRUSTED_FULL_PASS / VSLICE1_REMOTE_UNVALIDATED_TEST_ONLY / REMEDIATION_REQUIRED**  
+Status: **GCANCEL1_TRUSTED_FULL_PASS / GCANCEL2_TRUSTED_FULL_PASS / VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / REMEDIATION_REQUIRED**  
 Updated: 2026-08-28 KST
 
 ## Recovery
@@ -30,6 +30,7 @@ CTXINT3           7f77694658d7155806e97bdafcc543e2c7bfeae8
 LF1               5ec230c8bbada60f0e4b9fe945a5380d7c405fe2
 GCANCEL1          583c5362ca5ea57e62353a963cd5a2cfb0addfad
 GCANCEL2          3cd5731a1702f7bfb11878dfd6e34339baa5f163
+VSLICE1           72445456e86b695dc7288ab3a48856fa560463dd
 ```
 
 Recent operator evidence:
@@ -38,6 +39,7 @@ Recent operator evidence:
 LF1:      Ran 7 tests in 0.058s / OK / Full PASS
 GCANCEL1: Ran 5 tests in 0.000s / OK / Full PASS
 GCANCEL2: Ran 5 tests in 0.004s / OK / Full PASS
+VSLICE1:  Ran 2 tests in 0.039s / OK / Full PASS
 ```
 
 ## Trusted generic capabilities
@@ -48,9 +50,26 @@ GCANCEL2: Ran 5 tests in 0.004s / OK / Full PASS
 4. `order.cancel(id="...")` is trusted and routes only to BrokerEmulator cancellation.
 5. `next_open` cancellation uses prior completed-bar evidence before next-bar matching; `bar_close` cancellation acts after current-bar matching.
 
-## VSLICE1 review conclusion
+## VSLICE1 trusted composition proof
 
-The minimal vertical slice does **not** currently demonstrate a missing Core primitive. The missing proof was composition evidence:
+Exact trusted validation checkpoint:
+
+```text
+72445456e86b695dc7288ab3a48856fa560463dd
+Ran 2 tests in 0.039s
+OK
+[PASS] Tactical P1 verification completed: mode=Full.
+```
+
+VSLICE1 adds only:
+
+```text
+test_stage1_context_pending_order_cancel.py
+```
+
+No product source file changed.
+
+The composition now proves:
 
 ```text
 exact registered ctx.* permission
@@ -61,40 +80,30 @@ exact registered ctx.* permission
  -> BrokerEmulator
 ```
 
-This is consistent with `PARENT_CONTEXT_FEATURE_PROVIDER_POLICY.md`: pending-order context orchestration required a separate validation contract, not peer-analysis logic inside DSL.
+Validated timing cases:
 
-## VSLICE1 remote-unvalidated test-only tranche
-
-Executable validation checkpoint:
-
-```text
-72445456e86b695dc7288ab3a48856fa560463dd
-```
-
-Only new executable file:
-
-```text
-test_stage1_context_pending_order_cancel.py
-```
-
-No product source file changed.
-
-Focused cases:
-
-- `bar_close`: valid local setup + context creates one pending LIMIT; later context invalidation cancels before a later fill-eligible bar;
+- `bar_close`: valid local setup + exact context submits one pending LIMIT; later exact context invalidation cancels it before a later fill-eligible bar;
 - `next_open`: prior completed-bar context invalidation cancels before the next fill-eligible bar is matched;
-- both retain `BrokerEmulator` as execution authority and produce zero fills after cancellation.
+- execution authority remains `BrokerEmulator`;
+- canceled pending orders produce no entry fill.
 
-## Immediate trust gate
+## Review conclusion
 
-```powershell
-python -m unittest test_stage1_context_pending_order_cancel.py
-powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
+No missing Core primitive was demonstrated. The generic mechanical vertical slice is therefore considered closed at the currently trusted boundary.
+
+Do not add more Core DSL grammar/runtime/execution behavior merely to support leader/follower orchestration. The next development axis moves outward to one small deterministic Add-on evidence/tactic experiment that consumes the existing generic seams.
+
+Preferred next progression:
+
+```text
+one deterministic external evidence source
+ -> one local follower tactic
+ -> hard guard first
+ -> existing ctx.* / pending order / cancel machinery
+ -> backtest evidence
 ```
 
-Do not mark VSLICE1 trusted until both pass locally.
-
-If VSLICE1 passes, consider the generic mechanical vertical slice closed. The next work should move outward to one deterministic external evidence/tactic experiment; do not add adaptive learning, ranking expansion, allocation, or new Core grammar without a separately demonstrated need.
+Adaptive learning, ranking expansion, portfolio allocation and additional cross-symbol autonomy remain deferred until a concrete validated need appears.
 
 ## Remote CI environment
 
