@@ -1,6 +1,6 @@
 # LFREAL3 Causal Row Producer — Implementation Checkpoint
 
-Status: **REMOTE_UNVALIDATED / AWAITING_LOCAL_FOCUSED_AND_FULL_PASS / 2026-08-29 KST**
+Status: **TRUSTED FULL PASS / RESEARCH_ONLY / 2026-08-29 KST**
 
 ## Purpose
 
@@ -19,7 +19,7 @@ LFREAL2 immutable dataset manifest
  -> cutoff-bounded causal snapshot
 ```
 
-The tranche does not yet create LF1/LF2 evidence. It only guarantees that downstream research code can consume a deterministic prefix whose rows satisfy `row.time <= knowledge_cutoff`.
+The tranche does not create LF1/LF2 evidence. It only guarantees that downstream research code can consume a deterministic prefix whose rows satisfy `row.time <= knowledge_cutoff`.
 
 ## Fail-closed row contract
 
@@ -73,7 +73,7 @@ snapshot:
 
 A PASS proves only the deterministic row-admission and causal-prefix contract. It does not authenticate the external source and does not prove a real-data study.
 
-## Executable remote checkpoint
+## Trusted executable checkpoint
 
 ```text
 ab4d798c6648ee382e779af81e759cd11bf1cb13
@@ -88,9 +88,17 @@ test_stage1_multi_symbol_follower_causal_rows.py
 
 No Parser, Semantic, Runtime, Backtest, Broker, provider, Chart, LF1, LF2, LFVAL1, LFOUT1, LFREAL1 or LFREAL2 trusted semantics were modified.
 
-## Focused regression
+## Local trust evidence
 
-Seven focused tests cover:
+User-local validation on 2026-08-29 KST:
+
+```text
+Ran 7 tests in 0.001s
+OK
+[PASS] Tactical P1 verification completed: mode=Full.
+```
+
+Focused tests cover:
 
 1. deterministic research-only row bundle;
 2. manifest record count equality;
@@ -102,18 +110,23 @@ Seven focused tests cover:
 
 The focused rows are fixtures only and are not real-market evidence.
 
-## Local trust gate
-
-```powershell
-python -m unittest test_stage1_multi_symbol_follower_causal_rows.py
-powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
-```
-
-Only after both pass locally may LFREAL3 become trusted.
-
 ## Next boundary after trust
 
-Do not immediately build a broad parser framework. The useful next step remains obtaining actual externally sourced historical bytes. Once those are frozen through LFREAL2 and parsed into LFREAL3 rows, the next narrow tranche can connect causal snapshots to already-trusted LF1/LF2 evidence production and strictly post-observation outcome production.
+Stop architecture expansion here unless real source material appears.
+
+The useful next step requires actual externally sourced historical bytes. Once such bytes are available:
+
+```text
+external historical bytes
+ -> LFREAL2 freeze/content hash
+ -> independent source-origin verification
+ -> LFREAL3 deterministic rows/snapshots
+ -> narrow exact-as-of LF1/LF2 evidence producer
+ -> strictly post-observation outcome producer
+ -> LFVAL1 / LFOUT1 / LFREAL1 real study
+```
+
+Do not fabricate a "real" dataset or add broader parser/provider infrastructure merely to continue development.
 
 ## Nonclaims
 
