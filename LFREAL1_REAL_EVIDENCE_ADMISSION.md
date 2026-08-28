@@ -1,6 +1,6 @@
 # LFREAL1 Real-Evidence Admission Contract — Implementation Checkpoint
 
-Status: **REMOTE_UNVALIDATED / AWAITING_LOCAL_FOCUSED_AND_FULL_PASS / 2026-08-29 KST**
+Status: **TRUSTED_FULL_PASS / 2026-08-29 KST**
 
 ## Purpose
 
@@ -75,7 +75,7 @@ holdout ARM return-edge regression vs TRAIN
 
 A LFOUT1 FAIL makes LFREAL1 evidence `REJECTED`.
 
-## Executable remote checkpoint
+## Trusted executable checkpoint
 
 ```text
 5aa1da3268f1f3e031aa6d607a4d3a5921f03e58
@@ -90,7 +90,13 @@ test_stage1_multi_symbol_follower_real_evidence.py
 
 No Parser, Semantic, Runtime, Backtest, Broker, provider, Chart, LF1, LF2, LFVAL1, or LFOUT1 trusted source semantics were modified.
 
-## Focused regression
+## Local trust evidence
+
+```text
+Ran 7 tests in 0.002s
+OK
+[PASS] Tactical P1 verification completed: mode=Full.
+```
 
 Seven focused tests cover:
 
@@ -104,20 +110,11 @@ Seven focused tests cover:
 
 The focused tests themselves are contract fixtures; they are **not** real-market evidence.
 
-## Local trust gate
-
-```powershell
-python -m unittest test_stage1_multi_symbol_follower_real_evidence.py
-powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
-```
-
-Only after both pass locally may the LFREAL1 admission contract become trusted.
-
 ## Next boundary after trust
 
-Even a trusted LFREAL1 contract does not justify deployment.
+A trusted LFREAL1 contract still does not justify deployment.
 
-The next useful step would require an actual externally sourced, frozen, hash-identified historical dataset and a reproducible producer that creates LF1/LF2 evidence without temporal leakage. Only then can a real evidence bundle be admitted and evaluated through LFVAL1/LFOUT1/LFREAL1.
+The next useful step requires an actual externally sourced, frozen, hash-identified historical dataset and a reproducible producer that creates LF1/LF2 evidence without temporal leakage. Only then can a real evidence bundle be admitted and evaluated through LFVAL1/LFOUT1/LFREAL1.
 
 Do not fabricate a "real" dataset inside unit tests merely to move the project forward.
 
