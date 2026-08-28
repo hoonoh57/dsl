@@ -147,6 +147,26 @@ class BrokerEmulator:
                              event=event if event is not None else "canceled")
         return order
 
+    def cancel_client_order(self, client_order_id, reason="user canceled", event=None):
+        """Cancel one order by its explicit client identity.
+
+        Client identities are resolved fail-closed: an unknown identity raises
+        ``KeyError`` and an ambiguous identity raises ``ValueError``.  The actual
+        lifecycle transition remains owned by ``cancel`` so ACCEPTED/TRIGGERED
+        semantics stay identical for every cancellation path.
+        """
+        if client_order_id is None:
+            raise ValueError("client_order_id is required")
+        identity = str(client_order_id)
+        if not identity:
+            raise ValueError("client_order_id is required")
+        matches = [order for order in self.orders.values() if order.client_order_id == identity]
+        if not matches:
+            raise KeyError(f"unknown client_order_id: {identity}")
+        if len(matches) != 1:
+            raise ValueError(f"ambiguous client_order_id: {identity}")
+        return self.cancel(matches[0].id, reason=reason, event=event)
+
     def expire_day_orders(self, reason="DAY expired", event=None):
         expired = []
         for order in list(self.orders.values()):
