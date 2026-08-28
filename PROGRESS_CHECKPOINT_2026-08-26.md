@@ -1,8 +1,10 @@
 # Quant DSL Progress Checkpoint — through 2026-08-28 KST
 
-Status: **CTXVAL1_TRUSTED_FULL_PASS / CTXDEP1_POLICY_EVIDENCE_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / CORE_DSL_FREEZE_ACTIVE**
+Status: **CTXDEP1_TRUSTED_FULL_PASS / CTXINT1_GATE_PREVIEW_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / CORE_DSL_FREEZE_ACTIVE**
 
 ## Trusted exact Full checkpoints
+
+Each exact checkout below received Tactical P1 Full PASS:
 
 ```text
 E0     ac01525223f897f155de63f02529b0a6429a0882
@@ -25,53 +27,64 @@ MSA1    adaef963dce717b252f2575896a74462c8a277a2
 MSA2    3a5a2ece658ead28a1822ef7482a3d284d12e2d6
 MSA3    02904728cb0a39669e6809ba21c4e2dd8eb947e3
 CTXVAL1 db9d9ddeeec55f2774d7a2d873ec2f19d77726b4
+CTXDEP1 804baea25f29d1c77f2984d67e37dbb5ebb1160e
 ```
 
-CTXVAL1 operator evidence:
+Recent operator evidence:
 
 ```text
-Ran 7 tests in 0.073s
-OK
-[PASS] Tactical P1 verification completed: mode=Full.
+CTXVAL1: Ran 7 tests in 0.073s / OK / Full PASS
+CTXDEP1: Ran 6 tests in 0.028s / OK / Full PASS
 ```
 
-## Trusted evidence chain
+## Trusted path through deployment-policy evidence
 
 ```text
-single-instrument micro evidence
- -> MSA1 immutable snapshots
- -> MSA2 bounded group observation
- -> MSA3 registered GROUP publication
- -> CTXVAL1 Train / Validation / OOS / Harsh validation
+trusted neutral micro tactic
+ -> causal registered parent context
+ -> bounded GROUP publication
+ -> Train/Validation/OOS/Harsh context validation
+ -> validated deployment-policy evidence
 ```
 
-All of the above remain non-operational with respect to Broker authority.
+CTXDEP1 is non-operational. It proves provenance and eligibility of a policy document; it does not install a gate or submit orders.
 
-## CTXDEP1 current boundary
+## CTXINT1 active boundary
 
-New files:
+CTXINT1 adds a preview-only composition layer:
 
 ```text
-core/tactical_context_deployment_evidence.py
-test_stage1_tactical_context_deployment_evidence.py
-CTXDEP1_VALIDATED_CONTEXT_DEPLOYMENT_POLICY_EVIDENCE_IMPLEMENTATION.md
+tactic trigger
+AND local hard-guard pass
+AND validated parent-context permission
+-> effective entry eligibility preview
 ```
 
-CTXDEP1 allows only a CTXVAL1 PASS slice to become explicit E8 deployment-policy evidence. It binds the validated tactic, rule, registered feature/manifest, validation arena, validation hash and partition attribution evidence together.
+The preview requires exact DEPLOYMENT frame/registry/policy identities and exact full-timeline alignment. It records point-level context, binding and policy-decision hashes.
 
-Failed OOS/HARSH evidence cannot be promoted. Tampered validation payloads fail closed.
+Its purpose is to prove before operational wiring that parent context:
 
-Output remains:
+- cannot create a trade when the tactic has no trigger;
+- cannot bypass a failed local hard guard;
+- can only remove an otherwise-valid local entry opportunity.
+
+It remains `operational_authority=false` and does not call or modify BacktestEngine or BrokerEmulator.
+
+## Remote CI environment
+
+Recent GitHub Actions failures continue to occur before executable steps obtain a runner. Classification remains:
 
 ```text
-policy_evidence_validated = true
-operational_authority = false
-execution_integration = POLICY_EVIDENCE_ONLY_NOT_WIRED_TO_ENTRY_GATE_OR_BROKER
+environment issue
 ```
 
-## Current nonclaims
+No workflow/test/product guard has been weakened.
 
-Do not claim empirical profitability of a real GROUP rule, CTXDEP1 trusted PASS, operational context gating, cross-symbol allocation, live readiness or repository-wide compliance PASS.
+## Current validation status
+
+CTXINT1 remains untrusted until focused + Full local validation at one exact SHA.
+
+Do not claim operational parent-context gating, actual Broker suppression, real GROUP profitability, automatic cross-symbol selection/allocation, live readiness or repository-wide compliance PASS.
 
 `REMEDIATION_REQUIRED` remains broader repository status.
 
@@ -80,8 +93,6 @@ Do not claim empirical profitability of a real GROUP rule, CTXDEP1 trusted PASS,
 ```powershell
 git pull --ff-only origin main
 git rev-parse HEAD
-python -m unittest -v test_stage1_tactical_context_deployment_evidence.py
+python -m unittest -v test_stage1_tactical_context_gate_preview.py
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
-
-Classify any first executable failure as exactly `test defect`, `product defect`, `authority drift`, `environment issue`, or `unknown` before editing.
