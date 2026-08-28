@@ -14,11 +14,11 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / 2026-08-29 KST**
 
 ## 2. 최근 한 일
 
-- `GCANCEL1`, `GCANCEL2`, `VSLICE1`, `LF2`, `LFVAL1`, `LFOUT1`은 trusted Full PASS다.
-- LFOUT1 trusted executable checkpoint는 `ca4d5309a658de02f970e341bbf86ad87ab327ae`이며 로컬 검증은 `Ran 7 tests in 0.003s / OK` 및 `[PASS] Tactical P1 verification completed: mode=Full.`이다.
-- LFOUT1 initial 실패는 **product defect — signed MAE direction bug**였고 테스트/threshold는 유지한 채 product logic만 수정했다.
-- 저장소에 authoritative real-market LF study dataset이 없음을 확인했다. fixture를 real evidence로 가장하지 않기로 했다.
-- 새 LFREAL1 remote executable checkpoint `5aa1da3268f1f3e031aa6d607a4d3a5921f03e58`를 만들었고 아직 local validation 전이다.
+- `GCANCEL1`, `GCANCEL2`, `VSLICE1`, `LF2`, `LFVAL1`, `LFOUT1`, `LFREAL1`은 trusted Full PASS다.
+- LFOUT1 trusted executable checkpoint는 `ca4d5309a658de02f970e341bbf86ad87ab327ae`이다.
+- LFREAL1 trusted executable checkpoint는 `5aa1da3268f1f3e031aa6d607a4d3a5921f03e58`이다.
+- LFREAL1 사용자 로컬 검증은 `Ran 7 tests in 0.002s / OK` 및 `[PASS] Tactical P1 verification completed: mode=Full.`이다.
+- 저장소에는 여전히 authoritative real-market LF study dataset이 없다. LFREAL1 trust는 admission contract trust이지 real-data study 완료가 아니다.
 
 ## 3. 현재 위치
 
@@ -28,10 +28,10 @@ LF1 OBSERVATION_ONLY relation evidence
  -> LF2 ARM_PENDING / HOLD / HOLD_PENDING / CANCEL_PENDING evidence
  -> LFVAL1 TRAIN / VALIDATION / OOS / HARSH stability validation
  -> LFOUT1 exact frozen outcome validation
- -> LFREAL1 non-fixture provenance/admission contract (REMOTE_UNVALIDATED)
+ -> LFREAL1 non-fixture provenance/admission contract
 ```
 
-LFREAL1은 실제 데이터를 가져오지 않는다. 외부에서 동결된 데이터가 나중에 들어올 때 다음을 강제하는 admission layer다.
+LFREAL1은 실제 데이터를 가져오지 않는다. 외부에서 동결된 데이터가 들어올 때 다음을 강제하는 trusted admission layer다.
 
 ```text
 exact provenance coverage by evidence_hash
@@ -70,16 +70,16 @@ broader repo compliance는 계속 **REMEDIATION_REQUIRED**다.
 
 ## 4. 바로 다음에 할 일
 
-먼저 LFREAL1 local trust gate를 닫는다.
+이제 코드 기능을 더 확장하는 것보다 **실제 externally sourced frozen historical dataset + content hash + causal LF1/LF2 producer + post-observation outcome producer**를 확보하는 것이 우선이다.
 
-```powershell
-python -m unittest test_stage1_multi_symbol_follower_real_evidence.py
-powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
+```text
+real external historical source
++ reproducible frozen source hash
++ causal LF1/LF2 producer
++ post-observation outcome producer
+ -> LFVAL1 / LFOUT1 / LFREAL1 real study bundle
+ -> only then assess whether any bounded permission bridge is justified
 ```
-
-focused + Full이 모두 PASS해야 LFREAL1 admission contract를 trusted로 승격한다.
-
-그 다음에도 deployment authority를 열지 않는다. 실제 연구를 하려면 **외부 원천의 frozen historical dataset + content hash + causal LF1/LF2 producer + post-observation outcome producer**가 필요하다.
 
 fixture를 복제해서 real study라고 부르지 않는다. automatic selection, allocation, adaptive learning, new DSL grammar, live deployment gate는 계속 보류한다.
 
