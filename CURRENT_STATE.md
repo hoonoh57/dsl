@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_TRUSTED_FULL_PASS / LFVAL1_TRUSTED_FULL_PASS / LFOUT1_TRUSTED_FULL_PASS / LFREAL1_TRUSTED_FULL_PASS / LFREAL2_TRUSTED_FULL_PASS / LFREAL3_REMOTE_UNVALIDATED / REMEDIATION_REQUIRED**  
+Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_TRUSTED_FULL_PASS / LFVAL1_TRUSTED_FULL_PASS / LFOUT1_TRUSTED_FULL_PASS / LFREAL1_TRUSTED_FULL_PASS / LFREAL2_TRUSTED_FULL_PASS / LFREAL3_TRUSTED_FULL_PASS / REMEDIATION_REQUIRED**  
 Updated: 2026-08-29 KST
 
 ## Recovery
@@ -39,12 +39,7 @@ LFVAL1            283af6e8ed046324698b9ff49e95f5044131f453
 LFOUT1            ca4d5309a658de02f970e341bbf86ad87ab327ae
 LFREAL1           5aa1da3268f1f3e031aa6d607a4d3a5921f03e58
 LFREAL2           10861c232d03937c5ae77e2be32cd1873a5ff977
-```
-
-LFREAL3 remote executable checkpoint awaiting local validation:
-
-```text
-ab4d798c6648ee382e779af81e759cd11bf1cb13
+LFREAL3           ab4d798c6648ee382e779af81e759cd11bf1cb13
 ```
 
 Relevant external Chart contract checkpoint used by trusted Full runs:
@@ -71,40 +66,29 @@ LFREAL1:      Ran 7 tests in 0.002s / OK
 LFREAL1 Full: [PASS] Tactical P1 verification completed: mode=Full.
 LFREAL2:      Ran 7 tests in 0.001s / OK
 LFREAL2 Full: [PASS] Tactical P1 verification completed: mode=Full.
+LFREAL3:      Ran 7 tests in 0.001s / OK
+LFREAL3 Full: [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
 ## Trusted research boundary
 
-LF2 remains observation-only orchestration. LFVAL1 validates frozen intent evidence. LFOUT1 validates exact frozen outcomes. LFREAL1 validates non-fixture provenance/timing admission. LFREAL2 freezes caller-provided external historical bytes into a deterministic SHA-256 manifest.
+LF2 remains observation-only orchestration. LFVAL1 validates frozen intent evidence. LFOUT1 validates exact frozen outcomes. LFREAL1 validates non-fixture provenance/timing admission. LFREAL2 freezes caller-provided external historical bytes into a deterministic SHA-256 manifest. LFREAL3 binds caller-parsed OHLCV rows to that manifest and produces deterministic cutoff-bounded causal snapshots.
 
-LFREAL2 deliberately remains research-only and proves byte identity only, not external market-data authenticity.
-
-## LFREAL3 remote-unvalidated causal row tranche
-
-LFREAL3 binds caller-parsed OHLCV rows to an LFREAL2 v1 manifest and creates deterministic causal snapshots.
-
-Required admission:
+LFREAL3 trusted guarantees:
 
 ```text
 row_count == manifest.record_count
 row.symbol in manifest.symbols
 unique (symbol,time)
-rows stay within manifest observation range
-min(row.time) == manifest.first_observation
-max(row.time) == manifest.last_observation
+exact manifest first/last observation boundary
 finite/basic-valid OHLCV
-```
-
-Causal snapshot rule:
-
-```text
 visible rows = rows where row.time <= knowledge_cutoff
 future_rows_excluded = true
 ```
 
 No nearest-time lookup, fill-forward, interpolation, provider access, file I/O, strategy replay, LF semantics, order authority, or deployment authority is added.
 
-LFREAL3 deliberately keeps:
+Authority/claim boundary remains:
 
 ```text
 mode = RESEARCH_ROWS_ONLY / CAUSAL_RESEARCH_SNAPSHOT_ONLY
@@ -115,8 +99,6 @@ market_data_authenticity_verified = false
 real_data_claim = false
 ```
 
-LFREAL3 is **not trusted** until user-local focused tests and Tactical P1 Full both pass.
-
 ## Defect history preserved
 
 Initial LFOUT1 executable `f95d15f2f66533a616db5a86df9cbe9e1f7c418b` failed two focused tests. Classification: **product defect — signed MAE direction bug**. Product logic only was corrected; tests and thresholds were unchanged.
@@ -125,11 +107,21 @@ Initial LF2 checkpoint `14bf03f1f9473a607d4330e4d06f9d0ef9bdd219` had a source-l
 
 ## Next boundary
 
-First close the LFREAL3 local trust gate.
+**Architecture expansion stops here unless real source material appears.**
 
-Even a trusted LFREAL3 still does not mean an external real dataset has been acquired or authenticated. The next useful real study step requires actual externally obtained historical bytes, frozen by LFREAL2, parsed into LFREAL3 rows, and then consumed by a narrow exact-as-of LF1/LF2 producer plus strictly post-observation outcome producer.
+The next useful step is not another contract tranche. It is actual externally obtained historical bytes and source-origin evidence.
 
-Until real source material exists, automatic allocation, adaptive learning, new DSL grammar, live selection, broader ranking, and deployment permission remain closed.
+```text
+external historical bytes
+ -> LFREAL2 freeze/content hash
+ -> independent source-origin verification
+ -> LFREAL3 deterministic rows/snapshots
+ -> narrow exact-as-of LF1/LF2 evidence producer
+ -> strictly post-observation outcome producer
+ -> LFVAL1 / LFOUT1 / LFREAL1 real study
+```
+
+Until real source material exists, do not add more parser/provider framework, automatic allocation, adaptive learning, new DSL grammar, live selection, broader ranking, or deployment permission.
 
 ## Nonclaims
 
