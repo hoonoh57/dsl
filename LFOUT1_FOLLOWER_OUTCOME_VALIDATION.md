@@ -1,6 +1,24 @@
 # LFOUT1 Follower Outcome Validation — Implementation Checkpoint
 
-Status: **REMOTE_UNVALIDATED / AWAITING_LOCAL_FOCUSED_AND_FULL_PASS / 2026-08-28 KST**
+Status: **TRUSTED FULL PASS / EVIDENCE_ONLY / 2026-08-29 KST**
+
+## Trusted checkpoint
+
+Executable checkpoint after the MAE-direction fix:
+
+```text
+ca4d5309a658de02f970e341bbf86ad87ab327ae
+```
+
+User-local validation at that checkout:
+
+```text
+Ran 7 tests in 0.003s
+OK
+[PASS] Tactical P1 verification completed: mode=Full.
+```
+
+LFOUT1 is therefore trusted Full-green at that exact executable checkpoint.
 
 ## Purpose
 
@@ -34,6 +52,36 @@ TRAIN, VALIDATION and OOS are required exactly once; at least one HARSH partitio
 
 All partitions must use one LF2 `policy_hash`, and evidence identities must be globally disjoint.
 
+## Initial validation defect
+
+The initial executable checkpoint:
+
+```text
+f95d15f2f66533a616db5a86df9cbe9e1f7c418b
+```
+
+failed two focused tests because `mae_pct` sign direction was interpreted backwards.
+
+Classification:
+
+```text
+product defect — signed MAE direction bug
+```
+
+`mae_pct` is represented as a signed adverse excursion where a more negative value is worse. The initial implementation computed regression as:
+
+```text
+max(0, arm_mae - non_arm_mae)
+```
+
+which incorrectly treated a less-negative ARM MAE as worse. The correct regression is:
+
+```text
+max(0, non_arm_mae - arm_mae)
+```
+
+Only product logic was corrected. The tests and validation thresholds were not weakened.
+
 ## Authority boundary
 
 ```text
@@ -44,21 +92,6 @@ deployment_authority = false
 ```
 
 A PASS means only that the supplied frozen outcome evidence satisfies the declared comparison contract. It does not prove production profitability or authorize live trading.
-
-## Executable remote checkpoint
-
-```text
-f95d15f2f66533a616db5a86df9cbe9e1f7c418b
-```
-
-Executable files:
-
-```text
-core/multi_symbol_follower_outcome_validation.py
-test_stage1_multi_symbol_follower_outcome_validation.py
-```
-
-No Parser, Semantic, Runtime, Backtest, Broker, provider or Chart product source was changed.
 
 ## Focused regression
 
@@ -72,14 +105,9 @@ Seven tests cover:
 6. partition order does not alter identity;
 7. LF2 policy mismatch fails closed.
 
-## Local trust gate
+## Mutation boundary
 
-```powershell
-python -m unittest test_stage1_multi_symbol_follower_outcome_validation.py
-powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
-```
-
-Only after both pass locally may LFOUT1 become trusted.
+LFOUT1 did not modify Parser, Semantic, Runtime, Backtest, Broker, provider, Chart product source, DSL grammar, allocation, ranking, or adaptive-learning authority.
 
 ## Nonclaims
 
