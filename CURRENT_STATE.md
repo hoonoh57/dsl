@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **CTXINT1_TRUSTED_FULL_PASS / CTXINT2_VALIDATED_CONTEXT_BACKTEST_ENTRY_GATE_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / REMEDIATION_REQUIRED**  
+Status: **CTXINT2_TRUSTED_FULL_PASS / CTXINT3_NEXT_OPEN_TIMING_INTEGRATION_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / REMEDIATION_REQUIRED**  
 Updated: 2026-08-28 KST
 
 ## Authority order
@@ -20,8 +20,9 @@ Updated: 2026-08-28 KST
 13. `CTXDEP1_VALIDATED_CONTEXT_DEPLOYMENT_POLICY_EVIDENCE_IMPLEMENTATION.md`
 14. `CTXINT1_VALIDATED_CONTEXT_GATE_PREVIEW_IMPLEMENTATION.md`
 15. `CTXINT2_VALIDATED_CONTEXT_BACKTEST_ENTRY_GATE_INTEGRATION.md`
-16. earlier product/execution/playbook/audit checkpoints
-17. `PROGRESS_CHECKPOINT_2026-08-26.md`
+16. `CTXINT3_VALIDATED_CONTEXT_NEXT_OPEN_TIMING_INTEGRATION.md`
+17. earlier product/execution/playbook/audit checkpoints
+18. `PROGRESS_CHECKPOINT_2026-08-26.md`
 
 ## Trusted exact Full checkpoints
 
@@ -50,13 +51,14 @@ MSA3    02904728cb0a39669e6809ba21c4e2dd8eb947e3
 CTXVAL1 db9d9ddeeec55f2774d7a2d873ec2f19d77726b4
 CTXDEP1 804baea25f29d1c77f2984d67e37dbb5ebb1160e
 CTXINT1 81903641b2877e16a3bcdcbf7ed1c1bcf1864ad9
+CTXINT2 b3b547b9d2d0eaeee654790243f031a3bbb88198
 ```
 
 Recent operator evidence:
 
 ```text
-CTXDEP1: Ran 6 tests in 0.028s / OK / Full PASS
 CTXINT1: Ran 7 tests in 0.129s / OK / Full PASS
+CTXINT2: Ran 7 tests in 0.106s / OK / Full PASS
 ```
 
 ## Governing architecture
@@ -64,80 +66,73 @@ CTXINT1: Ran 7 tests in 0.129s / OK / Full PASS
 Core remains deterministic and single-instrument.
 
 ```text
-PCTX provider calculation outside DSL
- -> exact frozen parent context
- -> registered read-only ctx.*
- -> validated context evidence/policy
- -> blocking-only existing entry-gate seam
- -> existing execution policy
+registered causal parent evidence
+ -> Train/Validation/OOS/Harsh validation
+ -> validated policy evidence
+ -> block-only composition proof
+ -> existing Backtest entry-gate seam
+ -> common execution policy
  -> BrokerEmulator
 ```
 
-Cross-symbol and macro intelligence remain staged outside Instrument DSL:
+Parent context may remove an entry opportunity. It may not create one, bypass local guards, alter exits or submit Broker orders directly.
 
-```text
-MSA1 immutable snapshots
- -> MSA2 bounded group evidence
- -> MSA3 research-only GROUP publication
- -> CTXVAL1 Train/Validation/OOS/Harsh validation
- -> CTXDEP1 validated deployment-policy evidence
- -> CTXINT1 preview-only composition proof
- -> CTXINT2 blocking-only Backtest integration
-```
-
-## CTXINT1 trusted state
+## CTXINT2 trusted state
 
 Exact trusted checkpoint:
 
 ```text
-81903641b2877e16a3bcdcbf7ed1c1bcf1864ad9
-Ran 7 tests in 0.129s
+b3b547b9d2d0eaeee654790243f031a3bbb88198
+Ran 7 tests in 0.106s
 OK
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-CTXINT1 proves parent context can only remove an existing local opportunity and cannot create an entry or bypass a failed local hard guard. It remains a preview-only evidence layer.
+This proves blocking-only `bar_close` Backtest integration through the existing `entry_gate` seam while BrokerEmulator remains execution authority.
 
-## CTXINT2 current executable tranche
+During CTXINT3 design, deferred entry orders were recognized as a separate signal-time/fill-time authority problem. Current CTXINT2 source is therefore hardened to reject LIMIT/STOP/STOP_LIMIT until that problem receives its own validation. The original exact trusted checkpoint remains the SHA above; the hardened source is part of the current untrusted CTXINT3 checkout.
 
-New files:
+## CTXINT3 current executable tranche
 
-```text
-core/tactical_context_backtest_integration.py
-test_stage1_tactical_context_backtest_integration.py
-CTXINT2_VALIDATED_CONTEXT_BACKTEST_ENTRY_GATE_INTEGRATION.md
-```
-
-CTXINT2 takes the exact validated tactic identity and exact DEPLOYMENT context timeline, rebuilds the trusted CTXINT1 composition, and supplies the resulting blocking-only boolean sequence to the already-existing `BacktestEngine.run(..., entry_gate=...)` seam.
-
-V1 deliberately allows only `signal_mode=bar_close`. `next_open` is not guessed; it requires a later explicit signal-time/fill-time validation tranche.
-
-Authority is narrow:
+New executable/regression:
 
 ```text
-gate_authority = ENTRY_SUPPRESSION_ONLY
-can_create_entry = false
-can_bypass_local_hard_guard = false
-can_block_exit = false
-broker_order_authority = false
-execution_authority = BrokerEmulator
+core/tactical_context_integration_scope.py
+core/tactical_context_next_open_integration.py
+test_stage1_tactical_context_next_open_integration.py
 ```
 
-No Parser, Semantic, Runtime, BacktestEngine implementation, BrokerEmulator or provider-calculation code is changed by CTXINT2.
+Detailed checkpoint:
+
+```text
+CTXINT3_VALIDATED_CONTEXT_NEXT_OPEN_TIMING_INTEGRATION.md
+```
+
+CTXINT3 authorizes only the following causal timing for MARKET entries:
+
+```text
+completed bar t trigger + local guard + validated context permission
+ -> shifted one bar
+ -> may suppress/allow the already-existing next_open entry at bar t+1 open
+```
+
+The fill bar's unfinished context is never used to rescue the fill. First bar has no prior completed-bar authority. Exits remain outside the context gate.
+
+Deferred entry orders remain fail-closed because a multi-bar pending order needs a separately declared rule for original signal permission versus later fill-time permission.
 
 ## Remote CI environment
 
-GitHub Actions continues to fail before executable steps receive a runner. These are classified `environment issue`; workflow/test/product guards are not weakened.
+GitHub Actions has repeatedly failed before executable steps receive a runner. Such failures remain classified `environment issue`; workflow/test/product guards are not weakened.
 
 ## Still not implemented / nonclaims
 
 Do not claim yet:
 
-- trusted Full PASS for CTXINT2;
-- validated `next_open` context-gate semantics;
+- trusted Full PASS for CTXINT3;
+- validated LIMIT/STOP/STOP_LIMIT context timing;
 - production/live parent-context gating;
-- empirical profitability of real GROUP context;
-- automatic cross-symbol selection/allocation;
+- empirical profitability of a real GROUP context rule;
+- automatic cross-symbol allocation;
 - live-trading readiness;
 - repository-wide Chart/overall compliance PASS.
 
@@ -148,7 +143,7 @@ Do not claim yet:
 ```powershell
 git pull --ff-only origin main
 git rev-parse HEAD
-python -m unittest -v test_stage1_tactical_context_backtest_integration.py
+python -m unittest -v test_stage1_tactical_context_next_open_integration.py
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
