@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **GCANCEL1_TRUSTED_FULL_PASS / GCANCEL2_TRUSTED_FULL_PASS / VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / REMEDIATION_REQUIRED**  
+Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_REMOTE_UNVALIDATED / AWAITING_LOCAL_FOCUSED_AND_FULL_PASS / REMEDIATION_REQUIRED**  
 Updated: 2026-08-28 KST
 
 ## Recovery
@@ -9,18 +9,18 @@ Updated: 2026-08-28 KST
 
 ## Governing architecture
 
-Core DSL stays deterministic and single-instrument. Cross-symbol/leader/follower intelligence remains external Add-on/context evidence.
+Core DSL stays deterministic and single-instrument. Cross-symbol/leader/follower intelligence remains optional Add-on evidence/orchestration.
 
 ```text
 single-instrument causal snapshots
- -> bounded external evidence
+ -> bounded external LF1 evidence
  -> local deterministic setup + hard guards
- -> generic pending order
- -> generic cancel by stable client identity
+ -> LF2 observation-only ARM/CANCEL/HOLD intent evidence
+ -> existing generic DSL pending/cancel machinery
  -> BrokerEmulator
 ```
 
-Hard equipment/guards remain authoritative before optional adaptive intelligence. No peer discovery, ranking, allocation, provider calls, or learning authority belongs in Parser/Runtime/Backtest/Broker.
+Hard equipment/guards remain authoritative before optional adaptive intelligence. No peer discovery, ranking, allocation, provider calls, learning authority or leader/follower semantics belongs in Parser/Runtime/Backtest/Broker.
 
 ## Trusted exact checkpoints relevant to current boundary
 
@@ -42,34 +42,9 @@ GCANCEL2: Ran 5 tests in 0.004s / OK / Full PASS
 VSLICE1:  Ran 2 tests in 0.039s / OK / Full PASS
 ```
 
-## Trusted generic capabilities
+## Generic mechanical vertical slice — closed
 
-1. Registered exact DEPLOYMENT parent context can enter Instrument DSL only through read-only `ctx.*` binding.
-2. Parent context cannot create trades or bypass a failed local hard guard.
-3. Generic pending LIMIT/STOP/STOP_LIMIT orders use stable client identities and Broker-owned lifecycle.
-4. `order.cancel(id="...")` is trusted and routes only to BrokerEmulator cancellation.
-5. `next_open` cancellation uses prior completed-bar evidence before next-bar matching; `bar_close` cancellation acts after current-bar matching.
-
-## VSLICE1 trusted composition proof
-
-Exact trusted validation checkpoint:
-
-```text
-72445456e86b695dc7288ab3a48856fa560463dd
-Ran 2 tests in 0.039s
-OK
-[PASS] Tactical P1 verification completed: mode=Full.
-```
-
-VSLICE1 adds only:
-
-```text
-test_stage1_context_pending_order_cancel.py
-```
-
-No product source file changed.
-
-The composition now proves:
+VSLICE1 trusted proof:
 
 ```text
 exact registered ctx.* permission
@@ -80,38 +55,71 @@ exact registered ctx.* permission
  -> BrokerEmulator
 ```
 
-Validated timing cases:
+No missing Core primitive was demonstrated. Do not expand Core merely to support leader/follower convenience.
 
-- `bar_close`: valid local setup + exact context submits one pending LIMIT; later exact context invalidation cancels it before a later fill-eligible bar;
-- `next_open`: prior completed-bar context invalidation cancels before the next fill-eligible bar is matched;
-- execution authority remains `BrokerEmulator`;
-- canceled pending orders produce no entry fill.
+## LF2 remote-unvalidated Add-on tranche
 
-## Review conclusion
-
-No missing Core primitive was demonstrated. The generic mechanical vertical slice is therefore considered closed at the currently trusted boundary.
-
-Do not add more Core DSL grammar/runtime/execution behavior merely to support leader/follower orchestration. The next development axis moves outward to one small deterministic Add-on evidence/tactic experiment that consumes the existing generic seams.
-
-Preferred next progression:
+Executable checkpoint:
 
 ```text
-one deterministic external evidence source
- -> one local follower tactic
- -> hard guard first
- -> existing ctx.* / pending order / cancel machinery
- -> backtest evidence
+14bf03f1f9473a607d4330e4d06f9d0ef9bdd219
 ```
 
-Adaptive learning, ranking expansion, portfolio allocation and additional cross-symbol autonomy remain deferred until a concrete validated need appears.
+Executable files added:
+
+```text
+core/multi_symbol_follower_pending_orchestration.py
+test_stage1_multi_symbol_follower_pending_orchestration.py
+```
+
+LF2 consumes only frozen evidence/state:
+
+```text
+LF1 OBSERVATION_ONLY relation result
++ selected/local follower identity
++ local setup pass/fail
++ local hard-guard pass/fail
++ explicit relation_still_valid
++ existing pending identity when active
+```
+
+It emits observation-only intent evidence:
+
+```text
+ARM_PENDING
+HOLD
+HOLD_PENDING
+CANCEL_PENDING
+```
+
+It has `operational_authority=false` and `execution_authority=false`. It does not call DSLRuntime, BacktestEngine, BrokerEmulator, ParentFeatureProvider, network or persistence.
+
+Deterministic priority:
+
+- hard guard failure blocks a new ARM;
+- hard guard failure cancels an already-active pending intent;
+- explicit relation invalidation cancels an already-active pending intent;
+- only the LF1-qualified selected follower with passing local setup + hard guard + valid relation may ARM;
+- active cancellation reuses the explicit existing client identity and fails closed when missing.
+
+## LF2 trust gate
+
+```powershell
+python -m unittest test_stage1_multi_symbol_follower_pending_orchestration.py
+powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
+```
+
+Do not mark LF2 trusted until both pass locally.
+
+After LF2 trust, do not immediately grant deployment authority. The next boundary is to decide whether this observation-only orchestration should enter a separate Train/Validation/OOS/Harsh evidence tranche. No automatic allocation, live selection or adaptive autonomy.
 
 ## Remote CI environment
 
-GitHub Actions failures that occur before executable job steps receive a runner remain classified as `environment issue`; do not weaken guards or tests.
+GitHub Actions for LF2 failed before executable job steps were created (`steps=null`). Classification: `environment issue`. Do not weaken guards or tests.
 
 ## Nonclaims
 
-No profitable leader/follower edge, production leader selection, live provider/broker readiness, or repository-wide compliance PASS is claimed.
+No profitable leader/follower edge, production leader selection, validated deployment gating, live provider/broker readiness, or repository-wide compliance PASS is claimed.
 
 `REMEDIATION_REQUIRED` remains authoritative for broader repository compliance.
 
