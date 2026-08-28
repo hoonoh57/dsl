@@ -1,6 +1,16 @@
 # Quant DSL Progress Checkpoint — through 2026-08-28 KST
 
-Status: **CTXINT3_TRUSTED_FULL_PASS / LF1_LEADER_FOLLOWER_RELATION_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / CORE_DSL_FREEZE_ACTIVE**
+Status: **LF1_TRUSTED_FULL_PASS / SESSION_RECOVERY_ACTIVE / NEXT_GENERIC_PENDING_ORDER_CANCEL / CORE_DSL_FREEZE_ACTIVE**
+
+## Durable session recovery
+
+`SESSION_RECOVERY.md` is now the permanent recovery entrypoint. In a new chat, `세션복구` must recover from available ChatGPT Project previous conversations plus current repository state, then answer briefly with:
+
+- 개발철학 5개 이내
+- 최근 한 일
+- 앞으로 할 일
+
+No manual recap is required from the user.
 
 ## Trusted exact Full checkpoints
 
@@ -29,38 +39,35 @@ CTXDEP1 804baea25f29d1c77f2984d67e37dbb5ebb1160e
 CTXINT1 81903641b2877e16a3bcdcbf7ed1c1bcf1864ad9
 CTXINT2 b3b547b9d2d0eaeee654790243f031a3bbb88198
 CTXINT3 7f77694658d7155806e97bdafcc543e2c7bfeae8
+LF1     5ec230c8bbada60f0e4b9fe945a5380d7c405fe2
 ```
 
 Recent evidence:
 
 ```text
-CTXINT2: Ran 7 tests in 0.106s / OK / Full PASS
 CTXINT3: Ran 7 tests in 0.150s / OK / Full PASS
+LF1:     Ran 7 tests in 0.058s / OK / Full PASS
 ```
 
 ## Current first-operation target
 
-The project now prioritizes a minimal but reusable leader/follower capability without putting leader/follower semantics into Instrument DSL.
+The first leader/follower relationship slice is now trusted. It measures qualified leadership, follower response rate, lag and response strength without putting those concepts into Instrument DSL.
+
+The immediate next tranche is deliberately generic:
 
 ```text
-explicit sector/group universe
- -> exact per-symbol snapshots
- -> MSA2 leader/follower breadth
- -> LF1 leader persistence + lagged follower response evidence
- -> later generic pending-order cancel primitive
- -> later story/orchestration composition
+trusted LF1 relation evidence
+ -> generic DSL pending-order cancellation by explicit identity
+ -> deterministic Backtest/Broker cancellation lifecycle
+ -> later leader/follower orchestration story
 ```
-
-LF1 measures leader qualification, follower follow-rate, lag and response strength as separate axes. It emits an explicit follow-rate ordering for research only and has no deployment or Broker authority.
 
 ## Core freeze boundary
 
-The planned cancellation tranche is a generic order primitive only. It must not add `leader`, `follower`, `sector ranking` or peer-symbol reads to Parser/Runtime. Cross-symbol judgement remains in the Add-on.
+The cancellation tranche must remain a normal order capability. It must not add `leader`, `follower`, `sector ranking` or peer-symbol reads to Parser/Runtime. Cross-symbol judgement remains in the Add-on.
 
-## Current validation status
+## Current nonclaims
 
-LF1 is implemented but untrusted until its focused regression and Tactical P1 Full verifier pass at one exact SHA.
-
-Do not claim profitable leader/follower edge, validated production stock selection, generic DSL cancel semantics, live readiness or repository-wide compliance PASS.
+LF1 trust does not establish profitable leader/follower edge or production stock-selection authority. Generic DSL cancel semantics, cross-symbol pending-order orchestration, live readiness and repository-wide compliance PASS remain unvalidated.
 
 `REMEDIATION_REQUIRED` remains broader repository status.
