@@ -15,50 +15,41 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / 2026-08-28 KST**
 ## 2. 최근 한 일
 
 - `LF1`은 trusted Full PASS 상태다. 대장/추종 관계는 관찰 증거이며 주문 권한은 없다.
-- `GCANCEL1` 완료 및 trusted 승격: `BrokerEmulator.cancel_client_order(...)`가 명시적 `client_order_id`를 fail-closed로 해석하고 기존 Broker `cancel(...)` lifecycle에 위임한다.
-- GCANCEL1 executable checkpoint는 `583c5362ca5ea57e62353a963cd5a2cfb0addfad`이다.
-- 사용자 로컬 검증은 `Ran 5 tests in 0.000s / OK` 및 `Tactical P1 Full PASS`다.
-- 그 다음 `GCANCEL2`를 원격 구현했다: generic DSL `order.cancel(id="...")` → Backtest timing → trusted Broker cancel primitive 연결이다.
+- `GCANCEL1` trusted: `BrokerEmulator.cancel_client_order(...)`가 명시적 `client_order_id`를 fail-closed로 해석하고 기존 Broker cancel lifecycle에 위임한다.
+- `GCANCEL2` trusted: generic DSL `order.cancel(id="...")`가 Backtest timing을 거쳐 trusted Broker cancellation primitive로 연결된다.
+- GCANCEL2 executable checkpoint는 `3cd5731a1702f7bfb11878dfd6e34339baa5f163`이다.
+- 사용자 로컬 검증은 `Ran 5 tests in 0.004s / OK` 및 `Tactical P1 Full PASS`다.
 
 ## 3. 현재 위치
 
-GCANCEL2 executable remote checkpoint:
+현재 최소 실행 조합은 다음까지 trusted다.
 
 ```text
-3cd5731a1702f7bfb11878dfd6e34339baa5f163
+external leader/sector evidence
+ -> follower-local setup
+ -> generic pending LIMIT/STOP/STOP_LIMIT intent with stable id
+ -> generic order.cancel(id="...")
+ -> BrokerEmulator lifecycle
 ```
 
-현재 상태는 **REMOTE_UNVALIDATED**다.
+GCANCEL2 timing은 causal하다.
 
-GCANCEL2의 causal timing:
+- `next_open`: 직전 완료봉의 cancel intent를 다음 봉 가격 매칭 전에 적용한다.
+- `bar_close`: 현재 봉 가격 매칭 후 close-confirmed cancel intent를 적용한다.
 
-- `next_open`: 직전 완료봉의 cancel intent를 다음 봉에서 가격 매칭 전에 적용한다.
-- `bar_close`: 현재 봉 가격 매칭이 끝난 뒤 close-confirmed cancel intent를 적용하고, 그 다음 신규 deferred order를 제출한다.
-
-변경 실행 축은 다음 세 파일뿐이다.
-
-```text
-core/dsl_parser.py
-core/backtest.py
-test_stage1_dsl_pending_order_cancel.py
-```
-
-대장/추종, sector, peer-symbol, allocation, learned-policy 의미는 추가하지 않았다.
+대장/추종, sector, peer-symbol, allocation, learned-policy 의미는 Core에 추가하지 않았다.
 
 broader repo compliance는 계속 **REMEDIATION_REQUIRED**다.
 
 ## 4. 바로 다음에 할 일
 
-GCANCEL2 local trust gate만 수행한다.
+다음은 새 기능 추가가 아니라 **최소 vertical-slice 충분성 검토**다.
 
-```powershell
-python -m unittest test_stage1_dsl_pending_order_cancel.py
-powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
-```
-
-두 검증이 모두 PASS하면 GCANCEL2를 trusted로 승격한다.
-
-그 다음에는 자동으로 복잡한 대장/추종 orchestration을 확장하지 않는다. 먼저 **현재 generic 예약주문 + 취소 기능만으로 최소 vertical slice에 충분한지** 판단한다.
+1. 기존 Add-on/context 경로만으로 간단한 invalidate/not-invalidate 조건을 만들 수 있는지 본다.
+2. 한 추종 setup이 pending 주문 하나를 만들고 이후 trusted `order.cancel(id=...)`로 취소되는지 본다.
+3. 부족한 부분이 있으면 그것이 진짜 generic primitive인지, 단순 orchestration인지 구분한다.
+4. adaptive learning, ranking 확대, allocation, 새 grammar 없이 첫 동작을 구성한다.
+5. 실제 generic gap이 확인될 때만 다음 Core tranche를 연다.
 
 ## 5. 세션복구 규칙
 
@@ -75,6 +66,6 @@ powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode 
 
 ## 6. 금지된 과장
 
-현재 수익성 있는 leader/follower edge, 실전 자동선별, live trading readiness, trusted GCANCEL2, repository-wide compliance PASS를 주장하지 않는다.
+현재 수익성 있는 leader/follower edge, 실전 자동선별, live trading readiness, repository-wide compliance PASS를 주장하지 않는다.
 
 `REMEDIATION_REQUIRED`가 broader compliance의 authoritative 상태다.
