@@ -1,6 +1,6 @@
 # LF2 Follower Pending Intent Orchestration — Implementation Checkpoint
 
-Status: **REMOTE_UNVALIDATED / AWAITING_LOCAL_FOCUSED_AND_FULL_PASS / 2026-08-28 KST**
+Status: **REMOTE_UNVALIDATED_AFTER_FIX / AWAITING_LOCAL_FOCUSED_AND_FULL_PASS / 2026-08-28 KST**
 
 ## Purpose
 
@@ -80,24 +80,51 @@ operational_authority = false
 execution_authority = false
 ```
 
-It has no BrokerEmulator, BacktestEngine, DSLRuntime, ParentFeatureProvider, network, database or persistence calls.
+It has no execution, provider, network, database or persistence calls and emits no `broker_order`, `entry_gate`, `allocation`, `allowed_symbols` or `blocked_symbols` field.
 
-It emits no `broker_order`, `entry_gate`, `allocation`, `allowed_symbols` or `blocked_symbols` field.
+## Initial executable checkpoint and local failure
 
-## Executable remote checkpoint
+Initial executable checkpoint:
 
 ```text
 14bf03f1f9473a607d4330e4d06f9d0ef9bdd219
 ```
 
-Executable files added in LF2:
+User-local focused result:
+
+```text
+Ran 6 tests in 0.002s
+FAILED (failures=1)
+```
+
+Full verification also failed because the same focused contract test was included in the Full boundary.
+
+Failure classification: **product defect (source-level contract defect)**.
+
+The authority-boundary regression intentionally rejects forbidden execution/provider tokens anywhere in the Add-on source. The module docstring named concrete forbidden execution classes while explaining that it did not call them. Runtime behavior had no execution-authority path, but the source still violated the explicit source-level boundary contract. The test was therefore correct and was not weakened.
+
+## Fix checkpoint
+
+Fixed executable checkpoint:
+
+```text
+5a6e6e53c089ed108d19fa729cba84874e856388
+```
+
+Fix scope:
+
+```text
+core/multi_symbol_follower_pending_orchestration.py
+```
+
+Only the module docstring was neutralized to describe the boundary generically. No orchestration logic, policy, hashing, identity, intent decision, Parser, Semantic, Runtime, Backtest, Broker or provider behavior changed.
+
+Executable files in LF2 remain:
 
 ```text
 core/multi_symbol_follower_pending_orchestration.py
 test_stage1_multi_symbol_follower_pending_orchestration.py
 ```
-
-No Parser, Semantic, Runtime, Backtest, Broker or provider file was modified.
 
 ## Focused regression
 
@@ -112,20 +139,20 @@ The focused test covers:
 
 ## Remote CI classification
 
-GitHub Actions for the LF2 executable checkpoint failed before job steps were created (`steps=null`).
+GitHub Actions for the pre-fix LF2 executable checkpoint failed before job steps were created (`steps=null`).
 
 Classification: **environment issue**.
 
-No product/test guard is weakened.
+That remote infrastructure failure is independent from the later user-local source-contract failure above.
 
-## Local trust gate
+## Local trust gate after fix
 
 ```powershell
 python -m unittest test_stage1_multi_symbol_follower_pending_orchestration.py
 powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
-Only after both pass locally may LF2 become trusted.
+Only after both pass locally at or after fix checkpoint `5a6e6e53c089ed108d19fa729cba84874e856388` may LF2 become trusted.
 
 ## Nonclaims
 
