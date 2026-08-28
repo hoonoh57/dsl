@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_REMOTE_UNVALIDATED / AWAITING_LOCAL_FOCUSED_AND_FULL_PASS / REMEDIATION_REQUIRED**  
+Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_REMOTE_UNVALIDATED_AFTER_FIX / AWAITING_LOCAL_FOCUSED_AND_FULL_PASS / REMEDIATION_REQUIRED**  
 Updated: 2026-08-28 KST
 
 ## Recovery
@@ -40,6 +40,7 @@ LF1:      Ran 7 tests in 0.058s / OK / Full PASS
 GCANCEL1: Ran 5 tests in 0.000s / OK / Full PASS
 GCANCEL2: Ran 5 tests in 0.004s / OK / Full PASS
 VSLICE1:  Ran 2 tests in 0.039s / OK / Full PASS
+LF2 pre-fix: Ran 6 tests in 0.002s / FAILED (failures=1); Full FAILED on same contract test
 ```
 
 ## Generic mechanical vertical slice — closed
@@ -57,33 +58,42 @@ exact registered ctx.* permission
 
 No missing Core primitive was demonstrated. Do not expand Core merely to support leader/follower convenience.
 
-## LF2 remote-unvalidated Add-on tranche
+## LF2 Add-on tranche
 
-Executable checkpoint:
+Initial executable checkpoint:
 
 ```text
 14bf03f1f9473a607d4330e4d06f9d0ef9bdd219
 ```
 
-Executable files added:
+User-local validation found one source-level authority-boundary contract failure. The regression correctly rejected a forbidden execution-class token appearing only in the module docstring. Runtime behavior had no execution path, but the source contract still failed.
+
+Failure classification: **product defect (source-level contract defect)**.
+
+The guard/test was not weakened.
+
+Fix executable checkpoint:
+
+```text
+5a6e6e53c089ed108d19fa729cba84874e856388
+```
+
+Fix scope:
+
+```text
+core/multi_symbol_follower_pending_orchestration.py
+```
+
+Only the module docstring was neutralized. No orchestration logic, policy, intent decision, hashing, identity, Parser, Runtime, Backtest, Broker or provider behavior changed.
+
+Executable LF2 files remain:
 
 ```text
 core/multi_symbol_follower_pending_orchestration.py
 test_stage1_multi_symbol_follower_pending_orchestration.py
 ```
 
-LF2 consumes only frozen evidence/state:
-
-```text
-LF1 OBSERVATION_ONLY relation result
-+ selected/local follower identity
-+ local setup pass/fail
-+ local hard-guard pass/fail
-+ explicit relation_still_valid
-+ existing pending identity when active
-```
-
-It emits observation-only intent evidence:
+LF2 consumes frozen LF1 evidence + local setup/hard-guard state + explicit relation validity and emits only:
 
 ```text
 ARM_PENDING
@@ -92,30 +102,22 @@ HOLD_PENDING
 CANCEL_PENDING
 ```
 
-It has `operational_authority=false` and `execution_authority=false`. It does not call DSLRuntime, BacktestEngine, BrokerEmulator, ParentFeatureProvider, network or persistence.
+It remains `operational_authority=false` and `execution_authority=false`.
 
-Deterministic priority:
-
-- hard guard failure blocks a new ARM;
-- hard guard failure cancels an already-active pending intent;
-- explicit relation invalidation cancels an already-active pending intent;
-- only the LF1-qualified selected follower with passing local setup + hard guard + valid relation may ARM;
-- active cancellation reuses the explicit existing client identity and fails closed when missing.
-
-## LF2 trust gate
+## LF2 trust gate after fix
 
 ```powershell
 python -m unittest test_stage1_multi_symbol_follower_pending_orchestration.py
 powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
-Do not mark LF2 trusted until both pass locally.
+Do not mark LF2 trusted until both pass locally at or after fix checkpoint `5a6e6e53c089ed108d19fa729cba84874e856388`.
 
-After LF2 trust, do not immediately grant deployment authority. The next boundary is to decide whether this observation-only orchestration should enter a separate Train/Validation/OOS/Harsh evidence tranche. No automatic allocation, live selection or adaptive autonomy.
+After LF2 trust, do not immediately grant deployment authority. First decide whether this observation-only orchestration should enter a separate Train/Validation/OOS/Harsh evidence tranche.
 
 ## Remote CI environment
 
-GitHub Actions for LF2 failed before executable job steps were created (`steps=null`). Classification: `environment issue`. Do not weaken guards or tests.
+GitHub Actions for the pre-fix LF2 checkpoint failed before executable job steps were created (`steps=null`). Classification: `environment issue`. This is independent from the later user-local product defect.
 
 ## Nonclaims
 
