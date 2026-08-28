@@ -208,7 +208,9 @@ class MultiSymbolFollowerOutcomeValidationArena:
             "cancel_count": len(cancels),
             "arm_return_edge_pct": arm_return - non_arm_return,
             "arm_mfe_edge_pct": arm_mfe - non_arm_mfe,
-            "arm_mae_regression_pct": max(0.0, arm_mae - non_arm_mae),
+            # MAE is signed adverse excursion: more-negative is worse.  Therefore
+            # ARM regresses only when its mean MAE is below the non-ARM mean.
+            "arm_mae_regression_pct": max(0.0, non_arm_mae - arm_mae),
             "cancel_avoided_loss_pct": cancel_avoided_loss,
         }
 
