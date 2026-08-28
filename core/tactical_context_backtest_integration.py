@@ -73,7 +73,10 @@ def _stable_hash(value: Any) -> str:
 def _market_identity(market: Mapping[str, Any]) -> tuple[str, tuple[str, ...], str]:
     if not isinstance(market, Mapping):
         raise ValueError("CTXINT2 market은 Mapping이어야 합니다.")
-    times = tuple(_time_key(item) for item in tuple(market.get("time") or ()))
+    raw_times = market.get("time")
+    if raw_times is None:
+        raise ValueError("CTXINT2 market time이 필요합니다.")
+    times = tuple(_time_key(item) for item in tuple(raw_times))
     if not times:
         raise ValueError("CTXINT2 market time이 비어 있습니다.")
     if len(set(times)) != len(times) or any(times[i] >= times[i + 1] for i in range(len(times) - 1)):
