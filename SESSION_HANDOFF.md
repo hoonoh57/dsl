@@ -2,122 +2,79 @@
 
 Status: **PRIMARY HUMAN HANDOFF / ACTIVE / 2026-08-28 KST**
 
-이 문서는 새 세션이 가장 먼저 읽는 사람 중심 인수인계 문서다.
-
-목적은 단순하다.
-
-```text
-세션이 정상 종료되든 갑자기 끊기든
- -> 지금까지 무엇을 했는지
- -> 무엇이 실제로 검증됐는지
- -> 지금 어디까지 와 있는지
- -> 바로 다음에 무엇을 해야 하는지
-를 1분 안에 복구한다.
-```
-
-단, 이 문서는 갑작스러운 문맥 한도 종료 때문에 마지막 상태가 기록되지 않았을 수도 있다. 따라서 `세션복구` 시에는 이 문서를 우선 읽되, 이전 ChatGPT Project 대화의 마지막 문맥과 GitHub 최신 상태를 함께 대조해 보정한다.
+이 문서는 새 세션이 가장 먼저 읽는 사람 중심 인수인계 문서다. 갑작스러운 종료를 고려해 이전 프로젝트 대화의 마지막 exact local evidence와 GitHub 최신 상태를 함께 대조한다.
 
 ## 1. 개발철학 — 5개 이내
 
-1. **작고 검증된 전술부터 키운다.** 한 번에 거대한 자동매매 시스템을 만들지 않고 작은 전술을 반복 검증·진화시킨다.
-2. **DSL 핵심은 범용적이고 믿을 수 있게 유지한다.** 계산·신호·주문·취소처럼 재사용 가능한 기능만 Core에 두고, 시장/섹터/대장주·추종주 판단은 외부 분석 계층에 둔다.
-3. **미래정보와 숨은 종합점수를 금지한다.** 당시 알 수 있었던 정보만 사용하고 중요한 판단축은 별도로 보존한다.
-4. **상위 정보는 약한 전술을 억지로 살리지 않는다.** 시장·섹터·그룹 정보는 기존 전술의 기회를 검증·제한하는 방향으로 사용한다.
-5. **최소 기능으로 먼저 실제 가동하고 성공 후 확장한다.** 1차 vertical slice를 작게 완성한 뒤 정교한 패턴·예약주문·다중종목 운영으로 넓힌다.
+1. **작고 검증된 전술부터 키운다.** 큰 자동매매 시스템을 한 번에 만들지 않는다.
+2. **DSL Core는 범용적이고 결정론적으로 유지한다.** 계산·신호·주문·취소 같은 재사용 기능만 Core에 둔다.
+3. **시장/섹터/대장·추종 판단은 Add-on 책임이다.** 이런 의미를 Parser/Runtime에 넣지 않는다.
+4. **hard equipment / guard가 학습보다 우선한다.** 적응형 기능은 optional sidecar로 격리한다.
+5. **micro-tranche 단위로 구현 → focused 검증 → Full 검증 → checkpoint 후 다음으로 간다.**
 
 ## 2. 최근 한 일
 
-- `CTXINT3` 완료: 다음 봉 시가 진입은 직전 완료 봉에서 확정된 정보만 사용하도록 검증했다.
-- `LF1` 완료: 한 종목을 대장 후보로 판정하고, 추종주의 추종률·지연봉·반응강도를 별도 축으로 측정하는 최소 기능을 구현했다.
-- LF1 exact trusted executable checkpoint는 `5ec230c8bbada60f0e4b9fe945a5380d7c405fe2`이다.
-- 해당 checkout에서 사용자가 보고한 검증은 `Ran 7 tests in 0.058s / OK` 및 `Tactical P1 Full PASS`다.
-- 대장주/추종주 판단은 여전히 DSL 바깥 Add-on이며 주문 권한을 직접 갖지 않는다.
+- `LF1`은 trusted Full PASS 상태다. 대장/추종 관계는 관찰 증거이며 주문 권한은 없다.
+- `GCANCEL1` 완료 및 trusted 승격: `BrokerEmulator.cancel_client_order(...)`가 명시적 `client_order_id`를 fail-closed로 해석하고 기존 Broker `cancel(...)` lifecycle에 위임한다.
+- GCANCEL1 executable checkpoint는 `583c5362ca5ea57e62353a963cd5a2cfb0addfad`이다.
+- 사용자 로컬 검증은 `Ran 5 tests in 0.000s / OK` 및 `Tactical P1 Full PASS`다.
+- 그 다음 `GCANCEL2`를 원격 구현했다: generic DSL `order.cancel(id="...")` → Backtest timing → trusted Broker cancel primitive 연결이다.
 
 ## 3. 현재 위치
 
-현재 제품 방향은 다음 조합을 향한다.
+GCANCEL2 executable remote checkpoint:
 
 ```text
-주도 섹터/그룹 관찰
- -> 대장주/추종주 관계 증거
- -> 추종주 로컬 패턴 확인
- -> 일반 DSL의 예약주문
- -> 대장/섹터 조건 악화 시 일반 DSL 취소
- -> BrokerEmulator
+3cd5731a1702f7bfb11878dfd6e34339baa5f163
 ```
 
-중요한 경계:
+현재 상태는 **REMOTE_UNVALIDATED**다.
 
-- DSL 안에 `leader`, `follower`, `sector ranking` 같은 전용 개념을 넣지 않는다.
-- 대장/추종 판정은 외부 Add-on에서 한다.
-- DSL에는 재사용 가능한 주문/취소 기능만 둔다.
-- 아직 수익성 있는 대장/추종 매매전략이나 실전 자동선별이 검증된 것은 아니다.
-- broader repo status는 여전히 `REMEDIATION_REQUIRED`다.
+GCANCEL2의 causal timing:
+
+- `next_open`: 직전 완료봉의 cancel intent를 다음 봉에서 가격 매칭 전에 적용한다.
+- `bar_close`: 현재 봉 가격 매칭이 끝난 뒤 close-confirmed cancel intent를 적용하고, 그 다음 신규 deferred order를 제출한다.
+
+변경 실행 축은 다음 세 파일뿐이다.
+
+```text
+core/dsl_parser.py
+core/backtest.py
+test_stage1_dsl_pending_order_cancel.py
+```
+
+대장/추종, sector, peer-symbol, allocation, learned-policy 의미는 추가하지 않았다.
+
+broader repo compliance는 계속 **REMEDIATION_REQUIRED**다.
 
 ## 4. 바로 다음에 할 일
 
-다음 executable tranche는 **범용 예약주문 취소 기능**이다.
+GCANCEL2 local trust gate만 수행한다.
 
-1. 명시적이고 안정적인 주문/client identity로 pending order를 취소할 수 있게 한다.
-2. LIMIT / STOP / STOP_LIMIT 주문의 취소 상태전이가 Backtest와 Broker에서 결정적으로 재현되는지 검증한다.
-3. 대장/추종, 섹터, peer-symbol 의미는 Parser/Runtime에 넣지 않는다.
-4. 취소 기능을 독립 검증한 뒤에만 `대장 반등 -> 추종주 setup -> 예약주문 -> 대장/섹터 반전 -> 취소` 스토리를 조합한다.
-5. 첫 가동이 성공한 뒤 추종 패턴 정교화, 적응형 lag, 복수 추종주 경쟁으로 확대한다.
+```powershell
+python -m unittest test_stage1_dsl_pending_order_cancel.py
+powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
+```
+
+두 검증이 모두 PASS하면 GCANCEL2를 trusted로 승격한다.
+
+그 다음에는 자동으로 복잡한 대장/추종 orchestration을 확장하지 않는다. 먼저 **현재 generic 예약주문 + 취소 기능만으로 최소 vertical slice에 충분한지** 판단한다.
 
 ## 5. 세션복구 규칙
 
-새 프로젝트 세션에서 사용자가 `세션복구`라고 입력하면 다음 순서로 복구한다.
+새 프로젝트 세션에서 사용자가 `세션복구`라고 입력하면:
 
-1. **이 문서를 먼저 읽어 사람이 이해할 현재 줄기를 확보한다.**
-2. 같은 `dsl` ChatGPT Project의 이전 세션 마지막 부분을 확인해 이 문서 이후의 결정, 코드 변경, 로컬 테스트 결과가 있는지 찾는다.
-3. 이전 대화에서 마지막 user-reported local SHA / focused test / Full test 증거를 찾는다.
-4. GitHub `main` 최신 HEAD와 그 SHA 이후 변경 커밋/파일을 비교한다.
-5. `CURRENT_STATE.md` 및 관련 authority 문서를 읽어 구조적 제한과 trusted checkpoint를 확인한다.
-6. 서로 충돌하면 아래 우선순위로 판정한다.
+1. 이 문서를 먼저 읽는다.
+2. 이전 프로젝트 대화 마지막 부분에서 이 문서 이후 exact local test evidence / 결정이 있는지 확인한다.
+3. 마지막 trusted executable SHA와 GitHub `main` 사이 실행 변경분을 비교한다.
+4. `CURRENT_STATE.md` 및 authority 문서를 적용한다.
+5. 문서가 stale이면 실제 코드 + exact local evidence + 최근 대화 결정으로 보정한다.
+6. 첫 답변은 개발철학 / 최근 한 일 / 앞으로 할 일 세 부분만 짧게 보여준다.
 
-```text
-실제 GitHub 코드 상태
- + 마지막 exact local test evidence
- + 최근 프로젝트 대화의 결정/의도
- + 이 인수인계문서와 CURRENT_STATE
-```
+새 GitHub 실행 코드에 local PASS가 없으면 `REMOTE_UNVALIDATED`로 취급한다. 사용자 PC에만 존재하고 대화/GitHub에 흔적이 없는 상태만 복구 불가능하다.
 
-단, 아키텍처 권한/금지사항은 현재 authority 문서가 우선한다.
+## 6. 금지된 과장
 
-## 6. 갑작스러운 종료를 위한 보정 규칙
+현재 수익성 있는 leader/follower edge, 실전 자동선별, live trading readiness, trusted GCANCEL2, repository-wide compliance PASS를 주장하지 않는다.
 
-이 문서가 최신이라고 가정하지 않는다.
-
-예를 들어:
-
-- 이 문서가 `검증 대기`라고 써 있어도 이전 프로젝트 대화에 exact SHA + focused PASS + Full PASS가 있으면 그 증거를 trusted로 복구한다.
-- GitHub가 이 문서보다 앞서 있으면 변경 커밋과 파일을 조사해 구현된 내용을 복구한다.
-- GitHub에 새 코드가 있지만 이전 대화에서 local PASS가 발견되지 않으면 `REMOTE_UNVALIDATED`로 취급한다.
-- 대화에서 설계만 결정되고 아직 GitHub에 없으면 `CONVERSATION_DECISION`으로 복구한다.
-- 사용자 PC에만 있고 GitHub에도 없고 대화에도 언급되지 않은 변경은 복구 불가능하다. 이것이 실제로 다음 작업을 막을 때만 최소 `git status --short` / `git rev-parse HEAD` 확인을 요청한다.
-
-## 7. 첫 복구 답변 형식
-
-첫 답변은 한국어로 짧게 다음 세 부분만 보여준다.
-
-```text
-1. 개발철학   — 5개 이내
-2. 최근 한 일 — 5개 이내
-3. 앞으로 할 일 — 5개 이내
-```
-
-기계적인 클래스명, 스키마, 긴 로그는 기본적으로 숨긴다. 사용자가 이전 내용을 다시 설명하게 하지 않는다.
-
-## 8. 인수인계문서 갱신 규칙
-
-가능하면 다음 순간에 이 파일을 갱신한다.
-
-- exact local focused + Full PASS가 새로 확인됐을 때
-- 다음 executable tranche가 바뀌었을 때
-- 중요한 제품 방향/개발철학이 바뀌었을 때
-- 새 기능이 구현됐지만 아직 미검증 상태일 때
-- 세션을 정상적으로 마무리할 기회가 있을 때
-
-그러나 복구 성공은 이 갱신이 항상 제때 이루어진다는 가정에 의존하지 않는다.
-
-`SESSION_RECOVERY.md`는 crash-safe 복구 절차의 상세 규약이고, 이 `SESSION_HANDOFF.md`는 사람이 가장 먼저 읽는 최신 인수인계 요약이다.
+`REMEDIATION_REQUIRED`가 broader compliance의 authoritative 상태다.
