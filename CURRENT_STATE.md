@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **CTXDEP1_TRUSTED_FULL_PASS / CTXINT1_VALIDATED_CONTEXT_GATE_PREVIEW_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / REMEDIATION_REQUIRED**  
+Status: **CTXINT1_TRUSTED_FULL_PASS / CTXINT2_VALIDATED_CONTEXT_BACKTEST_ENTRY_GATE_IMPLEMENTED_AWAITING_LOCAL_VALIDATION / REMEDIATION_REQUIRED**  
 Updated: 2026-08-28 KST
 
 ## Authority order
@@ -19,8 +19,9 @@ Updated: 2026-08-28 KST
 12. `CTXVAL1_REGISTERED_PARENT_CONTEXT_VALIDATION_ARENA_IMPLEMENTATION.md`
 13. `CTXDEP1_VALIDATED_CONTEXT_DEPLOYMENT_POLICY_EVIDENCE_IMPLEMENTATION.md`
 14. `CTXINT1_VALIDATED_CONTEXT_GATE_PREVIEW_IMPLEMENTATION.md`
-15. earlier product/execution/playbook/audit checkpoints
-16. `PROGRESS_CHECKPOINT_2026-08-26.md`
+15. `CTXINT2_VALIDATED_CONTEXT_BACKTEST_ENTRY_GATE_INTEGRATION.md`
+16. earlier product/execution/playbook/audit checkpoints
+17. `PROGRESS_CHECKPOINT_2026-08-26.md`
 
 ## Trusted exact Full checkpoints
 
@@ -48,13 +49,14 @@ MSA2    3a5a2ece658ead28a1822ef7482a3d284d12e2d6
 MSA3    02904728cb0a39669e6809ba21c4e2dd8eb947e3
 CTXVAL1 db9d9ddeeec55f2774d7a2d873ec2f19d77726b4
 CTXDEP1 804baea25f29d1c77f2984d67e37dbb5ebb1160e
+CTXINT1 81903641b2877e16a3bcdcbf7ed1c1bcf1864ad9
 ```
 
 Recent operator evidence:
 
 ```text
-CTXVAL1: Ran 7 tests in 0.073s / OK / Full PASS
 CTXDEP1: Ran 6 tests in 0.028s / OK / Full PASS
+CTXINT1: Ran 7 tests in 0.129s / OK / Full PASS
 ```
 
 ## Governing architecture
@@ -65,8 +67,9 @@ Core remains deterministic and single-instrument.
 PCTX provider calculation outside DSL
  -> exact frozen parent context
  -> registered read-only ctx.*
- -> existing single-instrument tactic
- -> common execution policy
+ -> validated context evidence/policy
+ -> blocking-only existing entry-gate seam
+ -> existing execution policy
  -> BrokerEmulator
 ```
 
@@ -78,74 +81,62 @@ MSA1 immutable snapshots
  -> MSA3 research-only GROUP publication
  -> CTXVAL1 Train/Validation/OOS/Harsh validation
  -> CTXDEP1 validated deployment-policy evidence
- -> CTXINT1 preview-only gate composition
+ -> CTXINT1 preview-only composition proof
+ -> CTXINT2 blocking-only Backtest integration
 ```
 
-## CTXDEP1 trusted state
+## CTXINT1 trusted state
 
 Exact trusted checkpoint:
 
 ```text
-804baea25f29d1c77f2984d67e37dbb5ebb1160e
-Ran 6 tests in 0.028s
+81903641b2877e16a3bcdcbf7ed1c1bcf1864ad9
+Ran 7 tests in 0.129s
 OK
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-CTXDEP1 proves that only an independently validated CTXVAL1 condition can be converted into deployment-policy evidence while preserving tactic/rule/manifest/holdout provenance. It remains non-operational.
+CTXINT1 proves parent context can only remove an existing local opportunity and cannot create an entry or bypass a failed local hard guard. It remains a preview-only evidence layer.
 
-The initial source-scan failure at `ec1f5cef...` was classified `test defect`; only the regression/checkpoint was corrected before the trusted PASS.
-
-## CTXINT1 current executable tranche
+## CTXINT2 current executable tranche
 
 New files:
 
 ```text
-core/tactical_context_gate_preview.py
-test_stage1_tactical_context_gate_preview.py
-CTXINT1_VALIDATED_CONTEXT_GATE_PREVIEW_IMPLEMENTATION.md
+core/tactical_context_backtest_integration.py
+test_stage1_tactical_context_backtest_integration.py
+CTXINT2_VALIDATED_CONTEXT_BACKTEST_ENTRY_GATE_INTEGRATION.md
 ```
 
-CTXINT1 verifies the intended composition before any operational gate is installed:
+CTXINT2 takes the exact validated tactic identity and exact DEPLOYMENT context timeline, rebuilds the trusted CTXINT1 composition, and supplies the resulting blocking-only boolean sequence to the already-existing `BacktestEngine.run(..., entry_gate=...)` seam.
+
+V1 deliberately allows only `signal_mode=bar_close`. `next_open` is not guessed; it requires a later explicit signal-time/fill-time validation tranche.
+
+Authority is narrow:
 
 ```text
-effective entry eligibility
- = tactic trigger
- AND local hard-guard pass
- AND validated parent-context permission
+gate_authority = ENTRY_SUPPRESSION_ONLY
+can_create_entry = false
+can_bypass_local_hard_guard = false
+can_block_exit = false
+broker_order_authority = false
+execution_authority = BrokerEmulator
 ```
 
-It requires an exact DEPLOYMENT parent-context frame, exact registry/manifest/feature identity and the validated CTXDEP1 tactic/policy identity.
-
-The preview explicitly proves:
-
-```text
-parent context cannot create a new entry opportunity
-parent context cannot bypass a failed local hard guard
-parent context may only remove an existing local opportunity
-```
-
-CTXINT1 remains:
-
-```text
-operational_authority = false
-execution_integration = PREVIEW_ONLY_NOT_INSTALLED_AS_BACKTEST_ENTRY_GATE_OR_BROKER
-```
-
-Parser, Semantic, Runtime, BacktestEngine and BrokerEmulator are not changed by this tranche.
+No Parser, Semantic, Runtime, BacktestEngine implementation, BrokerEmulator or provider-calculation code is changed by CTXINT2.
 
 ## Remote CI environment
 
-GitHub Actions has repeatedly failed before executable steps receive a runner. Such failures are classified `environment issue`; workflow/test/product guards are not weakened.
+GitHub Actions continues to fail before executable steps receive a runner. These are classified `environment issue`; workflow/test/product guards are not weakened.
 
 ## Still not implemented / nonclaims
 
 Do not claim yet:
 
-- trusted Full PASS for CTXINT1;
-- operational parent-context entry gating;
-- actual Broker order suppression from validated context policy;
-- empirical profitability of a real GROUP context rule;
+- trusted Full PASS for CTXINT2;
+- validated `next_open` context-gate semantics;
+- production/live parent-context gating;
+- empirical profitability of real GROUP context;
 - automatic cross-symbol selection/allocation;
 - live-trading readiness;
 - repository-wide Chart/overall compliance PASS.
@@ -157,7 +148,7 @@ Do not claim yet:
 ```powershell
 git pull --ff-only origin main
 git rev-parse HEAD
-python -m unittest -v test_stage1_tactical_context_gate_preview.py
+python -m unittest -v test_stage1_tactical_context_backtest_integration.py
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
