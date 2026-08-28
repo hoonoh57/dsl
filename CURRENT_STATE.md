@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_FOCUSED_PASS_FULL_BLOCKED_EXTERNAL_CHART / REMEDIATION_REQUIRED**  
+Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_TRUSTED_FULL_PASS / REMEDIATION_REQUIRED**  
 Updated: 2026-08-28 KST
 
 ## Recovery
@@ -31,18 +31,25 @@ LF1               5ec230c8bbada60f0e4b9fe945a5380d7c405fe2
 GCANCEL1          583c5362ca5ea57e62353a963cd5a2cfb0addfad
 GCANCEL2          3cd5731a1702f7bfb11878dfd6e34339baa5f163
 VSLICE1           72445456e86b695dc7288ab3a48856fa560463dd
+LF2               5a6e6e53c089ed108d19fa729cba84874e856388
 ```
 
-Recent operator evidence:
+Relevant external Chart contract checkpoint used by the trusted Full run:
+
+```text
+cascading-feature-solution/product-completion-mvp
+258fd07ca76214819cec3822b02564e21a1c8680
+```
+
+## Recent operator evidence
 
 ```text
 LF1:      Ran 7 tests in 0.058s / OK / Full PASS
 GCANCEL1: Ran 5 tests in 0.000s / OK / Full PASS
 GCANCEL2: Ran 5 tests in 0.004s / OK / Full PASS
 VSLICE1:  Ran 2 tests in 0.039s / OK / Full PASS
-LF2 pre-fix: Ran 6 tests in 0.002s / FAILED (failures=1); Full FAILED on same source contract
-LF2 post-fix focused: Ran 6 tests in 0.001s / OK
-LF2 post-fix Full: BLOCKED by scoped Chart SSOT contract outside DSL repository
+LF2:      Ran 6 tests in 0.001s / OK
+LF2 Full: [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
 ## Generic mechanical vertical slice — closed
@@ -60,30 +67,7 @@ exact registered ctx.* permission
 
 No missing Core primitive was demonstrated. Do not expand Core merely to support leader/follower convenience.
 
-## LF2 Add-on tranche
-
-Initial executable checkpoint:
-
-```text
-14bf03f1f9473a607d4330e4d06f9d0ef9bdd219
-```
-
-The initial LF2 source-level contract defect was fixed at:
-
-```text
-5a6e6e53c089ed108d19fa729cba84874e856388
-```
-
-Only the module docstring was neutralized. No orchestration logic, policy, intent decision, hashing, identity, Parser, Runtime, Backtest, Broker or provider behavior changed.
-
-Post-fix focused validation is now exact user-local PASS:
-
-```text
-Ran 6 tests in 0.001s
-OK
-```
-
-LF2 therefore passes its focused regression after the fix, but is **not yet trusted Full PASS** because the required Full verifier is blocked by an external Chart dependency contract.
+## LF2 trusted Add-on tranche
 
 LF2 consumes frozen LF1 evidence + local setup/hard-guard state + explicit relation validity and emits only:
 
@@ -94,51 +78,48 @@ HOLD_PENDING
 CANCEL_PENDING
 ```
 
-It remains `operational_authority=false` and `execution_authority=false`.
-
-## Current Full blocker: external Chart SSOT dependency drift
-
-The Full verifier failed in the sibling Chart repository `cascading-feature-solution`, specifically `tests/stable_pane_identity_surface.test.mjs` case `STABLE-PANE-003`.
-
-Remote Chart `main` is internally consistent:
+It remains:
 
 ```text
-BrowserChartSurfaceFactory.mjs:
-  new StablePaneIdentitySurface(inspectable, ...)
-  -> new ResponsiveChartSurface(stablePanes, host)
-
-tests/stable_pane_identity_surface.test.mjs:
-  expects new ResponsiveChartSurface(stablePanes, ...)
+mode = OBSERVATION_ONLY
+operational_authority = false
+execution_authority = false
 ```
 
-User-local Chart source instead contains an additional `PrimaryPaneLayoutSurface` layer and returns:
+Trusted deterministic behavior:
+
+- only the LF1-qualified selected follower with passing local setup, hard guard and valid relation may produce `ARM_PENDING`;
+- hard guard failure blocks new ARM;
+- hard guard failure on an already-active pending state produces `CANCEL_PENDING` evidence;
+- explicit relation invalidation produces `CANCEL_PENDING` with the existing client identity;
+- unselected/unqualified followers cannot ARM;
+- identity and authority mismatches fail closed;
+- LF2 itself has no execution/provider/network/persistence authority.
+
+### Defect history preserved
+
+Initial LF2 checkpoint `14bf03f1f9473a607d4330e4d06f9d0ef9bdd219` failed one focused source-level boundary contract because its docstring named forbidden execution classes. Classification: **product defect (source-level contract defect)**. The test was kept intact; only the docstring was neutralized at `5a6e6e53c089ed108d19fa729cba84874e856388`.
+
+The first post-fix Full run was blocked by a sibling Chart stale contract. Local repo inspection showed the branch itself intentionally contained `PrimaryPaneLayoutSurface` while `STABLE-PANE-003` still expected the old direct `Responsive(stablePanes)` composition. Classification: **test defect (stale Chart contract)**. Only the Chart test was updated at `258fd07ca76214819cec3822b02564e21a1c8680`; after pull, Tactical P1 Full passed.
+
+## Next boundary
+
+LF2 being mechanically trusted does **not** grant deployment authority.
+
+The next tranche is a separate evidence-validation decision for the observation-only orchestration:
 
 ```text
-new ResponsiveChartSurface(primaryLayout, host)
+trusted LF1 relation evidence
+ + trusted LF2 deterministic intent evidence
+ -> explicit Train / Validation / OOS / Harsh evidence design
+ -> only then consider whether any bounded deployment permission is justified
 ```
 
-while the local test still expects `stablePanes` directly.
-
-Current classification for the DSL Full failure: **environment issue — local external dependency drift**. It is not evidence of an LF2/DSL product defect. Do not weaken the Chart SSOT contract or the DSL Full verifier.
-
-Before deciding whether the Chart source or test should change, inspect the local Chart repository status/diff and determine whether `PrimaryPaneLayoutSurface` is an intentional uncommitted/unpushed architecture change or accidental drift.
-
-## LF2 trust gate
-
-LF2 can become trusted only after the same post-fix checkout receives:
-
-```text
-python -m unittest test_stage1_multi_symbol_follower_pending_orchestration.py
-powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
-```
-
-with both PASS.
-
-After LF2 trust, do not immediately grant deployment authority. First decide whether this observation-only orchestration should enter a separate Train/Validation/OOS/Harsh evidence tranche.
+Do not add live selection, automatic allocation, adaptive learning, new DSL grammar or additional Core authority merely because LF2 is trusted.
 
 ## Remote CI environment
 
-GitHub Actions for LF2 failed before executable job steps were created (`steps=null`). Classification: `environment issue`.
+GitHub Actions for LF2 previously failed before executable job steps were created (`steps=null`). Classification remains `environment issue`; it is independent from the user-local defects that were separately classified and fixed.
 
 ## Nonclaims
 
