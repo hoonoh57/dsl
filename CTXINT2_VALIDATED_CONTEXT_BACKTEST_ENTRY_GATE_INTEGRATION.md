@@ -1,71 +1,35 @@
 # CTXINT2 Validated Context Backtest Entry Gate Integration — Implementation Checkpoint
 
-Status: **IMPLEMENTED / AWAITING LOCAL EXECUTABLE VALIDATION / BACKTEST ENTRY-SUPPRESSION ONLY / 2026-08-28 KST**
+Status: **TRUSTED FULL PASS AT b3b547... / POST-TRUST DEFERRED-ORDER SCOPE HARDENING AWAITING CTXINT3 REVALIDATION / 2026-08-28 KST**
 
-## Trusted predecessor
+## Trusted exact checkpoint
 
-CTXINT1 received operator validation at exact checkout:
+Operator validation at exact checkout:
 
 ```text
-81903641b2877e16a3bcdcbf7ed1c1bcf1864ad9
-Ran 7 tests in 0.129s
+b3b547b9d2d0eaeee654790243f031a3bbb88198
+Ran 7 tests in 0.106s
 OK
 [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-Therefore the non-operational composition rule is trusted: parent context may only remove an existing local entry opportunity.
+Therefore the original CTXINT2 blocking-only `bar_close` integration is trusted Full-green at that SHA.
 
-## Purpose
+## What CTXINT2 proves
 
-CTXINT2 is the first executable connection of validated parent-context permission to the existing Backtest entry restriction seam.
-
-Human meaning:
+CTXINT2 connects validated parent-context permission to the existing Backtest entry restriction seam without adding a new execution engine:
 
 ```text
 validated tactic
  + exact DEPLOYMENT context
- + local tactic-trigger evidence
+ + tactic-trigger evidence
  + local hard-guard evidence
- -> CTXINT1 block-only preview
+ -> trusted CTXINT1 block-only composition
  -> existing Backtest entry_gate
  -> BrokerEmulator remains execution authority
 ```
 
-No new order engine or execution semantics are introduced.
-
-## Executable
-
-```text
-core/tactical_context_backtest_integration.py
-test_stage1_tactical_context_backtest_integration.py
-```
-
-Schema/policy:
-
-```text
-validated_context_backtest_entry_gate/v1
-VALIDATED_CONTEXT_BLOCK_ONLY_EXISTING_BACKTEST_ENTRY_GATE_BAR_CLOSE_V1
-```
-
-## Identity and causal requirements
-
-CTXINT2 requires:
-
-- a validated `TacticCandidate` whose exact candidate hash equals the CTXDEP1 policy tactic identity;
-- trusted CTXDEP1 policy evidence;
-- exact DEPLOYMENT ParentContextFrame and matching registry;
-- market instrument equal to frame target symbol;
-- market timeline exactly equal to the entire frame timeline;
-- explicit tactic-trigger and local hard-guard evidence;
-- `signal_mode=bar_close` in v1.
-
-`next_open` is deliberately rejected until its signal-time/fill-time context semantics receive a separate validated tranche.
-
-## Entry-only authority
-
-The adapter derives the Backtest gate only from CTXINT1 effective-entry eligibility.
-
-It declares:
+Authority is narrow:
 
 ```text
 gate_authority = ENTRY_SUPPRESSION_ONLY
@@ -76,58 +40,41 @@ broker_order_authority = false
 execution_authority = BrokerEmulator
 ```
 
-The adapter calls the already-trusted `BacktestEngine.run(..., entry_gate=...)` seam. It does not call Broker APIs directly and does not modify Backtest, Runtime, Parser, Semantic or Broker code.
+Context may suppress an otherwise-valid entry. It cannot create an entry, bypass a local hard guard, block an exit or issue Broker orders.
 
-## Regression coverage
+## Trusted v1 scope
 
-The focused regression verifies:
+At the trusted checkpoint CTXINT2 requires:
 
-- a validated context miss suppresses an entry that exists in the ungated baseline;
-- an allowed entry still exits normally even when the context gate is false on the exit bar;
-- a failed local hard guard cannot be bypassed by context allow;
-- exact candidate/symbol/timeline identity fail-close;
-- v1 rejects `next_open`;
-- deterministic gate and Backtest result identity;
-- the Backtest diagnostic confirms the existing higher-layer gate was supplied;
-- execution authority remains BrokerEmulator;
-- the integration module has no direct Broker/provider calculation calls.
+- exact validated tactic identity;
+- exact DEPLOYMENT frame/registry identity;
+- exact market symbol and full timeline;
+- explicit tactic-trigger/local-hard-guard evidence;
+- `signal_mode=bar_close`.
+
+`next_open` was deliberately rejected pending a separate signal-time/fill-time contract.
+
+## Post-trust scope hardening
+
+During CTXINT3 design review, deferred `LIMIT`, `STOP` and `STOP_LIMIT` entry orders were identified as a separate timing problem: their signal time and eventual fill time may differ by several bars.
+
+The current source therefore adds an explicit MARKET-only guard so CTXINT2 cannot accidentally inherit unresolved deferred-order semantics from the generic Backtest engine.
+
+This change:
+
+- does not modify BacktestEngine or BrokerEmulator;
+- does not weaken the trusted CTXINT2 contract;
+- narrows accepted order scope;
+- is not yet a new trusted executable checkpoint.
+
+The hardened CTXINT2 source will be revalidated together with CTXINT3.
 
 ## Mutation boundary
 
-CTXINT2 adds a new integration sidecar and regression. It does **not** modify:
-
-```text
-Parser / Semantic / Runtime
-BacktestEngine implementation
-BrokerEmulator
-PCTX provider/orchestration
-MSA publication/analysis
-CTXVAL1 adjudication
-CTXDEP1 promotion semantics
-CTXINT1 preview semantics
-```
+CTXINT2 does not change Parser grammar, Semantic, Runtime, BacktestEngine implementation, BrokerEmulator, PCTX provider calculation, MSA analysis/publication, CTXVAL1 adjudication or CTXDEP1 promotion semantics.
 
 ## Nonclaims
 
-Do not claim yet:
-
-- trusted Full PASS for CTXINT2;
-- production/live parent-context gating;
-- validated `next_open` or pending-order context semantics;
-- empirical profitability of real GROUP context;
-- automatic cross-symbol allocation;
-- live-trading readiness;
-- repository-wide compliance PASS.
+Do not claim validated deferred-order context semantics, live parent-context gating, real GROUP profitability, automatic allocation, live-trading readiness or repository-wide compliance PASS.
 
 `REMEDIATION_REQUIRED` remains broader repository status.
-
-## Validation gate
-
-```powershell
-git pull --ff-only origin main
-git rev-parse HEAD
-python -m unittest -v test_stage1_tactical_context_backtest_integration.py
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
-```
-
-Any executable failure must first be classified exactly as `test defect`, `product defect`, `authority drift`, `environment issue`, or `unknown`.
