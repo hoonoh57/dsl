@@ -15,10 +15,10 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / 2026-08-29 KST**
 ## 2. 최근 한 일
 
 - `GCANCEL1`, `GCANCEL2`, `VSLICE1`, `LF2`, `LFVAL1`, `LFOUT1`은 trusted Full PASS다.
-- LF2 trusted executable checkpoint는 `5a6e6e53c089ed108d19fa729cba84874e856388`이다.
-- LFVAL1 trusted executable checkpoint는 `283af6e8ed046324698b9ff49e95f5044131f453`이다.
-- LFOUT1 initial executable `f95d15f2f66533a616db5a86df9cbe9e1f7c418b`의 signed MAE 방향 버그를 수정했다.
-- LFOUT1 trusted executable checkpoint는 `ca4d5309a658de02f970e341bbf86ad87ab327ae`이며 사용자 로컬 검증은 `Ran 7 tests in 0.003s / OK` 및 `[PASS] Tactical P1 verification completed: mode=Full.`이다.
+- LFOUT1 trusted executable checkpoint는 `ca4d5309a658de02f970e341bbf86ad87ab327ae`이며 로컬 검증은 `Ran 7 tests in 0.003s / OK` 및 `[PASS] Tactical P1 verification completed: mode=Full.`이다.
+- LFOUT1 initial 실패는 **product defect — signed MAE direction bug**였고 테스트/threshold는 유지한 채 product logic만 수정했다.
+- 저장소에 authoritative real-market LF study dataset이 없음을 확인했다. fixture를 real evidence로 가장하지 않기로 했다.
+- 새 LFREAL1 remote executable checkpoint `5aa1da3268f1f3e031aa6d607a4d3a5921f03e58`를 만들었고 아직 local validation 전이다.
 
 ## 3. 현재 위치
 
@@ -28,62 +28,60 @@ LF1 OBSERVATION_ONLY relation evidence
  -> LF2 ARM_PENDING / HOLD / HOLD_PENDING / CANCEL_PENDING evidence
  -> LFVAL1 TRAIN / VALIDATION / OOS / HARSH stability validation
  -> LFOUT1 exact frozen outcome validation
+ -> LFREAL1 non-fixture provenance/admission contract (REMOTE_UNVALIDATED)
 ```
 
-LFOUT1은 BacktestEngine을 직접 호출하지 않는다. 이미 생성된 LF2 evidence와 별도로 동결된 outcome row를 exact `evidence_hash`로 결합한다.
-
-검증 축:
+LFREAL1은 실제 데이터를 가져오지 않는다. 외부에서 동결된 데이터가 나중에 들어올 때 다음을 강제하는 admission layer다.
 
 ```text
-ARM forward-return edge vs non-ARM
-ARM MFE edge vs non-ARM
-ARM MAE regression vs non-ARM
-CANCEL avoided-loss magnitude
-holdout ARM return-edge regression vs TRAIN
+exact provenance coverage by evidence_hash
+observation_cutoff == LF2 evidence.as_of
+outcome_start > evidence.as_of
+outcome_end >= outcome_start
+non-fixture/non-synthetic declared source
+trusted LFOUT1 outcome validation preserved
+```
+
+차단 source kind:
+
+```text
+SYNTHETIC
+FIXTURE
+GENERATED
+MOCK
+TEST
 ```
 
 Authority boundary:
 
 ```text
-LF2:
-  mode = OBSERVATION_ONLY
-  operational_authority = false
-  execution_authority = false
-
-LFVAL1 / LFOUT1:
-  mode = EVIDENCE_ONLY
+LFREAL1:
+  mode = RESEARCH_EVIDENCE_ONLY
   operational_authority = false
   execution_authority = false
   deployment_authority = false
+  source_content_verified = false
+  real_data_claim = false
 ```
 
-LFOUT1 initial focused failure classification:
-
-```text
-product defect — signed MAE direction bug
-```
-
-`mae_pct`는 더 음수일수록 더 나쁜 adverse excursion인데 initial 구현이 regression 방향을 반대로 계산했다. 테스트와 threshold는 그대로 유지하고 product logic만 수정했다.
+`source_content_verified=false`와 `real_data_claim=false`는 의도적이다. 선언된 source hash만 보고 실제 시장 원천 데이터라고 주장하지 않는다.
 
 broader repo compliance는 계속 **REMEDIATION_REQUIRED**다.
 
 ## 4. 바로 다음에 할 일
 
-LFOUT1 trust를 deployment authority로 확대하지 않는다.
+먼저 LFREAL1 local trust gate를 닫는다.
 
-다음 판단은 **실제 non-fixture frozen data를 이용한 evidence study를 할 준비가 되었는지**다.
-
-우선순위:
-
-```text
-real frozen LF1/LF2 evidence acquisition
-+ exact matching frozen outcomes
-+ same LFVAL1/LFOUT1 Train / Validation / OOS / Harsh separation
--> real evidence study
--> only then consider whether any bounded permission bridge is justified
+```powershell
+python -m unittest test_stage1_multi_symbol_follower_real_evidence.py
+powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
-fixture PASS만으로 automatic selection, allocation, adaptive learning, new DSL grammar, live deployment gate를 열지 않는다.
+focused + Full이 모두 PASS해야 LFREAL1 admission contract를 trusted로 승격한다.
+
+그 다음에도 deployment authority를 열지 않는다. 실제 연구를 하려면 **외부 원천의 frozen historical dataset + content hash + causal LF1/LF2 producer + post-observation outcome producer**가 필요하다.
+
+fixture를 복제해서 real study라고 부르지 않는다. automatic selection, allocation, adaptive learning, new DSL grammar, live deployment gate는 계속 보류한다.
 
 ## 5. 세션복구 규칙
 
@@ -100,6 +98,6 @@ fixture PASS만으로 automatic selection, allocation, adaptive learning, new DS
 
 ## 6. 금지된 과장
 
-현재 수익성 있는 leader/follower edge, 실전 자동선별, validated deployment gating, live trading readiness, repository-wide compliance PASS를 주장하지 않는다.
+현재 real-data LF study, 수익성 있는 leader/follower edge, 실전 자동선별, validated deployment gating, live trading readiness, repository-wide compliance PASS를 주장하지 않는다.
 
 `REMEDIATION_REQUIRED`가 broader compliance의 authoritative 상태다.
