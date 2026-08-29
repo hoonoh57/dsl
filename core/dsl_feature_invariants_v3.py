@@ -175,25 +175,25 @@ def _run_gtc(case):
 
 def _run_close_long(case):
     result = BacktestEngine.run(case.dsl_code, market=_daily_market(), data_timeframe="1d")
-    exits = [row for row in result["executions"] if row.get("kind") == "EXIT"]
+    exits = [row for row in result["trades"] if row.get("kind") == "EXIT"]
     if not exits or exits[0].get("side") != "SELL":
-        return _fail(case, "close_long did not produce SELL exit", {"executions": result["executions"]})
+        return _fail(case, "close_long did not produce SELL exit", {"trades": result["trades"]})
     return _ok(case, {"exit_side": exits[0]["side"]})
 
 
 def _run_close_short(case):
     result = BacktestEngine.run(case.dsl_code, market=_daily_market(), data_timeframe="1d")
-    exits = [row for row in result["executions"] if row.get("kind") == "EXIT"]
+    exits = [row for row in result["trades"] if row.get("kind") == "EXIT"]
     if not exits or exits[0].get("side") != "COVER":
-        return _fail(case, "close_short did not produce COVER exit", {"executions": result["executions"]})
+        return _fail(case, "close_short did not produce COVER exit", {"trades": result["trades"]})
     return _ok(case, {"exit_side": exits[0]["side"]})
 
 
 def _run_close_position(case):
     result = BacktestEngine.run(case.dsl_code, market=_daily_market(), data_timeframe="1d")
-    exits = [row for row in result["executions"] if row.get("kind") == "EXIT"]
+    exits = [row for row in result["trades"] if row.get("kind") == "EXIT"]
     if not exits or exits[0].get("reason") != "STRATEGY_SIGNAL":
-        return _fail(case, "close_position generic exit missing", {"executions": result["executions"]})
+        return _fail(case, "close_position generic exit missing", {"trades": result["trades"]})
     return _ok(case, {"exit_side": exits[0].get("side"), "reason": exits[0].get("reason")})
 
 
@@ -212,7 +212,7 @@ def _run_same_bar(case):
     result = BacktestEngine.run(case.dsl_code, market=_daily_market(), data_timeframe="1d")
     blocked = result["diagnostics"]["rejections"].get("same_bar_reentry", 0)
     if blocked < 1:
-        return _fail(case, "same-bar reentry was not blocked", {"rejections": result["diagnostics"]["rejections"], "executions": result["executions"]})
+        return _fail(case, "same-bar reentry was not blocked", {"rejections": result["diagnostics"]["rejections"], "trades": result["trades"]})
     return _ok(case, {"same_bar_reentry": blocked})
 
 
@@ -227,9 +227,9 @@ def _run_risk_precedence(case):
         "_meta": {"source": "invariant_v3_risk", "timeframe": "1d"},
     }
     result = BacktestEngine.run(case.dsl_code, market=market, data_timeframe="1d", settings={"stop_loss_pct": 3.0})
-    exits = [row for row in result["executions"] if row.get("kind") == "EXIT"]
+    exits = [row for row in result["trades"] if row.get("kind") == "EXIT"]
     if not exits or exits[0].get("reason") != "STOP_LOSS":
-        return _fail(case, "risk exit did not take precedence over same-bar strategy exit", {"executions": result["executions"]})
+        return _fail(case, "risk exit did not take precedence over same-bar strategy exit", {"trades": result["trades"]})
     return _ok(case, {"first_exit_reason": exits[0]["reason"]})
 
 
