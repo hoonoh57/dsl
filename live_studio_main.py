@@ -17,9 +17,15 @@ from core.dsl_semantic import DSLSemanticAnalyzer, DSLSemanticError
 from core.backtest import BacktestEngine, synthetic_market
 from core.dsl_feature_catalog import FEATURE_CASES, cases_by_category, intraday_market
 from core.dsl_feature_invariants import INVARIANT_CASES, run_invariant, run_all_invariants
+from core.dsl_feature_invariants_v3 import INVARIANT_V3_CASES, run_invariant_v3, run_all_invariants_v3
 
 
 app = FastAPI(title="Quant DSL Live Studio")
+
+
+ALL_INVARIANT_CASES = {**INVARIANT_CASES, **INVARIANT_V3_CASES}
+if len(ALL_INVARIANT_CASES) != len(INVARIANT_CASES) + len(INVARIANT_V3_CASES):
+    raise RuntimeError("v2/v3 invariant id collision")
 
 
 class ValidateRequest(BaseModel):
@@ -43,7 +49,7 @@ def capabilities():
         "synthetic_fixture_available": True,
         "caller_market_supported": True,
         "feature_catalog_count": len(FEATURE_CASES),
-        "invariant_catalog_count": len(INVARIANT_CASES),
+        "invariant_catalog_count": len(ALL_INVARIANT_CASES),
         "deployment_authority": False,
     }
 
@@ -196,7 +202,7 @@ def run_all_catalog_features():
 @app.get("/api/invariants")
 def invariant_catalog():
     grouped: dict[str, list[dict]] = {}
-    for case in INVARIANT_CASES.values():
+    for case in ALL_INVARIANT_CASES.values():
         item = case.public_dict()
         item["kind"] = "invariant"
         item["feature_id"] = case.invariant_id
@@ -206,12 +212,17 @@ def invariant_catalog():
     for category in sorted(grouped):
         values = sorted(grouped[category], key=lambda item: item["feature_id"])
         categories.append({"category": category, "count": len(values), "features": values})
-    return {"count": len(INVARIANT_CASES), "categories": categories}
+    return {"count": len(ALL_INVARIANT_CASES), "categories": categories}
 
 
 @app.post("/api/invariants/{invariant_id}/run")
 def run_catalog_invariant(invariant_id: str):
-    result = run_invariant(invariant_id)
+    if invariant_id in INVARIANT_CASES:
+        result = run_invariant(invariant_id)
+    elif invariant_id in INVARIANT_V3_CASES:
+        result = run_invariant_v3(invariant_id)
+    else:
+        result = {"ok": False, "invariant_id": invariant_id, "stage": "CATALOG", "message": "등록되지 않은 invariant"}
     if result.get("stage") == "CATALOG":
         raise HTTPException(status_code=404, detail=result)
     return result
@@ -219,7 +230,18 @@ def run_catalog_invariant(invariant_id: str):
 
 @app.post("/api/invariants/run-all")
 def run_all_catalog_invariants():
-    return run_all_invariants()
+    v2 = run_all_invariants()
+    v3 = run_all_invariants_v3()
+    results = [*v2["results"], *v3["results"]]
+    failed = [item for item in results if not item.get("ok")]
+    return {
+        "ok": not failed,
+        "total": len(results),
+        "passed": len(results) - len(failed),
+        "failed": len(failed),
+        "failed_invariant_ids": [item.get("invariant_id") for item in failed],
+        "results": results,
+    }
 
 
 LIVE_HTML = r"""<!doctype html>
