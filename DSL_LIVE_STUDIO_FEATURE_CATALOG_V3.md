@@ -1,12 +1,12 @@
 # DSL Live Studio Feature Catalog v3
 
-Status: **REMOTE_UNVALIDATED**
+Status: **TRUSTED / UI_INTEGRATION_TRUSTED**
 
 Trusted predecessor:
 
 ```text
 Feature Catalog v2 invariant baseline: 5f8fe52a60c299a0e241d14ca3b99f2a485ef4c5
-UI integration locally PASS at branch state containing 089b727204088f5ac5dbd6ac041e470f4df2a8c4
+v2 UI integration trusted checkpoint: 089b727204088f5ac5dbd6ac041e470f4df2a8c4
 ```
 
 v3 adds additional execution invariants without mutating the trusted v2 harness:
@@ -24,22 +24,46 @@ The last invariant deliberately uses the exact observable Core contract name `ri
 
 A PASS requires each invariant to assert the intended Broker/Backtest behavior, not merely return without exception.
 
-Current v3 executable checkpoint before local validation:
+## Trusted local evidence
+
+During local validation, two harness defects were found and corrected without changing Core/Backtest/Broker behavior or weakening assertions:
+
+1. v3 runners referenced nonexistent public result key `executions`; the documented Backtest public result contract exposes those rows as `trades`.
+2. `order.close_short` fixture used an exit condition that never became true in its deterministic market fixture.
+
+Final focused evidence:
 
 ```text
-72013531fca28ea832808a0d3a89f12da3607762
-```
-
-Local gate:
-
-```powershell
 python -m unittest test_live_studio_feature_invariants_v3.py
-python -m unittest test_live_studio_feature_invariants.py
-python -m unittest test_live_studio_core_path.py
-python -m unittest test_live_studio_feature_catalog.py
-powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
+Ran 4 tests in 0.010s
+OK
 ```
 
-No thresholds, guards, Parser rules, Broker rules, or prior invariant expectations may be weakened to obtain PASS.
+Trusted v3 executable correction checkpoint:
 
-`REMEDIATION_REQUIRED` remains broader repository status.
+```text
+be646bd1ac128936f4e1680da09c3b7b7aea744a
+```
+
+## Live Studio UI integration
+
+v2 and v3 invariant catalogs are exposed through the same feature-blind `/api/invariants` surface. Selection dispatches by invariant id; run-all aggregates both catalogs. No Parser/Runtime/Backtest/Broker behavior was changed for UI integration.
+
+UI integration commits:
+
+```text
+c8783d7fcd4abbc93df94227d0b813e802e20b82
+06a0a2204471aba0a96cce8cb62f5309e7a0f31e
+```
+
+Local UI evidence:
+
+```text
+python -m unittest test_live_studio_invariant_ui.py
+Ran 5 tests in 0.028s
+OK
+```
+
+Therefore Feature Catalog v3 and its Live Studio invariant UI integration are trusted at this boundary.
+
+`REMEDIATION_REQUIRED` remains the broader repository status.
