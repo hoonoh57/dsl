@@ -49,7 +49,7 @@ DSL_CLOSE_LONG = '''strategy "Invariant_CloseLong" {
 DSL_CLOSE_SHORT = '''strategy "Invariant_CloseShort" {
     timeframe = "1d"
     entry_cond = close > 0
-    exit_cond = close > open
+    exit_cond = close < open
     on(entry_cond) { order.sell_short(type = "MARKET") }
     on(exit_cond) { order.close_short() }
 }'''
