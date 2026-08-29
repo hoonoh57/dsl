@@ -18,14 +18,15 @@ from core.backtest import BacktestEngine, synthetic_market
 from core.dsl_feature_catalog import FEATURE_CASES, cases_by_category, intraday_market
 from core.dsl_feature_invariants import INVARIANT_CASES, run_invariant, run_all_invariants
 from core.dsl_feature_invariants_v3 import INVARIANT_V3_CASES, run_invariant_v3, run_all_invariants_v3
+from core.dsl_feature_invariants_v4 import INVARIANT_V4_CASES, run_invariant_v4, run_all_invariants_v4
 
 
 app = FastAPI(title="Quant DSL Live Studio")
 
 
-ALL_INVARIANT_CASES = {**INVARIANT_CASES, **INVARIANT_V3_CASES}
-if len(ALL_INVARIANT_CASES) != len(INVARIANT_CASES) + len(INVARIANT_V3_CASES):
-    raise RuntimeError("v2/v3 invariant id collision")
+ALL_INVARIANT_CASES = {**INVARIANT_CASES, **INVARIANT_V3_CASES, **INVARIANT_V4_CASES}
+if len(ALL_INVARIANT_CASES) != len(INVARIANT_CASES) + len(INVARIANT_V3_CASES) + len(INVARIANT_V4_CASES):
+    raise RuntimeError("v2/v3/v4 invariant id collision")
 
 
 class ValidateRequest(BaseModel):
@@ -221,6 +222,8 @@ def run_catalog_invariant(invariant_id: str):
         result = run_invariant(invariant_id)
     elif invariant_id in INVARIANT_V3_CASES:
         result = run_invariant_v3(invariant_id)
+    elif invariant_id in INVARIANT_V4_CASES:
+        result = run_invariant_v4(invariant_id)
     else:
         result = {"ok": False, "invariant_id": invariant_id, "stage": "CATALOG", "message": "등록되지 않은 invariant"}
     if result.get("stage") == "CATALOG":
@@ -232,7 +235,8 @@ def run_catalog_invariant(invariant_id: str):
 def run_all_catalog_invariants():
     v2 = run_all_invariants()
     v3 = run_all_invariants_v3()
-    results = [*v2["results"], *v3["results"]]
+    v4 = run_all_invariants_v4()
+    results = [*v2["results"], *v3["results"], *v4["results"]]
     failed = [item for item in results if not item.get("ok")]
     return {
         "ok": not failed,
