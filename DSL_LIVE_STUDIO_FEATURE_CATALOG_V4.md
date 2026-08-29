@@ -1,12 +1,16 @@
 # DSL Live Studio Feature Catalog v4
 
-Status: **V4_INVARIANTS_TRUSTED / V4_UI_INTEGRATION_REMOTE_UNVALIDATED**
+Status: **V4_INVARIANTS_TRUSTED / V4_UI_INTEGRATION_TRUSTED**
 
 Local focused evidence:
 
 ```text
 python -m unittest test_live_studio_feature_invariants_v4.py
 Ran 5 tests in 0.005s
+OK
+
+python -m unittest test_live_studio_invariant_ui.py
+Ran 6 tests in 0.032s
 OK
 ```
 
@@ -26,13 +30,10 @@ Scope:
 - uses executable example DSL + deterministic fixtures
 - no profitability or real-market-data claim
 
-Live Studio integration now combines v2 + v3 + v4 under the existing `실행 계약` catalog and dispatches each invariant to its owning runner. This integration is executable code and remains `REMOTE_UNVALIDATED` until user-local focused PASS.
+Live Studio integration combines v2 + v3 + v4 under the existing `실행 계약` catalog and dispatches each invariant to its owning runner.
 
-Next local gate:
+The v4 UI integration is now trusted by exact user-local focused PASS evidence. The next mainline step is manual/visual Live Studio verification: select categorized feature or execution-contract examples, inspect the loaded DSL, run validation and Core backtest/invariant execution, and confirm the observable result matches the documented intent.
 
-```powershell
-git pull --ff-only origin dsl-live-studio
-python -m unittest test_live_studio_invariant_ui.py
-```
+This manual verification remains distinct from automated invariant PASS. Synthetic fixtures are engine-verification data only and must not be represented as authenticated real-market data.
 
 `REMEDIATION_REQUIRED` remains the broader repository status.
