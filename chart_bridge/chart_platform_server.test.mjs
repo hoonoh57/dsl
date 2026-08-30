@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 
 import { createChartPlatformServer, normalizeKiwoomEnv } from './chart_platform_server.mjs';
 import { chartBarsToDslMarket } from './browser/DslChartMarketAdapter.mjs';
+import { assertDslChartTimeframeCompatible } from './browser/DslChartTimeframeGuard.mjs';
 
 async function listen(server) {
   await new Promise((resolve, reject) => {
@@ -33,6 +34,18 @@ test('chart-to-DSL adapter uses tradingDate for daily bars and epoch time for in
     { tradingDate: '2026-08-21', time: Date.UTC(2026, 7, 21, 0, 0, 0) / 1000, open: 100, high: 101, low: 99, close: 100, volume: 1 },
   ]);
   assert.equal(intraday.time[0], '20260821000000');
+});
+
+test('DSL chart timeframe guard fails closed on mismatched chart timeframe', () => {
+  assert.doesNotThrow(() => assertDslChartTimeframeCompatible('1m', { request: { period: 'minute', interval: '1' } }));
+  assert.throws(
+    () => assertDslChartTimeframeCompatible('1m', { request: { period: 'day' } }),
+    /현재 차트 day과 DSL timeframe 1m이 일치하지 않습니다/,
+  );
+  assert.throws(
+    () => assertDslChartTimeframeCompatible('1m', { request: { period: 'minute', interval: '5' } }),
+    /현재 차트 5분과 DSL timeframe 1m이 일치하지 않습니다/,
+  );
 });
 
 test('legacy Kiwoom mock env maps to chart bridge contract without overwriting explicit values', () => {
@@ -83,6 +96,9 @@ test('DSL-owned chart shell serves catalog validation plus editable inserted str
     assert.match(validationEditor, /등록 DSL/);
     assert.match(validationEditor, /문법 검증/);
     assert.match(validationEditor, /차트 삽입/);
+    assert.match(validationEditor, /DslChartMarketAdapter\.mjs/);
+    assert.match(validationEditor, /DslChartTimeframeGuard\.mjs/);
+    assert.doesNotMatch(validationEditor, /function timeText/);
     assert.doesNotMatch(validationEditor, /\+ 새 DSL 전략/);
     assert.doesNotMatch(validationEditor, /삽입 기록/);
 
