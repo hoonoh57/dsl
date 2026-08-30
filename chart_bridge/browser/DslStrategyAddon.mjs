@@ -3,6 +3,7 @@ import { chartAddonCatalog } from '/src/addons/catalog.mjs';
 export const DSL_STRATEGY_MANAGER_ADDON_ID = 'strategy.dsl-manager';
 export const DSL_STRATEGY_ADDON_ID = 'strategy.dsl';
 const CATALOG_FLAG = 'dslManagedStrategyCatalogEntry';
+const managerPorts = new Map();
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -191,6 +192,10 @@ class DslStrategyManagerAddon {
     if (!chartState || typeof chartState.snapshot !== 'function' || typeof chartState.writeAddon !== 'function') {
       throw new Error('DSL Strategy Manager requires chartState capability.');
     }
+    managerPorts.set(context.id, {
+      getBars: () => context.getBars().map(bar => ({ ...bar })),
+      readLibrary: () => normalizedLibrary(context.state.readNode()?.state?.library ?? []),
+    });
     if (typeof document !== 'undefined') {
       const action = document.createElement('button');
       action.type = 'button';
@@ -206,6 +211,7 @@ class DslStrategyManagerAddon {
   setVisualsVisible() {}
 
   dispose() {
+    managerPorts.delete(this.#context.id);
     this.#action?.remove();
     this.#dialog?.remove();
     this.#action = undefined;
@@ -272,17 +278,7 @@ class DslStrategyManagerAddon {
         const base = normalizeStrategy({ id: selectedId, name: name.value, dsl_code: dsl.value });
         const bars = this.#context.getBars();
         const result = await evaluateDsl(base, bars);
-        const validated = {
-          ...base,
-          validatedAt: new Date().toISOString(),
-          validation: {
-            engine: result?.evaluation?.engine ?? 'core.backtest.BacktestEngine',
-            data_claim: result?.evaluation?.data_claim ?? 'CALLER_SUPPLIED_MARKET',
-            trade_count: Number(result?.metrics_numeric?.trade_count ?? 0),
-            closed_trade_count: Number(result?.metrics_numeric?.closed_trade_count ?? 0),
-            total_return_pct: Number(result?.metrics_numeric?.total_return_pct ?? 0),
-          },
-        };
+        const validated = validatedStrategy(base, result);
         const library = this.#library();
         const index = library.findIndex(item => item.id === validated.id);
         if (index >= 0) library[index] = validated; else library.push(validated);
@@ -297,6 +293,114 @@ class DslStrategyManagerAddon {
     render();
     dialog.showModal();
   }
+}
+
+function validatedStrategy(base, result) {
+  return {
+    ...base,
+    validatedAt: new Date().toISOString(),
+    validation: {
+      engine: result?.evaluation?.engine ?? 'core.backtest.BacktestEngine',
+      data_claim: result?.evaluation?.data_claim ?? 'CALLER_SUPPLIED_MARKET',
+      trade_count: Number(result?.metrics_numeric?.trade_count ?? 0),
+      closed_trade_count: Number(result?.metrics_numeric?.closed_trade_count ?? 0),
+      total_return_pct: Number(result?.metrics_numeric?.total_return_pct ?? 0),
+    },
+  };
+}
+
+export async function createDslStrategyManagerEditor({ instanceId, state, host, reportStatus }) {
+  const manager = managerPorts.get(instanceId);
+  if (!manager) throw new Error('DSL Strategy Manager runtime is not ready.');
+  let library = normalizedLibrary(state?.library ?? manager.readLibrary());
+  let selectedId;
+
+  host.style.display = 'grid';
+  host.style.gridTemplateColumns = '210px minmax(0,1fr)';
+  host.style.gap = '10px';
+  host.style.maxHeight = 'none';
+  host.style.height = '56vh';
+  host.innerHTML = `
+    <section style="min-width:0;overflow:auto;border-right:1px solid #2d4357;padding-right:8px">
+      <button data-new type="button" style="width:100%;padding:7px;background:#214a6b;color:#fff;border:1px solid #36506a;border-radius:4px">+ 새 DSL 전략</button>
+      <div data-list style="display:grid;gap:5px;margin-top:8px"></div>
+    </section>
+    <section style="min-width:0;display:grid;grid-template-rows:auto minmax(260px,1fr) auto;gap:8px">
+      <input data-name placeholder="전략명" style="width:100%;background:#172635;color:#dbe7f2;border:1px solid #36506a;border-radius:4px;padding:7px"/>
+      <textarea data-dsl placeholder="strategy ..." spellcheck="false" style="width:100%;resize:none;background:#070b11;color:#dce8f7;border:1px solid #36506a;border-radius:4px;padding:10px;font:12px/1.5 Consolas,monospace"></textarea>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <button data-validate type="button" style="padding:7px 10px;background:#214a6b;color:#fff;border:1px solid #36506a;border-radius:4px">현재 차트로 검증</button>
+        <button data-delete type="button" style="padding:7px 10px;background:#172635;color:#dbe7f2;border:1px solid #36506a;border-radius:4px">삭제</button>
+        <span data-status style="font-size:11px;color:#91a2b8"></span>
+      </div>
+    </section>`;
+
+  const list = host.querySelector('[data-list]');
+  const name = host.querySelector('[data-name]');
+  const dsl = host.querySelector('[data-dsl]');
+  const status = host.querySelector('[data-status]');
+
+  const render = () => {
+    list.replaceChildren(...library.map(strategy => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = `${strategy.validation ? '✓ ' : ''}${strategy.name}`;
+      button.style.cssText = `text-align:left;background:${strategy.id === selectedId ? '#214a6b' : '#172635'};color:#dbe7f2;border:1px solid #334b60;border-radius:4px;padding:7px`;
+      button.onclick = () => {
+        selectedId = strategy.id;
+        name.value = strategy.name;
+        dsl.value = strategy.dsl_code;
+        status.textContent = strategy.validation ? `검증됨 · ${strategy.validation.trade_count ?? 0} trades · ${Number(strategy.validation.total_return_pct ?? 0).toFixed(2)}%` : '미검증';
+        render();
+      };
+      return button;
+    }));
+  };
+
+  host.querySelector('[data-new]').onclick = () => {
+    selectedId = undefined;
+    name.value = '';
+    dsl.value = '';
+    status.textContent = '새 전략';
+    render();
+    name.focus();
+  };
+
+  host.querySelector('[data-delete]').onclick = () => {
+    if (!selectedId) return;
+    library = library.filter(item => item.id !== selectedId);
+    selectedId = undefined;
+    name.value = '';
+    dsl.value = '';
+    status.textContent = '삭제 예정 · 아래 저장을 누르면 반영됩니다.';
+    render();
+  };
+
+  host.querySelector('[data-validate]').onclick = async () => {
+    try {
+      status.textContent = 'DSL Core 검증 중...';
+      const base = normalizeStrategy({ id: selectedId, name: name.value, dsl_code: dsl.value });
+      const result = await evaluateDsl(base, manager.getBars());
+      const validated = validatedStrategy(base, result);
+      const index = library.findIndex(item => item.id === validated.id);
+      if (index >= 0) library[index] = validated; else library.push(validated);
+      selectedId = validated.id;
+      name.value = validated.name;
+      dsl.value = validated.dsl_code;
+      status.textContent = `PASS · trades ${validated.validation.trade_count} · return ${validated.validation.total_return_pct.toFixed(2)}% · 아래 저장 클릭`;
+      reportStatus?.(`DSL 전략 검증 PASS · ${validated.name}`);
+      render();
+    } catch (error) {
+      status.textContent = `FAIL · ${String(error?.message ?? error)}`;
+      reportStatus?.(status.textContent);
+    }
+  };
+
+  render();
+  return {
+    readState() { return { library: cloneJson(library) }; },
+    dispose() { host.replaceChildren(); },
+  };
 }
 
 export const dslStrategyAddonDefinition = {
