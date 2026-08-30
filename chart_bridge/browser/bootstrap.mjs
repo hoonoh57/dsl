@@ -7,6 +7,9 @@ const managerEntry = {
   category: 'strategy',
   defaultState: { library: [] },
   parameters: [],
+  editor: {
+    async load() { return (await import(moduleUrl)).createDslStrategyManagerEditor; },
+  },
   registration: {
     id: 'strategy.dsl-manager',
     async load() { return (await import(moduleUrl)).dslStrategyManagerAddonDefinition; },
