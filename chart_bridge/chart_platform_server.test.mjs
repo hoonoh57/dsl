@@ -84,11 +84,17 @@ test('DSL-owned chart composition shell and browser extension are served without
 
     const bootstrap = await fetch(`${base}/__dsl/bootstrap.mjs`);
     assert.equal(bootstrap.status, 200);
-    assert.match(await bootstrap.text(), /strategy\.dsl-manager/);
+    const bootstrapText = await bootstrap.text();
+    assert.match(bootstrapText, /strategy\.dsl-manager/);
+    assert.match(bootstrapText, /editor:\s*\{/);
+    assert.match(bootstrapText, /createDslStrategyManagerEditor/);
 
     const addon = await fetch(`${base}/__dsl/DslStrategyAddon.mjs`);
     assert.equal(addon.status, 200);
-    assert.match(await addon.text(), /DSL Strategy Manager/);
+    const addonText = await addon.text();
+    assert.match(addonText, /DSL Strategy Manager/);
+    assert.match(addonText, /export async function createDslStrategyManagerEditor/);
+    assert.match(addonText, /현재 차트로 검증/);
   });
 });
 
