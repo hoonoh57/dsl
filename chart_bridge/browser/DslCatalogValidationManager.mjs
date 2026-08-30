@@ -1,3 +1,6 @@
+import { chartBarsToDslMarket } from './DslChartMarketAdapter.mjs';
+import { assertDslChartTimeframeCompatible } from './DslChartTimeframeGuard.mjs';
+
 export const DSL_VALIDATION_MANAGER_ID = 'strategy.dsl-validation-manager';
 export const DSL_STRATEGY_ADDON_ID = 'strategy.dsl';
 
@@ -9,20 +12,18 @@ function cloneJson(value) {
 
 function flattenCatalog(payload) {
   return (payload?.categories ?? []).flatMap(group =>
-    (group?.features ?? []).map(item => ({
-      ...item,
-      category: group.category,
-    })),
+    (group?.features ?? []).map(item => ({ ...item, category: group.category })),
   );
 }
 
-function strategyOf(feature) {
+function strategyOf(feature, timeframe) {
   return {
     schemaVersion: 1,
     id: `catalog-${String(feature.feature_id ?? feature.id ?? '').replace(/[^a-zA-Z0-9_.-]/g, '-')}`,
     name: String(feature.feature_id ?? feature.id ?? feature.title ?? 'DSL Strategy'),
     dsl_code: String(feature.dsl_code ?? ''),
     settings: cloneJson(feature.settings ?? {}),
+    ...(timeframe ? { timeframe: String(timeframe) } : {}),
   };
 }
 
@@ -51,37 +52,6 @@ async function validateDsl(dslCode) {
   });
 }
 
-function timeText(value, index) {
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    const date = new Date(value * 1000);
-    const yyyy = date.getUTCFullYear();
-    const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
-    const dd = String(date.getUTCDate()).padStart(2, '0');
-    const hh = String(date.getUTCHours()).padStart(2, '0');
-    const mi = String(date.getUTCMinutes()).padStart(2, '0');
-    const ss = String(date.getUTCSeconds()).padStart(2, '0');
-    return `${yyyy}${mm}${dd}${hh}${mi}${ss}`;
-  }
-  if (value && typeof value === 'object' && Number.isInteger(value.year) && Number.isInteger(value.month) && Number.isInteger(value.day)) {
-    return `${String(value.year).padStart(4, '0')}-${String(value.month).padStart(2, '0')}-${String(value.day).padStart(2, '0')}`;
-  }
-  return String(index).padStart(12, '0');
-}
-
-function chartBarsToDslMarket(bars = []) {
-  const clean = Array.isArray(bars) ? bars.filter(bar => ['open', 'high', 'low', 'close'].every(key => Number.isFinite(Number(bar?.[key])))) : [];
-  return {
-    time: clean.map((bar, index) => timeText(bar.time, index)),
-    open: clean.map(bar => Number(bar.open)),
-    high: clean.map(bar => Number(bar.high)),
-    low: clean.map(bar => Number(bar.low)),
-    close: clean.map(bar => Number(bar.close)),
-    volume: clean.map(bar => Number.isFinite(Number(bar.volume)) ? Number(bar.volume) : 0),
-    _meta: { source: 'condition1516_chart_loaded_bars', provenance: 'DSL_CHART_BRIDGE' },
-  };
-}
-
 async function evaluateDsl(strategy, bars) {
   return requestJson('/__dsl/evaluate', {
     method: 'POST',
@@ -107,6 +77,7 @@ class DslCatalogValidationManagerAddon {
     }
     managerPorts.set(context.id, {
       getBars: () => context.getBars().map(bar => ({ ...bar })),
+      getWorkspaceContext: () => context.getWorkspaceContext?.() ?? {},
       chartState,
     });
     if (typeof document !== 'undefined') {
@@ -178,6 +149,7 @@ export async function createDslCatalogValidationEditor({ instanceId, host, repor
   const status = host.querySelector('[data-status]');
   let selected;
   let validatedCode;
+  let validatedTimeframe;
 
   const setSelected = feature => {
     selected = feature;
@@ -185,6 +157,7 @@ export async function createDslCatalogValidationEditor({ instanceId, host, repor
     name.value = strategy.name;
     dsl.value = strategy.dsl_code;
     validatedCode = undefined;
+    validatedTimeframe = undefined;
     validateButton.disabled = false;
     insertButton.disabled = true;
     status.textContent = '선택됨 · 문법 검증을 실행하세요.';
@@ -229,23 +202,28 @@ export async function createDslCatalogValidationEditor({ instanceId, host, repor
       const result = await validateDsl(dsl.value);
       if (!result?.ok) throw new Error(result?.message ?? 'DSL validation failed.');
       validatedCode = dsl.value;
+      validatedTimeframe = String(result.timeframe ?? '').trim();
+      assertDslChartTimeframeCompatible(validatedTimeframe, manager.getWorkspaceContext());
       insertButton.disabled = false;
-      status.textContent = `문법 PASS · ${result.strategy} · ${result.timeframe}`;
-      reportStatus?.(`DSL 문법 PASS · ${selected.feature_id}`);
+      status.textContent = `문법 PASS · ${result.strategy} · ${validatedTimeframe} · 현재 차트 호환`;
+      reportStatus?.(`DSL 문법 PASS · ${selected.feature_id} · ${validatedTimeframe}`);
     } catch (error) {
       validatedCode = undefined;
-      status.textContent = `문법 FAIL · ${String(error?.message ?? error)}`;
+      validatedTimeframe = undefined;
+      status.textContent = `검증 FAIL · ${String(error?.message ?? error)}`;
       reportStatus?.(status.textContent);
     }
   };
 
   insertButton.onclick = async () => {
-    if (!selected || validatedCode !== dsl.value) return;
+    if (!selected || validatedCode !== dsl.value || !validatedTimeframe) return;
     insertButton.disabled = true;
     status.textContent = '현재 차트 실데이터로 Core 실행 중...';
     try {
-      const strategy = strategyOf(selected);
-      const result = await evaluateDsl(strategy, manager.getBars());
+      assertDslChartTimeframeCompatible(validatedTimeframe, manager.getWorkspaceContext());
+      const strategy = strategyOf(selected, validatedTimeframe);
+      const bars = manager.getBars();
+      const result = await evaluateDsl(strategy, bars);
       const validated = {
         ...strategy,
         validatedAt: new Date().toISOString(),
@@ -257,8 +235,8 @@ export async function createDslCatalogValidationEditor({ instanceId, host, repor
           total_return_pct: Number(result?.metrics_numeric?.total_return_pct ?? 0),
         },
       };
-      const instanceId = uniqueInstanceId(manager.chartState, `strategy.dsl.${String(selected.feature_id).replace(/[^a-zA-Z0-9_.-]/g, '-')}`);
-      manager.chartState.writeAddon(instanceId, {
+      const strategyInstanceId = uniqueInstanceId(manager.chartState, `strategy.dsl.${String(selected.feature_id).replace(/[^a-zA-Z0-9_.-]/g, '-')}`);
+      manager.chartState.writeAddon(strategyInstanceId, {
         enabled: true,
         definitionId: DSL_STRATEGY_ADDON_ID,
         visible: true,
