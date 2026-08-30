@@ -41,11 +41,18 @@ class LiveStudioInvariantUITests(unittest.TestCase):
         self.assertEqual(result["passed"], expected)
         self.assertEqual(result["failed"], 0)
 
-    def test_ui_contains_feature_and_invariant_modes(self):
+    def test_ui_contains_feature_invariant_and_chart_modes(self):
         html = live_studio_main.LIVE_HTML
         self.assertIn("실행 계약", html)
+        self.assertIn("차트 검증", html)
         self.assertIn("/api/invariants", html)
         self.assertIn("실행 invariant PASS", html)
+        self.assertIn("id='chart-frame'", html)
+        self.assertIn("http://127.0.0.1:3032/", html)
+        self.assertIn("Chart Core", html)
+        self.assertIn("Bridge/Runtime", html)
+        self.assertIn("Add-on", html)
+        self.assertIn("JSON Persistence", html)
 
 
 if __name__ == "__main__":
