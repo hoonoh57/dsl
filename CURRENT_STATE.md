@@ -1,17 +1,13 @@
 # Quant DSL Current State
 
-Status: **DSL_LIVE_STUDIO_DIRECT_CORE_TRUSTED / FEATURE_CATALOG_V1_TRUSTED / FEATURE_CATALOG_V2_TRUSTED / V2_UI_INTEGRATION_TRUSTED / FEATURE_CATALOG_V3_REMOTE_UNVALIDATED / REMEDIATION_REQUIRED**  
-Updated: 2026-08-29 KST
+Status: **DSL_CORE_PHASE1_TRUSTED / LIVE_STUDIO_75_FEATURES_TRUSTED / 23_INVARIANTS_TRUSTED / V2_V3_V4_UI_TRUSTED / REMEDIATION_REQUIRED**  
+Updated: 2026-08-30 KST
 
 ## Recovery
 
-`SESSION_HANDOFF.md` is the primary human-readable recovery authority for abrupt session changes. On `세션복구`, read it first, then reconcile with newer project conversation evidence and the current GitHub branch head.
-
-Exact user-local focused + Full PASS evidence outranks stale validation text. New remote executable/test commits without local PASS remain `REMOTE_UNVALIDATED`.
+`SESSION_HANDOFF.md` is the primary human-readable recovery authority. Exact user-local PASS evidence and the current `dsl-live-studio` branch outrank stale validation text.
 
 ## Main product direction
-
-The current main product axis is:
 
 ```text
 UI
@@ -29,7 +25,7 @@ UI
 
 LLM authors DSL text only. Deterministic Parser/Semantic/Runtime/Backtest/Broker remain authoritative.
 
-Legacy `app_ui.py` is not the product-performance authority. `ux-max-ui` is preserved as a workflow/UI experiment. Current product work is on branch:
+Current product branch:
 
 ```text
 dsl-live-studio
@@ -37,9 +33,7 @@ dsl-live-studio
 
 ## Governing architecture
 
-Core DSL remains generic, deterministic, single-instrument and feature-blind where possible. Hard equipment/guards outrank optional adaptive intelligence. Leader/follower, sector/market orchestration and learning remain sidecar/context concerns and must not repeatedly reshape Core grammar/runtime/execution/accounting.
-
-Research assets LF1/LF2/LFVAL/LFOUT/LFREAL remain preserved but are not the active main development axis unless explicitly requested.
+Core DSL remains generic, deterministic, single-instrument and feature-blind where possible. Hard equipment/guards outrank optional adaptive intelligence. Leader/follower, orchestration and learning remain optional sidecars and must not repeatedly reshape Core grammar/runtime/execution/accounting.
 
 `REMEDIATION_REQUIRED` remains authoritative for broader repository compliance.
 
@@ -52,10 +46,8 @@ submitted DSL
  -> DSLRuntime.compile
  -> BacktestEngine.run
  -> BrokerEmulator
- -> executions / closed trades / diagnostics / metrics
+ -> trades / closed trades / diagnostics / metrics
 ```
-
-The Live Studio must not silently substitute a fixed legacy demo strategy.
 
 Data claims remain explicit:
 
@@ -66,57 +58,39 @@ CALLER_SUPPLIED_MARKET   = caller-supplied OHLCV evaluated by Core
 
 Caller-supplied does not itself prove real-market authenticity.
 
-## Trusted Live Studio checkpoints
+## DSL Core Phase 1 completion checkpoint
 
-### Direct Core + Feature Catalog v1
-
-```text
-c9c5122d799d6c0cb30d45eb37890d16b582d322
-```
-
-User-local evidence:
+User-visible Live Studio evidence:
 
 ```text
-test_live_studio_core_path.py
-Ran 5 tests in 0.019s
-OK
+Feature mode
+75 total
+75 PASS
+0 FAIL
 
-test_live_studio_feature_catalog.py
-Ran 5 tests in 1.198s
-OK
-
-[PASS] Tactical P1 verification completed: mode=Full.
+Execution-contract mode
+23 total
+23 PASS
+0 FAIL
 ```
 
-v1 verifies registered `FUNCTION_SPECS` plus core grammar/order examples through real Parser/Semantic/Backtest.
+The execution-contract UI initially exposed a JSON serialization defect because `mtf.confirmed_only` correctly produced NaN for the unconfirmed first bucket. The invariant calculation remained valid; the reporting boundary was corrected so non-finite diagnostic values are represented JSON-safely. After that correction, the Live Studio showed 23 / 23 PASS and 0 FAIL.
 
-### Feature Catalog v2 invariant harness
-
-Trusted executable baseline:
+Therefore the current Phase 1 completion claim is:
 
 ```text
-5f8fe52a60c299a0e241d14ca3b99f2a485ef4c5
+registered DSL feature catalog      75 / 75 PASS
+registered execution invariants     23 / 23 PASS
+Live Studio direct-Core path        TRUSTED
+v2 + v3 + v4 invariant UI           TRUSTED
+DSL Core Phase 1                     TRUSTED
 ```
 
-User-local evidence:
+This checkpoint means the currently defined Phase 1 DSL feature surface and its major deterministic execution contracts are complete and verified through the executable catalog. It does not mean every future DSL 2.0 capability is implemented.
 
-```text
-test_live_studio_feature_invariants.py
-Ran 5 tests in 0.039s
-OK
+## Trusted invariant coverage
 
-test_live_studio_core_path.py
-Ran 5 tests in 0.017s
-OK
-
-test_live_studio_feature_catalog.py
-Ran 5 tests in 1.249s
-OK
-
-[PASS] Tactical P1 verification completed: mode=Full.
-```
-
-Trusted v2 invariants:
+### v2
 
 ```text
 context.exact_binding
@@ -132,53 +106,7 @@ order.stable_client_cancel
 mtf.confirmed_only
 ```
 
-### v2 invariant UI integration
-
-Trusted checkpoint:
-
-```text
-089b727204088f5ac5dbd6ac041e470f4df2a8c4
-```
-
-User-local evidence:
-
-```text
-test_live_studio_invariant_ui.py
-Ran 4 tests in 0.025s
-OK
-
-test_live_studio_feature_invariants.py
-Ran 5 tests in 0.038s
-OK
-
-test_live_studio_core_path.py
-Ran 5 tests in 0.017s
-OK
-
-test_live_studio_feature_catalog.py
-Ran 5 tests in 1.258s
-OK
-
-[PASS] Tactical P1 verification completed: mode=Full.
-```
-
-## Current work — Feature Catalog v3
-
-Status:
-
-```text
-REMOTE_UNVALIDATED
-```
-
-Executable checkpoint created before recovery-doc updates:
-
-```text
-72013531fca28ea832808a0d3a89f12da3607762
-```
-
-The branch head may be newer because documentation commits can follow. Do not treat newer remote executable/test changes as trusted without local PASS.
-
-v3 invariant set:
+### v3
 
 ```text
 order.oco_sibling_cancel
@@ -191,61 +119,52 @@ execution.same_bar_reentry
 execution.risk_exit_precedence
 ```
 
-`risk_exit_precedence` is intentionally precise. Current Core directly exposes STOP/TP/trailing-before-strategy-exit priority; do not overclaim a generic hard-guard precedence contract unless separately demonstrated.
+`risk_exit_precedence` is intentionally narrow: current Core demonstrates risk-exit precedence over strategy exit; this is not a generic adaptive hard-guard authority claim.
 
-## Immediate next gate
-
-```powershell
-git pull --ff-only origin dsl-live-studio
-python -m unittest test_live_studio_feature_invariants_v3.py
-python -m unittest test_live_studio_feature_invariants.py
-python -m unittest test_live_studio_core_path.py
-python -m unittest test_live_studio_feature_catalog.py
-powershell -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
-```
-
-If all PASS:
+### v4
 
 ```text
-promote v3 trusted
- -> optionally integrate v3 into Live Studio invariant UI
- -> continue closing the DSL execution-contract matrix
- -> only then advance to production historical adapter/provenance and richer product UI/LLM authoring
+order.limit_fill
+order.cancel_unknown_fail_closed
+execution.take_profit_precedence
+execution.trailing_stop
 ```
 
-If any fail, classify first:
+## Phase 2 / deferred expansion scope
+
+The following remain outside the Phase 1 completion claim:
 
 ```text
-test defect
-product defect
-contract mismatch / authority drift
-environment issue
-unknown
+partial fills
+pyramiding
+multi-position accounting
+on_tick / on_fill with rollback semantics
+tuple / multi-output indicators
+bounded loops
+user-defined functions
+full TA-Lib differential fixture coverage
 ```
 
-Do not weaken guards, semantic rules, or assertions merely to make tests pass.
+These are Phase 2 expansion items, not reasons to keep reopening the Phase 1 deterministic Core unless explicitly prioritized.
 
-## Preserved trusted sidecar checkpoints
+## Immediate next direction
 
-These remain valid assets but are secondary to current Live Studio work:
+Do not keep adding invariants merely for count growth. The preferred next sequence is:
 
 ```text
-CTXDSL1 + CTXBT1 99bb2e5f5a248dc61cddb23677b5798b258848f2
-CTXINT3           7f77694658d7155806e97bdafcc543e2c7bfeae8
-LF1               5ec230c8bbada60f0e4b9fe945a5380d7c405fe2
-GCANCEL1          583c5362ca5ea57e62353a963cd5a2cfb0addfad
-GCANCEL2          3cd5731a1702f7bfb11878dfd6e34339baa5f163
-VSLICE1           72445456e86b695dc7288ab3a48856fa560463dd
-LF2               5a6e6e53c089ed108d19fa729cba84874e856388
-LFVAL1            283af6e8ed046324698b9ff49e95f5044131f453
-LFOUT1            ca4d5309a658de02f970e341bbf86ad87ab327ae
-LFREAL1           5aa1da3268f1f3e031aa6d607a4d3a5921f03e58
-LFREAL2           10861c232d03937c5ae77e2be32cd1873a5ff977
-LFREAL3           ab4d798c6648ee382e779af81e759cd11bf1cb13
+freeze Phase 1 scope
+ -> visually/manual verify representative feature semantics where useful
+ -> connect production historical-data adapter/provenance
+ -> enrich evaluation UI / chart diagnostics
+ -> then decide which Phase 2 language features are actually required
 ```
 
-Do not resume LFREAL architecture expansion merely because these docs exist.
+New Core grammar/runtime features must be justified by a concrete product need and added in micro-tranches.
+
+## Preserved sidecar assets
+
+Historical CTX/LF/LFREAL research remains preserved but secondary. Do not resume adaptive/leader-follower expansion automatically and do not let sidecar concerns contaminate Core.
 
 ## Nonclaims
 
-No synthetic fixture proves profitability. Caller-supplied data does not automatically prove vendor/source authenticity. No live trading readiness, automatic leader selection/allocation, validated deployment gating, or repository-wide compliance PASS is claimed.
+No synthetic fixture proves profitability. No real-market authenticity is claimed without verified provenance. No live trading readiness, automatic leader selection/allocation, validated deployment gating, or repository-wide compliance PASS is claimed.
