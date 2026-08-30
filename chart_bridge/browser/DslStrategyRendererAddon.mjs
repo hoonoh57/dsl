@@ -1,3 +1,5 @@
+import { chartBarsToDslMarket } from './DslChartMarketAdapter.mjs';
+
 const DSL_STRATEGY_ADDON_ID = 'strategy.dsl';
 
 function cloneJson(value) {
@@ -18,39 +20,6 @@ function normalizeStrategy(value = {}) {
     settings: strategy.settings && typeof strategy.settings === 'object' && !Array.isArray(strategy.settings)
       ? cloneJson(strategy.settings)
       : {},
-  };
-}
-
-function timeText(value, index) {
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    const date = new Date(value * 1000);
-    const yyyy = date.getUTCFullYear();
-    const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
-    const dd = String(date.getUTCDate()).padStart(2, '0');
-    const hh = String(date.getUTCHours()).padStart(2, '0');
-    const mi = String(date.getUTCMinutes()).padStart(2, '0');
-    const ss = String(date.getUTCSeconds()).padStart(2, '0');
-    return `${yyyy}${mm}${dd}${hh}${mi}${ss}`;
-  }
-  if (value && typeof value === 'object' && Number.isInteger(value.year) && Number.isInteger(value.month) && Number.isInteger(value.day)) {
-    return `${String(value.year).padStart(4, '0')}-${String(value.month).padStart(2, '0')}-${String(value.day).padStart(2, '0')}`;
-  }
-  return String(index).padStart(12, '0');
-}
-
-function chartBarsToDslMarket(bars = []) {
-  const clean = Array.isArray(bars)
-    ? bars.filter(bar => ['open', 'high', 'low', 'close'].every(key => Number.isFinite(Number(bar?.[key]))))
-    : [];
-  return {
-    time: clean.map((bar, index) => timeText(bar.time, index)),
-    open: clean.map(bar => Number(bar.open)),
-    high: clean.map(bar => Number(bar.high)),
-    low: clean.map(bar => Number(bar.low)),
-    close: clean.map(bar => Number(bar.close)),
-    volume: clean.map(bar => Number.isFinite(Number(bar.volume)) ? Number(bar.volume) : 0),
-    _meta: { source: 'condition1516_chart_loaded_bars', provenance: 'DSL_CHART_BRIDGE' },
   };
 }
 
