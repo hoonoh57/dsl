@@ -12,6 +12,7 @@ import { createIndexWysiwygProxy, createIndexWysiwygProxyMiddleware } from '../v
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_PROJECT_ROOT = path.resolve(moduleDir, '..');
 export const DEFAULT_CHART_ROOT = path.resolve(DEFAULT_PROJECT_ROOT, 'vendor/kiwoom-condition/condition1516/chart-platform');
+export const DEFAULT_DSL_BROWSER_ROOT = path.resolve(moduleDir, 'browser');
 
 function tryLoad(file) {
   try { loadEnvFile(file); return true; }
@@ -55,6 +56,18 @@ function sendJson(response, statusCode, value) {
 
 function listOf(value) {
   return String(value ?? '').split(',').map(item => item.trim()).filter(Boolean);
+}
+
+async function readBody(request, maxBytes = 8 * 1024 * 1024) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    const buffer = Buffer.from(chunk);
+    size += buffer.length;
+    if (size > maxBytes) throw new Error('request body exceeds 8 MiB limit.');
+    chunks.push(buffer);
+  }
+  return Buffer.concat(chunks);
 }
 
 export function createSafeMarketDataMiddleware(repository) {
@@ -109,7 +122,16 @@ const mime = new Map([
   ['.json', 'application/json; charset=utf-8'], ['.svg', 'image/svg+xml'],
 ]);
 
-export function createChartPlatformServer({ root = DEFAULT_CHART_ROOT, env = process.env, repository } = {}) {
+async function serveFile(response, file) {
+  const body = await readFile(file);
+  response.writeHead(200, {
+    'content-type': mime.get(path.extname(file).toLowerCase()) || 'application/octet-stream',
+    'cache-control': 'no-store',
+  });
+  response.end(body);
+}
+
+export function createChartPlatformServer({ root = DEFAULT_CHART_ROOT, env = process.env, repository, dslStudioUrl } = {}) {
   if (env === process.env) tryLoad(path.join(DEFAULT_PROJECT_ROOT, '.env'));
   tryLoad(path.join(root, '.env'));
   const marketDir = String(env.MARKET_DATA_ENV_DIR ?? '').trim();
@@ -118,6 +140,7 @@ export function createChartPlatformServer({ root = DEFAULT_CHART_ROOT, env = pro
   if (kiwoomDir) tryLoad(path.join(path.resolve(kiwoomDir), '.env'));
   normalizeKiwoomEnv(env);
 
+  const studioBase = String(dslStudioUrl ?? env.DSL_STUDIO_URL ?? 'http://127.0.0.1:8010').replace(/\/+$/, '');
   const repo = repository ?? new MySqlDailyMarketDataRepository({ env });
   const addonMiddleware = createChartAddonPersistenceMiddleware(new ChartAddonJsonStore(path.join(root, '.runtime', 'chart-addons')));
   const marketMiddleware = createSafeMarketDataMiddleware(repo);
@@ -132,9 +155,55 @@ export function createChartPlatformServer({ root = DEFAULT_CHART_ROOT, env = pro
   return http.createServer(async (request, response) => {
     const url = new URL(request.url || '/', 'http://127.0.0.1');
     if (url.pathname === '/__chart_health') {
-      sendJson(response, 200, { app: 'dsl-chart-bridge', status: 'ok', chartRoot: root });
+      sendJson(response, 200, { app: 'dsl-chart-bridge', status: 'ok', chartRoot: root, dslStudioUrl: studioBase });
       return;
     }
+
+    if (url.pathname === '/__dsl/evaluate') {
+      if (String(request.method ?? '').toUpperCase() !== 'POST') {
+        sendJson(response, 405, { message: 'POST required.' });
+        return;
+      }
+      try {
+        const body = await readBody(request);
+        const upstream = await fetch(`${studioBase}/api/evaluate`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body,
+        });
+        const text = await upstream.text();
+        if (!response.headersSent) response.writeHead(upstream.status, { 'content-type': upstream.headers.get('content-type') || 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+        if (!response.writableEnded) response.end(text);
+      } catch (error) {
+        sendJson(response, 502, { message: `DSL Studio unavailable: ${String(error?.message ?? error)}` });
+      }
+      return;
+    }
+
+    if (url.pathname === '/') {
+      try {
+        await serveFile(response, path.join(DEFAULT_DSL_BROWSER_ROOT, 'index.html'));
+      } catch (error) {
+        sendJson(response, 500, { message: `DSL chart shell unavailable: ${String(error?.message ?? error)}` });
+      }
+      return;
+    }
+
+    if (url.pathname.startsWith('/__dsl/')) {
+      try {
+        const relative = url.pathname.slice('/__dsl/'.length);
+        const target = safePath(DEFAULT_DSL_BROWSER_ROOT, relative);
+        if (!target) throw new Error('invalid DSL extension path');
+        const info = await stat(target);
+        const file = info.isDirectory() ? path.join(target, 'index.html') : target;
+        await serveFile(response, file);
+      } catch {
+        if (!response.headersSent) response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+        if (!response.writableEnded) response.end('Not found');
+      }
+      return;
+    }
+
     try {
       if (!(await run(addonMiddleware, request, response))) return;
       if (!(await run(marketMiddleware, request, response))) return;
@@ -152,12 +221,7 @@ export function createChartPlatformServer({ root = DEFAULT_CHART_ROOT, env = pro
       if (!target) throw new Error('invalid path');
       const info = await stat(target);
       const file = info.isDirectory() ? path.join(target, 'index.html') : target;
-      const body = await readFile(file);
-      response.writeHead(200, {
-        'content-type': mime.get(path.extname(file).toLowerCase()) || 'application/octet-stream',
-        'cache-control': 'no-store',
-      });
-      response.end(body);
+      await serveFile(response, file);
     } catch {
       if (!response.headersSent) response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
       if (!response.writableEnded) response.end('Not found');
