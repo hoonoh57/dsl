@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createChartPlatformServer } from './chart_platform_server.mjs';
+import { createChartPlatformServer, normalizeKiwoomEnv } from './chart_platform_server.mjs';
 
 async function withServer(repository, run) {
   const server = createChartPlatformServer({ repository });
@@ -16,6 +16,41 @@ async function withServer(repository, run) {
     await new Promise(resolve => server.close(resolve));
   }
 }
+
+test('legacy Kiwoom mock env maps to chart bridge contract without overwriting explicit values', () => {
+  const env = {
+    KIWOOM_ENV: 'mock',
+    KIWOOM_APP_KEY: 'legacy-app',
+    KIWOOM_SECRET_KEY: 'legacy-secret',
+  };
+  normalizeKiwoomEnv(env);
+  assert.equal(env.KIWOOM_MOCK, 'true');
+  assert.equal(env.KIWOOM_MOCK_APP_KEY, 'legacy-app');
+  assert.equal(env.KIWOOM_MOCK_SECRET_KEY, 'legacy-secret');
+
+  const explicit = {
+    KIWOOM_ENV: 'mock',
+    KIWOOM_APP_KEY: 'legacy-app',
+    KIWOOM_SECRET_KEY: 'legacy-secret',
+    KIWOOM_MOCK_APP_KEY: 'explicit-app',
+    KIWOOM_MOCK_SECRET_KEY: 'explicit-secret',
+  };
+  normalizeKiwoomEnv(explicit);
+  assert.equal(explicit.KIWOOM_MOCK_APP_KEY, 'explicit-app');
+  assert.equal(explicit.KIWOOM_MOCK_SECRET_KEY, 'explicit-secret');
+});
+
+test('legacy Kiwoom live env maps to real chart bridge contract', () => {
+  const env = {
+    KIWOOM_ENV: 'live',
+    KIWOOM_APP_KEY: 'live-app',
+    KIWOOM_SECRET_KEY: 'live-secret',
+  };
+  normalizeKiwoomEnv(env);
+  assert.equal(env.KIWOOM_MOCK, 'false');
+  assert.equal(env.KIWOOM_REAL_APP_KEY, 'live-app');
+  assert.equal(env.KIWOOM_REAL_SECRET_KEY, 'live-secret');
+});
 
 test('market-data BigInt is serialized without ERR_HTTP_HEADERS_SENT and server remains alive', async () => {
   const repository = {
