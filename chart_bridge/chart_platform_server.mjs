@@ -131,6 +131,30 @@ async function serveFile(response, file) {
   response.end(body);
 }
 
+async function proxyStudio(request, response, studioBase, upstreamPath, method) {
+  const actual = String(request.method ?? 'GET').toUpperCase();
+  if (actual !== method) {
+    sendJson(response, 405, { message: `${method} required.` });
+    return;
+  }
+  try {
+    const options = { method, headers: {} };
+    if (method !== 'GET') {
+      options.headers['content-type'] = 'application/json';
+      options.body = await readBody(request);
+    }
+    const upstream = await fetch(`${studioBase}${upstreamPath}`, options);
+    const text = await upstream.text();
+    if (!response.headersSent) response.writeHead(upstream.status, {
+      'content-type': upstream.headers.get('content-type') || 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
+    });
+    if (!response.writableEnded) response.end(text);
+  } catch (error) {
+    sendJson(response, 502, { message: `DSL Studio unavailable: ${String(error?.message ?? error)}` });
+  }
+}
+
 export function createChartPlatformServer({ root = DEFAULT_CHART_ROOT, env = process.env, repository, dslStudioUrl } = {}) {
   if (env === process.env) tryLoad(path.join(DEFAULT_PROJECT_ROOT, '.env'));
   tryLoad(path.join(root, '.env'));
@@ -159,24 +183,16 @@ export function createChartPlatformServer({ root = DEFAULT_CHART_ROOT, env = pro
       return;
     }
 
+    if (url.pathname === '/__dsl/catalog') {
+      await proxyStudio(request, response, studioBase, '/api/features', 'GET');
+      return;
+    }
+    if (url.pathname === '/__dsl/validate') {
+      await proxyStudio(request, response, studioBase, '/api/validate', 'POST');
+      return;
+    }
     if (url.pathname === '/__dsl/evaluate') {
-      if (String(request.method ?? '').toUpperCase() !== 'POST') {
-        sendJson(response, 405, { message: 'POST required.' });
-        return;
-      }
-      try {
-        const body = await readBody(request);
-        const upstream = await fetch(`${studioBase}/api/evaluate`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body,
-        });
-        const text = await upstream.text();
-        if (!response.headersSent) response.writeHead(upstream.status, { 'content-type': upstream.headers.get('content-type') || 'application/json; charset=utf-8', 'cache-control': 'no-store' });
-        if (!response.writableEnded) response.end(text);
-      } catch (error) {
-        sendJson(response, 502, { message: `DSL Studio unavailable: ${String(error?.message ?? error)}` });
-      }
+      await proxyStudio(request, response, studioBase, '/api/evaluate', 'POST');
       return;
     }
 
