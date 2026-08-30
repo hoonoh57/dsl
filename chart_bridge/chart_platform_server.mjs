@@ -17,6 +17,23 @@ function tryLoad(file) {
   catch (error) { if (error?.code === 'ENOENT') return false; throw error; }
 }
 
+export function normalizeKiwoomEnv(env) {
+  const modeText = String(env.KIWOOM_ENV ?? '').trim().toLowerCase();
+  if (!env.KIWOOM_MOCK && modeText) {
+    if (modeText === 'mock') env.KIWOOM_MOCK = 'true';
+    else if (modeText === 'live' || modeText === 'real') env.KIWOOM_MOCK = 'false';
+    else throw new Error('KIWOOM_ENV must be mock, live, or real.');
+  }
+
+  const isMock = String(env.KIWOOM_MOCK ?? 'true').trim().toLowerCase() !== 'false';
+  const appKeyName = isMock ? 'KIWOOM_MOCK_APP_KEY' : 'KIWOOM_REAL_APP_KEY';
+  const secretKeyName = isMock ? 'KIWOOM_MOCK_SECRET_KEY' : 'KIWOOM_REAL_SECRET_KEY';
+
+  if (!env[appKeyName] && env.KIWOOM_APP_KEY) env[appKeyName] = env.KIWOOM_APP_KEY;
+  if (!env[secretKeyName] && env.KIWOOM_SECRET_KEY) env[secretKeyName] = env.KIWOOM_SECRET_KEY;
+  return env;
+}
+
 function jsonText(value) {
   return JSON.stringify(value, (_key, item) => typeof item === 'bigint' ? item.toString() : item);
 }
@@ -97,6 +114,7 @@ export function createChartPlatformServer({ root = DEFAULT_CHART_ROOT, env = pro
   if (marketDir) tryLoad(path.join(path.resolve(marketDir), '.env'));
   const kiwoomDir = String(env.KIWOOM_ENV_DIR ?? '').trim();
   if (kiwoomDir) tryLoad(path.join(path.resolve(kiwoomDir), '.env'));
+  normalizeKiwoomEnv(env);
 
   const repo = repository ?? new MySqlDailyMarketDataRepository({ env });
   const addonMiddleware = createChartAddonPersistenceMiddleware(new ChartAddonJsonStore(path.join(root, '.runtime', 'chart-addons')));
