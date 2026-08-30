@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createChartPlatformServer, normalizeKiwoomEnv } from './chart_platform_server.mjs';
+import { chartBarsToDslMarket } from './browser/DslChartMarketAdapter.mjs';
 
 async function listen(server) {
   await new Promise((resolve, reject) => {
@@ -19,6 +20,20 @@ async function withServer(repository, run, options = {}) {
   try { await run(base); }
   finally { await new Promise(resolve => server.close(resolve)); }
 }
+
+test('chart-to-DSL adapter uses tradingDate for daily bars and epoch time for intraday bars', () => {
+  const daily = chartBarsToDslMarket([
+    { tradingDate: '2026-08-20', open: 100, high: 110, low: 95, close: 105, volume: 10 },
+    { tradingDate: '2026-08-21', open: 105, high: 112, low: 101, close: 108, volume: 11 },
+  ]);
+  assert.deepEqual(daily.time, ['2026-08-20', '2026-08-21']);
+  assert.doesNotMatch(daily.time.join(','), /0000-00-00/);
+
+  const intraday = chartBarsToDslMarket([
+    { tradingDate: '2026-08-21', time: Date.UTC(2026, 7, 21, 0, 0, 0) / 1000, open: 100, high: 101, low: 99, close: 100, volume: 1 },
+  ]);
+  assert.equal(intraday.time[0], '20260821000000');
+});
 
 test('legacy Kiwoom mock env maps to chart bridge contract without overwriting explicit values', () => {
   const env = { KIWOOM_ENV: 'mock', KIWOOM_APP_KEY: 'legacy-app', KIWOOM_SECRET_KEY: 'legacy-secret' };
@@ -73,6 +88,7 @@ test('DSL-owned chart shell serves one catalog validation flow and marker-compat
     const renderer = await (await fetch(`${base}/__dsl/DslStrategyRendererAddon.mjs`)).text();
     assert.match(renderer, /surface\.setMarkers/);
     assert.match(renderer, /markerPlugin.*setMarkers/s);
+    assert.match(renderer, /DslChartMarketAdapter\.mjs/);
     assert.doesNotMatch(renderer, /createMarkers/);
   });
 });
