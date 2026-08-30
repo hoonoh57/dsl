@@ -13,7 +13,7 @@ class TransitionShockConfig:
     lookback: int = 20
     gap_threshold_pct: float = 3.0
     large_bar_threshold_pct: float = 4.0
-    breakout_margin_pct: float = 0.0
+    breakout_margin_pct: float = 0.5
     failure_window_bars: int = 5
     gap_cooldown_bars: int = 8
     large_bar_cooldown_bars: int = 5
@@ -57,6 +57,8 @@ class TransitionShockGuard:
         cfg = config or TransitionShockConfig()
         if cfg.lookback < 2 or cfg.failure_window_bars < 1:
             raise ValueError("transition shock lookback/failure window are invalid")
+        if cfg.breakout_margin_pct < 0:
+            raise ValueError("breakout_margin_pct must be >= 0")
         for name in (
             "gap_cooldown_bars", "large_bar_cooldown_bars",
             "false_breakout_cooldown_bars", "post_breakout_failure_cooldown_bars",
@@ -89,12 +91,18 @@ class TransitionShockGuard:
 
         prior_high = CoreTALib.shift(CoreTALib.highest(high, cfg.lookback), 1)
         prior_low = CoreTALib.shift(CoreTALib.lowest(low, cfg.lookback), 1)
-        upper = prior_high * (1.0 + float(cfg.breakout_margin_pct) / 100.0)
-        lower = prior_low * (1.0 - float(cfg.breakout_margin_pct) / 100.0)
-        ready = np.isfinite(upper) & np.isfinite(lower)
+        upper_excursion = prior_high * (1.0 + float(cfg.breakout_margin_pct) / 100.0)
+        lower_excursion = prior_low * (1.0 - float(cfg.breakout_margin_pct) / 100.0)
+        ready = (
+            np.isfinite(prior_high) & np.isfinite(prior_low)
+            & np.isfinite(upper_excursion) & np.isfinite(lower_excursion)
+        )
 
-        false_up = ready & (high > upper) & (close <= upper)
-        false_down = ready & (low < lower) & (close >= lower)
+        # A false breakout requires a material excursion beyond the prior range,
+        # then a close back inside the original range.  The excursion threshold
+        # and the re-entry boundary are deliberately distinct.
+        false_up = ready & (high > upper_excursion) & (close <= prior_high)
+        false_down = ready & (low < lower_excursion) & (close >= prior_low)
         false_breakout = false_up | false_down
 
         post_failure = np.zeros(len(close), dtype=bool)
@@ -115,13 +123,13 @@ class TransitionShockGuard:
                     boundary = np.nan
                     age = 0
             if active_side == 0 and ready[i]:
-                if close[i] > upper[i]:
+                if close[i] > upper_excursion[i]:
                     active_side = 1
-                    boundary = float(upper[i])
+                    boundary = float(prior_high[i])
                     age = 0
-                elif close[i] < lower[i]:
+                elif close[i] < lower_excursion[i]:
                     active_side = -1
-                    boundary = float(lower[i])
+                    boundary = float(prior_low[i])
                     age = 0
 
         blocked = {
