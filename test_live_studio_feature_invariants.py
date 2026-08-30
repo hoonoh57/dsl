@@ -1,3 +1,4 @@
+import json
 import unittest
 
 from core.dsl_feature_invariants import INVARIANT_CASES, run_all_invariants, run_invariant
@@ -48,6 +49,12 @@ class LiveStudioFeatureInvariantTests(unittest.TestCase):
             result["failed_invariant_ids"],
             [item["invariant_id"] for item in result["results"] if not item.get("ok")],
         )
+
+    def test_run_all_is_strict_json_serializable(self):
+        result = run_all_invariants()
+        json.dumps(result, allow_nan=False)
+        mtf = next(item for item in result["results"] if item["invariant_id"] == "mtf.confirmed_only")
+        self.assertEqual(mtf["details"]["first_bucket"], [None] * 5)
 
     def test_unknown_invariant_fails_closed(self):
         result = run_invariant("does.not.exist")
