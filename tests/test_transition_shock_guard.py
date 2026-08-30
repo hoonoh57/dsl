@@ -32,7 +32,7 @@ class TransitionShockGuardTests(unittest.TestCase):
         base = np.full(35, 100.0)
         market = market_from_close(base, spread=0.1)
         market["high"][30] = 103.0
-        market["close"][30] = 100.2
+        market["close"][30] = 100.05
         market["open"][30] = 100.0
         market["low"][30] = 99.9
         cfg = TransitionShockConfig(lookback=10, false_breakout_cooldown_bars=2, large_bar_threshold_pct=99.0)
