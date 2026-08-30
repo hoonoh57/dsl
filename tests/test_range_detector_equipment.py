@@ -70,10 +70,12 @@ class RangeDetectorEquipmentTests(unittest.TestCase):
         wide = RangeDetectorEquipment.evaluate(fixtures()["F2_wide_chop"][0])
         lowtrend = RangeDetectorEquipment.evaluate(fixtures()["F9_low_vol_trend"][0])
         warmup = 35
-        # These two fixtures deliberately defeat a pure range-width interpretation.
-        wide_vhf = float(np.mean(wide.permits["vhf"][warmup:]))
-        lowtrend_vhf = float(np.mean(lowtrend.permits["vhf"][warmup:]))
-        self.assertGreater(lowtrend_vhf, wide_vhf)
+        # Compare the sensor itself, not a provisional thresholded permit.  A
+        # threshold can legitimately saturate both fixtures at True while the
+        # underlying directional-efficiency signal still separates them.
+        wide_vhf = float(np.nanmean(wide.vhf[warmup:]))
+        lowtrend_vhf = float(np.nanmean(lowtrend.vhf[warmup:]))
+        self.assertGreater(lowtrend_vhf, wide_vhf, msg={"wide_vhf": wide_vhf, "lowtrend_vhf": lowtrend_vhf})
 
 
 if __name__ == "__main__":
