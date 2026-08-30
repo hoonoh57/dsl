@@ -10,7 +10,8 @@ import { createChartAddonPersistenceMiddleware } from '../vendor/kiwoom-conditio
 import { createIndexWysiwygProxy, createIndexWysiwygProxyMiddleware } from '../vendor/kiwoom-condition/condition1516/chart-platform/src/shell/index-wysiwyg/IndexWysiwygHttpHost.mjs';
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-export const DEFAULT_CHART_ROOT = path.resolve(moduleDir, '../vendor/kiwoom-condition/condition1516/chart-platform');
+export const DEFAULT_PROJECT_ROOT = path.resolve(moduleDir, '..');
+export const DEFAULT_CHART_ROOT = path.resolve(DEFAULT_PROJECT_ROOT, 'vendor/kiwoom-condition/condition1516/chart-platform');
 
 function tryLoad(file) {
   try { loadEnvFile(file); return true; }
@@ -109,6 +110,7 @@ const mime = new Map([
 ]);
 
 export function createChartPlatformServer({ root = DEFAULT_CHART_ROOT, env = process.env, repository } = {}) {
+  if (env === process.env) tryLoad(path.join(DEFAULT_PROJECT_ROOT, '.env'));
   tryLoad(path.join(root, '.env'));
   const marketDir = String(env.MARKET_DATA_ENV_DIR ?? '').trim();
   if (marketDir) tryLoad(path.join(path.resolve(marketDir), '.env'));
