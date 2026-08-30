@@ -50,7 +50,7 @@ test('market-data BigInt is serialized without ERR_HTTP_HEADERS_SENT and server 
   });
 });
 
-test('DSL-owned chart shell serves one catalog validation flow', async () => {
+test('DSL-owned chart shell serves one catalog validation flow and marker-compatible renderer', async () => {
   const repository = { async loadClosePanel() { return []; }, async loadDailyPanel() { return []; } };
   await withServer(repository, async base => {
     const html = await (await fetch(`${base}/`)).text();
@@ -59,6 +59,7 @@ test('DSL-owned chart shell serves one catalog validation flow', async () => {
     const bootstrap = await (await fetch(`${base}/__dsl/bootstrap.mjs`)).text();
     assert.match(bootstrap, /등록 DSL 차트 검증/);
     assert.match(bootstrap, /DslCatalogValidationManager\.mjs/);
+    assert.match(bootstrap, /DslStrategyRendererAddon\.mjs/);
     assert.doesNotMatch(bootstrap, /DslStrategyManagerEditor\.mjs/);
 
     const editor = await (await fetch(`${base}/__dsl/DslCatalogValidationManager.mjs`)).text();
@@ -68,6 +69,11 @@ test('DSL-owned chart shell serves one catalog validation flow', async () => {
     assert.match(editor, /writeAddon/);
     assert.doesNotMatch(editor, /\+ 새 DSL 전략/);
     assert.doesNotMatch(editor, /삽입 기록/);
+
+    const renderer = await (await fetch(`${base}/__dsl/DslStrategyRendererAddon.mjs`)).text();
+    assert.match(renderer, /surface\.setMarkers/);
+    assert.match(renderer, /markerPlugin.*setMarkers/s);
+    assert.doesNotMatch(renderer, /createMarkers/);
   });
 });
 
