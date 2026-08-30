@@ -1,6 +1,6 @@
 import { chartAddonCatalog } from '/src/addons/catalog.mjs';
 
-const runtimeModuleUrl = '/__dsl/DslStrategyAddon.mjs';
+const runtimeModuleUrl = '/__dsl/DslStrategyRendererAddon.mjs';
 const validationModuleUrl = '/__dsl/DslCatalogValidationManager.mjs';
 const validationDefinitionUrl = '/__dsl/DslCatalogValidationDefinition.mjs';
 
