@@ -1,6 +1,7 @@
 import { chartAddonCatalog } from '/src/addons/catalog.mjs';
 
 const moduleUrl = '/__dsl/DslStrategyAddon.mjs';
+const editorUrl = '/__dsl/DslStrategyManagerEditor.mjs';
 const managerEntry = {
   id: 'strategy.dsl-manager',
   label: 'DSL Strategy Manager',
@@ -8,7 +9,7 @@ const managerEntry = {
   defaultState: { library: [] },
   parameters: [],
   editor: {
-    async load() { return (await import(moduleUrl)).createDslStrategyManagerEditor; },
+    async load() { return (await import(editorUrl)).createDslStrategyManagerEditor; },
   },
   registration: {
     id: 'strategy.dsl-manager',
