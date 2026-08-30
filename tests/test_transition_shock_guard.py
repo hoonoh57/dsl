@@ -64,6 +64,16 @@ class TransitionShockGuardTests(unittest.TestCase):
         allow = float(np.mean(result.trade_permitted[warmup:]))
         self.assertGreater(allow, 0.90, msg={"trend_allow": allow})
 
+    def test_wide_wick_smooth_trend_is_not_misclassified_as_false_breakout(self):
+        t = np.arange(160, dtype=float)
+        market = market_from_close(100 + 0.22*t + 0.15*np.sin(t/5.0), spread=0.6)
+        result = TransitionShockGuard.evaluate(market)
+        warmup = 35
+        false_rate = float(np.mean(result.false_breakout[warmup:]))
+        allow = float(np.mean(result.trade_permitted[warmup:]))
+        self.assertLess(false_rate, 0.05, msg={"false_breakout_rate": false_rate})
+        self.assertGreater(allow, 0.90, msg={"trend_allow": allow})
+
     def test_deterministic(self):
         t = np.arange(120, dtype=float)
         market = market_from_close(100 + np.sin(t/3.0))
