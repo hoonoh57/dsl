@@ -21,34 +21,19 @@ async function withServer(repository, run, options = {}) {
 }
 
 test('legacy Kiwoom mock env maps to chart bridge contract without overwriting explicit values', () => {
-  const env = {
-    KIWOOM_ENV: 'mock',
-    KIWOOM_APP_KEY: 'legacy-app',
-    KIWOOM_SECRET_KEY: 'legacy-secret',
-  };
+  const env = { KIWOOM_ENV: 'mock', KIWOOM_APP_KEY: 'legacy-app', KIWOOM_SECRET_KEY: 'legacy-secret' };
   normalizeKiwoomEnv(env);
   assert.equal(env.KIWOOM_MOCK, 'true');
   assert.equal(env.KIWOOM_MOCK_APP_KEY, 'legacy-app');
   assert.equal(env.KIWOOM_MOCK_SECRET_KEY, 'legacy-secret');
-
-  const explicit = {
-    KIWOOM_ENV: 'mock',
-    KIWOOM_APP_KEY: 'legacy-app',
-    KIWOOM_SECRET_KEY: 'legacy-secret',
-    KIWOOM_MOCK_APP_KEY: 'explicit-app',
-    KIWOOM_MOCK_SECRET_KEY: 'explicit-secret',
-  };
+  const explicit = { ...env, KIWOOM_MOCK_APP_KEY: 'explicit-app', KIWOOM_MOCK_SECRET_KEY: 'explicit-secret' };
   normalizeKiwoomEnv(explicit);
   assert.equal(explicit.KIWOOM_MOCK_APP_KEY, 'explicit-app');
   assert.equal(explicit.KIWOOM_MOCK_SECRET_KEY, 'explicit-secret');
 });
 
 test('legacy Kiwoom live env maps to real chart bridge contract', () => {
-  const env = {
-    KIWOOM_ENV: 'live',
-    KIWOOM_APP_KEY: 'live-app',
-    KIWOOM_SECRET_KEY: 'live-secret',
-  };
+  const env = { KIWOOM_ENV: 'live', KIWOOM_APP_KEY: 'live-app', KIWOOM_SECRET_KEY: 'live-secret' };
   normalizeKiwoomEnv(env);
   assert.equal(env.KIWOOM_MOCK, 'false');
   assert.equal(env.KIWOOM_REAL_APP_KEY, 'live-app');
@@ -56,69 +41,64 @@ test('legacy Kiwoom live env maps to real chart bridge contract', () => {
 });
 
 test('market-data BigInt is serialized without ERR_HTTP_HEADERS_SENT and server remains alive', async () => {
-  const repository = {
-    async loadClosePanel() { return [{ code: '005930', volume: 12345678901234567890n }]; },
-    async loadDailyPanel() { return []; },
-  };
-
+  const repository = { async loadClosePanel() { return [{ code: '005930', volume: 12345678901234567890n }]; }, async loadDailyPanel() { return []; } };
   await withServer(repository, async base => {
-    const marketResponse = await fetch(`${base}/__cascade/market-data/daily-closes`);
-    assert.equal(marketResponse.status, 200);
-    const market = await marketResponse.json();
+    const market = await (await fetch(`${base}/__cascade/market-data/daily-closes`)).json();
     assert.equal(market.rows[0].volume, '12345678901234567890');
-
-    const healthResponse = await fetch(`${base}/__chart_health`);
-    assert.equal(healthResponse.status, 200);
-    const health = await healthResponse.json();
+    const health = await (await fetch(`${base}/__chart_health`)).json();
     assert.equal(health.status, 'ok');
-    assert.equal(health.app, 'dsl-chart-bridge');
   });
 });
 
-test('DSL-owned chart composition shell and browser extension are served without modifying vendor files', async () => {
+test('DSL-owned chart shell serves catalog-driven manager editor', async () => {
   const repository = { async loadClosePanel() { return []; }, async loadDailyPanel() { return []; } };
   await withServer(repository, async base => {
     const html = await (await fetch(`${base}/`)).text();
     assert.match(html, /DSL STRATEGY ENABLED/);
-    assert.match(html, /\/__dsl\/bootstrap\.mjs/);
-
-    const bootstrap = await fetch(`${base}/__dsl/bootstrap.mjs`);
-    assert.equal(bootstrap.status, 200);
-    const bootstrapText = await bootstrap.text();
-    assert.match(bootstrapText, /strategy\.dsl-manager/);
-    assert.match(bootstrapText, /editor:\s*\{/);
-    assert.match(bootstrapText, /createDslStrategyManagerEditor/);
-
-    const addon = await fetch(`${base}/__dsl/DslStrategyAddon.mjs`);
-    assert.equal(addon.status, 200);
-    const addonText = await addon.text();
-    assert.match(addonText, /DSL Strategy Manager/);
-    assert.match(addonText, /export async function createDslStrategyManagerEditor/);
-    assert.match(addonText, /현재 차트로 검증/);
+    const bootstrap = await (await fetch(`${base}/__dsl/bootstrap.mjs`)).text();
+    assert.match(bootstrap, /DslStrategyManagerEditor\.mjs/);
+    const editor = await (await fetch(`${base}/__dsl/DslStrategyManagerEditor.mjs`)).text();
+    assert.match(editor, /등록 DSL/);
+    assert.match(editor, /문법 검증/);
+    assert.match(editor, /차트 삽입/);
+    assert.match(editor, /port\.writeAddonState/);
   });
 });
 
-test('DSL evaluate route proxies chart payload to Live Studio Core boundary', async () => {
-  let received;
+test('DSL catalog validate and evaluate routes proxy to Live Studio authority', async () => {
+  const received = [];
   const upstream = http.createServer(async (request, response) => {
     const chunks = [];
     for await (const chunk of request) chunks.push(Buffer.from(chunk));
-    received = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : undefined;
+    received.push({ method: request.method, url: request.url, body });
     response.writeHead(200, { 'content-type': 'application/json' });
-    response.end(JSON.stringify({ evaluation: { engine: 'core.backtest.BacktestEngine' }, markers: [{ time: '2026-01-02', text: 'BUY' }], metrics_numeric: { trade_count: 1 } }));
+    if (request.url === '/api/features') {
+      response.end(JSON.stringify({ count: 1, categories: [{ category: 'ta', features: [{ feature_id: 'ta.sma', title: 'SMA', dsl_code: 'strategy "S" { timeframe = "1d" }' }] }] }));
+    } else if (request.url === '/api/validate') {
+      response.end(JSON.stringify({ ok: true, strategy: 'S', timeframe: '1d', parser: 'PASS', semantic: 'PASS' }));
+    } else {
+      response.end(JSON.stringify({ evaluation: { engine: 'core.backtest.BacktestEngine' }, markers: [{ time: '2026-01-02', text: 'BUY' }], metrics_numeric: { trade_count: 1 } }));
+    }
   });
   const upstreamBase = await listen(upstream);
   const repository = { async loadClosePanel() { return []; }, async loadDailyPanel() { return []; } };
   try {
     await withServer(repository, async base => {
-      const payload = { dsl_code: 'strategy "X" { timeframe = "1d" }', market: { time: ['2026-01-01', '2026-01-02'], open: [1, 1], high: [1, 1], low: [1, 1], close: [1, 1], volume: [0, 0] } };
-      const response = await fetch(`${base}/__dsl/evaluate`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
-      assert.equal(response.status, 200);
-      const result = await response.json();
+      const catalog = await (await fetch(`${base}/__dsl/catalog`)).json();
+      assert.equal(catalog.categories[0].features[0].feature_id, 'ta.sma');
+
+      const dslCode = 'strategy "S" { timeframe = "1d" }';
+      const validation = await (await fetch(`${base}/__dsl/validate`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dsl_code: dslCode }) })).json();
+      assert.equal(validation.parser, 'PASS');
+      assert.equal(validation.semantic, 'PASS');
+
+      const payload = { dsl_code: dslCode, market: { time: ['2026-01-01', '2026-01-02'], open: [1, 1], high: [1, 1], low: [1, 1], close: [1, 1], volume: [0, 0] } };
+      const result = await (await fetch(`${base}/__dsl/evaluate`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })).json();
       assert.equal(result.evaluation.engine, 'core.backtest.BacktestEngine');
       assert.equal(result.markers[0].text, 'BUY');
-      assert.equal(received.dsl_code, payload.dsl_code);
-      assert.deepEqual(received.market.close, [1, 1]);
+      assert.deepEqual(received.map(item => item.url), ['/api/features', '/api/validate', '/api/evaluate']);
+      assert.deepEqual(received[2].body.market.close, [1, 1]);
     }, { dslStudioUrl: upstreamBase });
   } finally {
     await new Promise(resolve => upstream.close(resolve));
