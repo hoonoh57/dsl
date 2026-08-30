@@ -1,9 +1,19 @@
 from __future__ import annotations
 
+from pathlib import Path
+import sys
+
 import numpy as np
 
+ROOT = Path(__file__).resolve().parents[1]
+TESTS = ROOT / "tests"
+for path in (ROOT, TESTS):
+    text = str(path)
+    if text not in sys.path:
+        sys.path.insert(0, text)
+
 from core.range_detector_equipment import RangeDetectorEquipment
-from tests.test_range_detector_equipment import fixtures
+from test_range_detector_equipment import fixtures
 
 
 def main():
