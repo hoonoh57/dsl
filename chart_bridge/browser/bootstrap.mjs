@@ -1,6 +1,7 @@
 import { chartAddonCatalog } from '/src/addons/catalog.mjs';
 
 const runtimeModuleUrl = '/__dsl/DslStrategyRendererAddon.mjs';
+const strategyEditorUrl = '/__dsl/DslStrategyPropertiesEditor.mjs';
 const validationModuleUrl = '/__dsl/DslCatalogValidationManager.mjs';
 const validationDefinitionUrl = '/__dsl/DslCatalogValidationDefinition.mjs';
 
@@ -21,15 +22,17 @@ const managerEntry = {
 
 const rendererSeed = {
   id: 'strategy.dsl',
-  label: 'DSL Strategy Runtime',
+  label: '삽입 DSL 전략',
   category: 'strategy',
   defaultState: { strategy: { name: 'DSL Strategy Runtime', dsl_code: 'strategy "Runtime" { timeframe = "1d" }' } },
   parameters: [],
+  editor: {
+    async load() { return (await import(strategyEditorUrl)).createDslStrategyPropertiesEditor; },
+  },
   registration: {
     id: 'strategy.dsl',
     async load() { return (await import(runtimeModuleUrl)).dslStrategyAddonDefinition; },
   },
-  dslRuntimeSeed: true,
 };
 
 if (!chartAddonCatalog.some(item => item.id === managerEntry.id)) chartAddonCatalog.push(managerEntry);
@@ -40,7 +43,4 @@ const host = document.getElementById('market-chart-host');
 if (!host) throw new Error('Missing #market-chart-host.');
 const workspace = new MarketChartWorkspace(host);
 await workspace.mount();
-for (let index = chartAddonCatalog.length - 1; index >= 0; index -= 1) {
-  if (chartAddonCatalog[index]?.dslRuntimeSeed === true) chartAddonCatalog.splice(index, 1);
-}
 window.addEventListener('beforeunload', () => workspace.dispose(), { once: true });
