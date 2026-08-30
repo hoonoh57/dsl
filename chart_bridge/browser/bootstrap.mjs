@@ -1,21 +1,24 @@
 import { chartAddonCatalog } from '/src/addons/catalog.mjs';
 
-const moduleUrl = '/__dsl/DslStrategyAddon.mjs';
-const editorUrl = '/__dsl/DslStrategyManagerEditor.mjs';
+const runtimeModuleUrl = '/__dsl/DslStrategyAddon.mjs';
+const validationModuleUrl = '/__dsl/DslCatalogValidationManager.mjs';
+const validationDefinitionUrl = '/__dsl/DslCatalogValidationDefinition.mjs';
+
 const managerEntry = {
   id: 'strategy.dsl-manager',
-  label: 'DSL Strategy Manager',
+  label: '등록 DSL 차트 검증',
   category: 'strategy',
-  defaultState: { library: [] },
+  defaultState: {},
   parameters: [],
   editor: {
-    async load() { return (await import(editorUrl)).createDslStrategyManagerEditor; },
+    async load() { return (await import(validationModuleUrl)).createDslCatalogValidationEditor; },
   },
   registration: {
     id: 'strategy.dsl-manager',
-    async load() { return (await import(moduleUrl)).dslStrategyManagerAddonDefinition; },
+    async load() { return (await import(validationDefinitionUrl)).dslCatalogValidationDefinition; },
   },
 };
+
 const rendererSeed = {
   id: 'strategy.dsl',
   label: 'DSL Strategy Runtime',
@@ -24,7 +27,7 @@ const rendererSeed = {
   parameters: [],
   registration: {
     id: 'strategy.dsl',
-    async load() { return (await import(moduleUrl)).dslStrategyAddonDefinition; },
+    async load() { return (await import(runtimeModuleUrl)).dslStrategyAddonDefinition; },
   },
   dslRuntimeSeed: true,
 };
