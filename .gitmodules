@@ -1,0 +1,4 @@
+[submodule "vendor/kiwoom-condition"]
+	path = vendor/kiwoom-condition
+	url = https://github.com/hoonoh57/kiwoom-condition.git
+	branch = main
