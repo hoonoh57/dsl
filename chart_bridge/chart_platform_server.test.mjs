@@ -65,7 +65,7 @@ test('market-data BigInt is serialized without ERR_HTTP_HEADERS_SENT and server 
   });
 });
 
-test('DSL-owned chart shell serves one catalog validation flow and marker-compatible renderer', async () => {
+test('DSL-owned chart shell serves catalog validation plus editable inserted strategy lifecycle', async () => {
   const repository = { async loadClosePanel() { return []; }, async loadDailyPanel() { return []; } };
   await withServer(repository, async base => {
     const html = await (await fetch(`${base}/`)).text();
@@ -75,15 +75,23 @@ test('DSL-owned chart shell serves one catalog validation flow and marker-compat
     assert.match(bootstrap, /등록 DSL 차트 검증/);
     assert.match(bootstrap, /DslCatalogValidationManager\.mjs/);
     assert.match(bootstrap, /DslStrategyRendererAddon\.mjs/);
-    assert.doesNotMatch(bootstrap, /DslStrategyManagerEditor\.mjs/);
+    assert.match(bootstrap, /DslStrategyPropertiesEditor\.mjs/);
+    assert.match(bootstrap, /editor:\s*\{/);
+    assert.doesNotMatch(bootstrap, /dslRuntimeSeed/);
 
-    const editor = await (await fetch(`${base}/__dsl/DslCatalogValidationManager.mjs`)).text();
-    assert.match(editor, /등록 DSL/);
-    assert.match(editor, /문법 검증/);
-    assert.match(editor, /차트 삽입/);
-    assert.match(editor, /writeAddon/);
-    assert.doesNotMatch(editor, /\+ 새 DSL 전략/);
-    assert.doesNotMatch(editor, /삽입 기록/);
+    const validationEditor = await (await fetch(`${base}/__dsl/DslCatalogValidationManager.mjs`)).text();
+    assert.match(validationEditor, /등록 DSL/);
+    assert.match(validationEditor, /문법 검증/);
+    assert.match(validationEditor, /차트 삽입/);
+    assert.doesNotMatch(validationEditor, /\+ 새 DSL 전략/);
+    assert.doesNotMatch(validationEditor, /삽입 기록/);
+
+    const propertiesEditor = await (await fetch(`${base}/__dsl/DslStrategyPropertiesEditor.mjs`)).text();
+    assert.match(propertiesEditor, /등록 DSL로 교체/);
+    assert.match(propertiesEditor, /현재 차트에 적용/);
+    assert.match(propertiesEditor, /삭제/);
+    assert.match(propertiesEditor, /writeAddonState\(instanceId/);
+    assert.match(propertiesEditor, /enabled: false/);
 
     const renderer = await (await fetch(`${base}/__dsl/DslStrategyRendererAddon.mjs`)).text();
     assert.match(renderer, /surface\.setMarkers/);
