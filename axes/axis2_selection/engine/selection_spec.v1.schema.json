@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "axis2_selection_spec/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "selection_id", "condition_version", "snapshot_id",
+    "snapshot_hash", "as_of", "knowledge_cutoff", "filters", "sort",
+    "top_n", "symbol_scope"
+  ],
+  "properties": {
+    "schema_version": {"const": "axis2_selection_spec/v1"},
+    "selection_id": {"type": "string", "minLength": 1},
+    "condition_version": {"type": "string", "minLength": 1},
+    "snapshot_id": {"type": "string", "minLength": 1},
+    "snapshot_hash": {"type": "string", "minLength": 1},
+    "as_of": {"type": "string", "pattern": "^[0-9]{14}$"},
+    "knowledge_cutoff": {"type": "string", "pattern": "^[0-9]{14}$"},
+    "filters": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/filter"}
+    },
+    "sort": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/sort"}
+      ]
+    },
+    "top_n": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "integer", "minimum": 1}
+      ]
+    },
+    "symbol_scope": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "filter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_id", "feature_id", "metric", "operator", "operand"],
+      "properties": {
+        "rule_id": {"type": "string", "minLength": 1},
+        "feature_id": {"type": "string", "minLength": 1},
+        "metric": {"enum": ["VALUE", "RANK", "PERCENTILE"]},
+        "operator": {"enum": ["EQ", "NE", "GT", "GTE", "LT", "LTE", "IN", "NOT_IN"]},
+        "operand": {
+          "oneOf": [
+            {"type": "number"},
+            {"type": "boolean"},
+            {"type": "string"},
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "oneOf": [
+                  {"type": "number"},
+                  {"type": "boolean"},
+                  {"type": "string"}
+                ]
+              }
+            }
+          ]
+        },
+        "peer_group_id": {"type": ["string", "null"], "minLength": 1}
+      }
+    },
+    "sort": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["feature_id", "metric", "direction"],
+      "properties": {
+        "feature_id": {"type": "string", "minLength": 1},
+        "metric": {"enum": ["VALUE", "RANK", "PERCENTILE"]},
+        "direction": {"enum": ["ASC", "DESC"]},
+        "peer_group_id": {"type": ["string", "null"], "minLength": 1}
+      }
+    }
+  }
+}
