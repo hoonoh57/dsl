@@ -1,6 +1,6 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 4 BOUNDARY 6 / 2026-08-31 KST**
+Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 4 BOUNDARY 7 / 2026-08-31 KST**
 
 이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + exact user-local PASS + 현재 `dsl-live-studio` 상태가 stale 문서보다 우선한다.
 
@@ -16,7 +16,7 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT
 
 ```text
 CURRENT_STEP = 4
-CURRENT_BOUNDARY = 6 MTF + Read-Only Context Binding
+CURRENT_BOUNDARY = 7 DSL Runtime
 BOUNDARY_STATUS = REMOTE_UNVALIDATED
 ```
 
@@ -31,71 +31,57 @@ Boundary 2 Function Registry = COMPLETE / USER-LOCAL PASS
 Boundary 3 Assignment Flow + Semantic = COMPLETE / USER-LOCAL PASS
 Boundary 4 Indicator Kernel = COMPLETE / USER-LOCAL PASS
 Boundary 5 State + Bar Runtime = COMPLETE / USER-LOCAL PASS
+Boundary 6 MTF + Read-Only Context Binding = COMPLETE / USER-LOCAL PASS
 ```
 
-Boundary 5 user-local evidence:
+Boundary 6 user-local evidence:
 
 ```text
-state/bar runtime parity: Ran 5 tests in 0.171s / OK
-frozen core guard: Ran 1 test in 0.048s / OK
+MTF/context parity = OK
+frozen core guard = OK
 ```
 
 Checkpoint:
 
 ```text
-STEP4_BOUNDARY5_STATE_BAR_RUNTIME_PARITY_CHECKPOINT_2026-08-31.md
+STEP4_BOUNDARY6_MTF_CONTEXT_PARITY_CHECKPOINT_2026-08-31.md
 ```
 
 ---
 
-## 현재 Boundary 6
+## 현재 Boundary 7
 
 이식 대상:
 
 ```text
 legacy:
-  core/multitimeframe.py
-  core/dsl_context.py
+  core/dsl_runtime.py
 
 axis1:
-  axes/axis1_dsl/runtime/multitimeframe.py
-  axes/axis1_dsl/runtime/dsl_context.py
+  axes/axis1_dsl/runtime/dsl_runtime.py
 ```
 
 현재 remote 상태:
 
 ```text
-MTF confirmed-bar 계산 이식 완료
-MTF indicator import는 새 AXIS 1 indicator 경로 사용
-Context binding은 provider-free 구조로 이식
-AXIS 1은 이미 준비된 typed exact-time binding만 소비
+DSL 실행기 본체 이식 완료
+내부 의존성은 새 AXIS 1 Parser/Semantic/Indicator/State/MTF/Context만 사용
 focused parity test 추가:
-  tests/test_axis1_mtf_context_parity.py
-```
-
-중요 Boundary 6 원칙:
-
-```text
-parent provider/frame 계산 책임은 AXIS 1에 들어오지 않는다.
-nearest-time / fill-forward / interpolation / default 금지.
-compile 대상 bar time과 binding target_times는 exact 일치해야 한다.
-legacy ParentContextFrame / ParentFeatureRegistry / Binder는 production AXIS 1 dependency가 아니다.
+  tests/test_axis1_dsl_runtime_parity.py
 ```
 
 검증 대상:
 
 ```text
-confirmed MTF open/high/low/close/volume
-MTF SMA
-잘못된 timeframe/field fail-closed
-context public contract/type/runtime arrays
-binding hash parity
-exact target-time mismatch fail-closed
-feature coverage/type fail-closed
-new AXIS 1 runtime의 frozen-core/provider import 부재
+전략 이름/timeframe
+assignment/indicator/session/MTF/state 계산값
+이벤트 조건/주문 인자
+prepared exact-time context compile
+runtime fail-closed 오류
+new runtime의 frozen-core production import 부재
 ```
 
-Boundary 6는 user-local PASS 전 TRUSTED로 부르지 않는다. PASS 전 Boundary 7 DSL Runtime 시작 금지.
+Boundary 7은 user-local PASS 전 TRUSTED로 부르지 않는다. PASS 전 Boundary 8 Broker 시작 금지.
 
 ---
 
@@ -121,8 +107,7 @@ expected frozen hash 변경으로 위반 수용
 ## Step 4 남은 순서
 
 ```text
-6 MTF + Read-Only Context Binding      CURRENT
-7 DSL Runtime
+7 DSL Runtime                          CURRENT
 8 Broker
 9 Backtest + Projection Output
 ```
@@ -191,10 +176,10 @@ Chart = 계산 없이 projection/evidence 표시
 사용자 local에서 최신 branch pull 후:
 
 ```text
-python -m unittest discover -s tests -p "test_axis1_mtf_context_parity.py" -v
+python -m unittest discover -s tests -p "test_axis1_dsl_runtime_parity.py" -v
 python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py" -v
 ```
 
-둘 다 PASS하면 Boundary 6 checkpoint 후 Boundary 7 DSL Runtime으로 이동한다.
+둘 다 PASS하면 Boundary 7 checkpoint 후 Boundary 8 Broker로 이동한다.
 
 실패 시 test defect / migration defect / authority drift / environment issue / unknown 순으로 원인분류하고 assertion이나 원칙을 약화하지 않는다.
