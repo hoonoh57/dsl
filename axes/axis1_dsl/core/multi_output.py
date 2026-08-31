@@ -93,21 +93,19 @@ def _bbands(args: tuple[str, ...]) -> tuple[str, ...]:
     period = args[1] if len(args) >= 2 else "20"
     mult = args[2] if len(args) >= 3 else "2.0"
 
-    # CoreTALib.bbands keeps the whole rolling window undefined when any input
-    # value in that window is NaN. ta.sma/ta.stdev have independent NaN policies,
-    # so a plain composition can materialize values too early for an indicator
-    # input that itself has a warmup segment. Gate the composed values with
-    # existing DSL primitives until there are `period` consecutive finite input
-    # values. No 0/fill-forward replacement is synthesized.
+    # CoreTALib.bbands intentionally has different NaN behavior for its middle
+    # and deviation components: sma() treats NaN samples as zero inside its
+    # rolling sum, while the direct np.std() window used by bbands keeps the
+    # deviation undefined whenever any sample in that window is NaN. Reproduce
+    # that exact legacy/kernel contract instead of imposing one shared mask.
     invalid = f"(({series}) != ({series}))"
     finite = f"(({series}) == ({series}))"
     consecutive = f"ta.count_since({invalid}, {finite})"
     undefined = f"ta.value_when(0, {invalid}, ({series}))"
     poison = f"logic.ifelse(({consecutive}) >= ({period}), 0, {undefined})"
 
-    middle_base = f"ta.sma({series}, {period})"
+    middle = f"ta.sma({series}, {period})"
     deviation_base = f"ta.stdev({series}, {period})"
-    middle = f"({middle_base}) + ({poison})"
     deviation = f"({deviation_base}) + ({poison})"
     return (
         f"({middle}) + (({mult}) * ({deviation}))",
