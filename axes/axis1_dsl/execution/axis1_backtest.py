@@ -1,8 +1,9 @@
-"""AXIS 1 backtest facade that lowers additive DSL feature syntax first."""
+"""AXIS 1 backtest facade for additive DSL features and generic projection."""
 from __future__ import annotations
 
 from axes.axis1_dsl.core.multi_output import lower_multi_output
 from axes.axis1_dsl.execution.backtest import BacktestEngine as MigratedBacktestEngine
+from axes.axis1_dsl.execution.generic_projection import attach_generic_projection
 from axes.axis1_dsl.runtime.dsl_runtime import DSLRuntimeError
 
 
@@ -22,4 +23,5 @@ class Axis1BacktestEngine:
             "supplied": bool(lowered.bindings),
             "bindings": [item.public_dict() for item in lowered.bindings],
         }
+        attach_generic_projection(result, lowered.bindings)
         return result
