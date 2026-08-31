@@ -37,7 +37,7 @@ CODE = '''strategy "BacktestParity" {
     enter = ta.crossover(fast, slow)
     exit = ta.crossunder(fast, slow)
     on(enter) { order.buy(type = "MARKET") }
-    on(exit) { order.close_long(type = "MARKET") }
+    on(exit) { order.close_long() }
 }'''
 
 
