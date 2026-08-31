@@ -1,6 +1,6 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 9 / 2026-09-01 KST**
+Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 10 / 2026-09-01 KST**
 
 이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + user-local PASS + 현재 `dsl-live-studio` 상태가 stale 문서보다 우선한다.
 
@@ -8,15 +8,15 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT
 
 > 사용자 진행보고는 기본적으로 `한 일 / 할 일`만 사람이 이해하는 용어로 짧게 한다.
 
-> AXIS 1은 single-instrument deterministic execution, AXIS 2는 immutable point-in-time evidence 기반 selection을 담당한다. 축간 연결은 versioned Request -> Response 계약으로만 수행한다.
+> AXIS 1은 실행, AXIS 2는 immutable PIT selection, AXIS 3는 versioned Condition/Strategy lifecycle과 orchestration을 담당한다. 축간 연결은 versioned Request -> Response 계약으로만 수행한다.
 
 ---
 
 ## 현재 작업
 
 ```text
-CURRENT_STEP = 9
-CURRENT_SUBSTEP = 9-1 deterministic snapshot filter / rank / top-N + CandidateSet v1
+CURRENT_STEP = 10
+CURRENT_SUBSTEP = 10-1 versioned artifact store + deterministic strategy run plan
 STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
@@ -31,17 +31,19 @@ Step 5 AXIS 1 신규 DSL 기능/검증 = COMPLETE / USER-LOCAL PASS
 Step 6 capability/diagnostic registry = COMPLETE / USER-LOCAL PASS
 Step 7 Bridge common + AXIS 1 execution contract = COMPLETE / USER-LOCAL PASS
 Step 8 AXIS 2 exact-as-of snapshot contract = COMPLETE / USER-LOCAL PASS
+Step 9 AXIS 2 deterministic selection engine = COMPLETE / USER-LOCAL PASS
 ```
 
 최근 checkpoint:
 
 ```text
-STEP8_AXIS2_EXACT_ASOF_SNAPSHOT_CHECKPOINT_2026-09-01.md
+STEP9_AXIS2_SELECTION_ENGINE_CHECKPOINT_2026-09-01.md
 ```
 
-Step 8 user-local evidence:
+Step 9 user-local evidence:
 
 ```text
+test_axis2_selection_engine.py = OK
 test_axis2_exact_asof_snapshot.py = OK
 test_axis1_execution_bridge_contract.py = OK
 test_frozen_legacy_core_guard.py = OK
@@ -49,122 +51,97 @@ test_frozen_legacy_core_guard.py = OK
 
 ---
 
-## 현재 Step 9 구현
+## 현재 Step 10 구현
 
-구현:
+### 책임
 
 ```text
-axes/axis2_selection/engine/selection.py
-axes/axis2_selection/engine/selection_spec.v1.schema.json
-axes/axis2_selection/engine/candidate_set.v1.schema.json
-tests/test_axis2_selection_engine.py
+AXIS 2 = Condition selection semantics / CandidateSet authority
+AXIS 3 = Condition artifact CRUD/version/lifecycle + Strategy CRUD/version/lifecycle + orchestration
 ```
 
-### 데이터 흐름
+AXIS 3 Condition artifact는 AXIS 2 `axis2_selection_spec/v1` data를 immutable version으로 보존한다. AXIS 3가 filter/rank/top-N을 재실행하지 않는다.
+
+### 구현 파일
 
 ```text
-provider/precompute
- -> Step 8 immutable PointInTimeSnapshot
- -> Step 9 SelectionSpec
- -> deterministic filter/order/top-N
- -> CandidateSet
+axes/axis3_monetization/crud/versioned_store.py
+axes/axis3_monetization/crud/condition_version.v1.schema.json
+axes/axis3_monetization/crud/strategy_version.v1.schema.json
+axes/axis3_monetization/orchestration/run_plan.py
+axes/axis3_monetization/orchestration/strategy_run_plan.v1.schema.json
+tests/test_axis3_crud_orchestration.py
 ```
 
-Step 9는 feature 계산기가 아니다.
+### 저장소
 
-### Filter
+AXIS 3 전용 SQLite 저장소다.
 
 ```text
-metric = VALUE | RANK | PERCENTILE
-operator = EQ | NE | GT | GTE | LT | LTE | IN | NOT_IN
-모든 filters = AND
+Condition immutable versions
+Strategy immutable versions
+separate lifecycle state
+append-only lifecycle audit
 ```
 
-Typed exact comparison을 사용한다.
+Content 수정은 기존 row update가 아니라 새 version 생성이다.
 
 ```text
-NUMBER ordered comparison
-BOOLEAN exact bool
-STRING exact string
+v1 -> v2 -> v3
+parent_version lineage 보존
+기존 hash/content 유지
 ```
 
-### Ranking / ordering
+Strategy는 존재하는 exact Condition version만 참조할 수 있다.
+
+### Lifecycle
 
 ```text
-RANK/PERCENTILE = snapshot에 이미 동결된 RankingEvidence만 사용
-VALUE = snapshot에 이미 동결된 numeric value로 deterministic ordering만 수행
+DRAFT -> PROMOTED / REJECTED / ARCHIVED
+PROMOTED -> ARCHIVED
+REJECTED -> ARCHIVED
+ARCHIVED terminal
 ```
 
-VALUE ordering을 새로운 cross-sectional rank evidence라고 주장하지 않는다.
+lifecycle 변경은 content hash를 바꾸지 않는다.
 
-동점은 symbol ASC로 고정한다. top-N은 sort 계약 없이는 허용하지 않는다.
+### Orchestration
 
-### Missing / invalid
+`build_strategy_run_plan()`은 실제 실행 전의 deterministic plan만 만든다.
+
+필수:
 
 ```text
-ROW_NOT_FOUND
-ROW_MISSING
-ROW_INVALID
+PROMOTED Strategy exact version
+PROMOTED Condition exact version
+Strategy condition_ref exact 일치
+axis2_candidate_set/v1 data
+CandidateSet hash / selection / snapshot / as_of / cutoff exact binding
 ```
 
-해당 symbol은 explicit exclusion으로 기록하고 0/false/neutral 값을 합성하지 않는다.
-
-### Snapshot binding
-
-SelectionSpec가 다음을 exact 고정한다.
+출력은 후보별 execution intent다.
 
 ```text
-snapshot_id
-snapshot_hash
-as_of
-knowledge_cutoff
+symbol / ordinal
+strategy version/hash
+DSL/timeframe/settings
+condition version/hash
+candidate_set hash
+evidence
 ```
 
-하나라도 다르면 selection 실행 자체를 거부한다.
+Step 10에서는 AXIS 1 Bridge를 아직 호출하지 않는다. 실제 Axis2 -> Axis3 -> Axis1 routing은 Step 11이다.
 
-### Peer group
-
-동일 feature의 rank가 MARKET / HIGH_BETA / SECTOR:* 등 여러 peer group으로 존재할 수 있다.
+### 경계
 
 ```text
-peer_group_id exact 지정 가능
-생략했는데 후보 row가 여러 개면 AMBIGUOUS_FEATURE fail-closed
-```
-
-### CandidateSet
-
-반환값은 다음을 포함한다.
-
-```text
-selection/snapshot identity
-source symbol count
-eligible-before-top-N count
-selected symbol + ordinal
-실제 사용한 feature/rank/provenance evidence
-제외된 symbol + reason
-ordering contract
-canonical candidate_set_hash
-```
-
-### 현재 대표 가능 사용례
-
-```text
-high-beta filter
-normalized Histogram top-N / percentile
-sector membership filter
-sector 내 frozen rank
-relative strength / turnover / capital-flow threshold/order
-provider-precomputed EMA120 position filter
-```
-
-### 금지
-
-```text
-selection 요청 중 provider 계산
-AXIS 1 DSL로 종목별 feature 재계산
-nearest-time / fill-forward / default synthesis
-AXIS 3 내부 상태 direct import
-frozen core import/수정
+AXIS 1 내부 import 없음
+AXIS 2 내부 import 없음
+frozen core import 없음
+Feature Catalog 수정 없음
+provider/market lookup 없음
+CandidateSet 재계산 없음
+DSL compile/execute 없음
 ```
 
 ---
@@ -182,9 +159,8 @@ core tree: 8b3f081de926f5c9f69e9cdbc158b81b2275176c
 ## 다음 순서
 
 ```text
-9 AXIS 2 selection engine                    CURRENT
-10 AXIS 3 Condition/Strategy CRUD
-11 3축 E2E Bridge
+10 AXIS 3 Condition/Strategy CRUD + orchestration    CURRENT
+11 AXIS 2 -> AXIS 3 -> AXIS 1 versioned E2E Bridge
 12 External LLM Authoring Lane
 13 Continuous Improvement tooling
 14 natural-language E2E acceptance
@@ -198,12 +174,12 @@ core tree: 8b3f081de926f5c9f69e9cdbc158b81b2275176c
 사용자 local에서 최신 branch pull 후:
 
 ```text
+python -m unittest discover -s tests -p "test_axis3_crud_orchestration.py" -v
 python -m unittest discover -s tests -p "test_axis2_selection_engine.py" -v
 python -m unittest discover -s tests -p "test_axis2_exact_asof_snapshot.py" -v
-python -m unittest discover -s tests -p "test_axis1_execution_bridge_contract.py" -v
 python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py" -v
 ```
 
-모두 PASS하면 Step 9 checkpoint 후 Step 10 AXIS 3 Condition / Strategy CRUD + orchestration으로 이동한다.
+모두 PASS하면 Step 10 checkpoint 후 Step 11 versioned E2E Bridge로 이동한다.
 
 실패 시 test defect / feature defect / authority drift / environment issue / unknown으로 먼저 분류하고 assertion/contract를 약화하지 않는다.
