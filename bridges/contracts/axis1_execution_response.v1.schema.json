@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "bridge.axis1_execution_response/v1",
+  "title": "AXIS 1 Execution Response v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "meta", "request_hash", "capability_registry_hash", "result", "error", "response_hash"],
+  "properties": {
+    "schema": {"const": "bridge.axis1_execution_response/v1"},
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_id", "source_axis", "target_axis", "operation", "status", "contract_version"],
+      "properties": {
+        "request_id": {"type": "string", "minLength": 1},
+        "source_axis": {"const": "AXIS1"},
+        "target_axis": {"enum": ["AXIS2", "AXIS3", "EXTERNAL"]},
+        "operation": {"const": "BACKTEST"},
+        "status": {"enum": ["OK", "REJECTED", "ERROR"]},
+        "contract_version": {"const": "v1"}
+      }
+    },
+    "request_hash": {"type": "string", "minLength": 1},
+    "capability_registry_hash": {"type": "string", "minLength": 1},
+    "result": {"type": ["object", "null"]},
+    "error": {"type": ["object", "null"]},
+    "response_hash": {"type": "string", "minLength": 1}
+  }
+}
