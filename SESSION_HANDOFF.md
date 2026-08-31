@@ -1,14 +1,14 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 5-9 / 2026-09-01 KST**
+Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 5-10 / 2026-09-01 KST**
 
-이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + user-local PASS + 현재 dsl-live-studio 상태가 stale 문서보다 우선한다.
+이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + user-local PASS + 현재 `dsl-live-studio` 상태가 stale 문서보다 우선한다.
 
 핵심 운영 원칙:
 
-> 사용자 진행보고는 기본적으로 한 일 / 할 일만 사람이 이해하는 용어로 짧게 한다.
+> 사용자 진행보고는 기본적으로 `한 일 / 할 일`만 사람이 이해하는 용어로 짧게 한다.
 
-> 검증된 migrated core는 안정된 실행 장비처럼 유지한다. 신규 기능과 검증은 가능한 한 별도 lowering/facade/session/test-reference 층으로 격리한다.
+> 검증된 migrated core는 안정된 실행 장비처럼 유지한다. 신규 기능/검증은 가능한 한 별도 lowering/facade/session/parity 층으로 격리한다.
 
 ---
 
@@ -16,7 +16,7 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT
 
 ```text
 CURRENT_STEP = 5
-CURRENT_SUBSTEP = 5-9 full reference differential fixtures
+CURRENT_SUBSTEP = 5-10 full-engine batch/streaming parity
 STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
@@ -35,86 +35,103 @@ Step 5-5 bounded loops = COMPLETE / USER-LOCAL PASS
 Step 5-6 on_tick/on_fill commit/rollback = COMPLETE / USER-LOCAL PASS
 Step 5-7 partial fills / partial exits = COMPLETE / USER-LOCAL PASS
 Step 5-8 pyramiding / multi-position = COMPLETE / USER-LOCAL PASS
+Step 5-9 reference differential fixtures = COMPLETE / USER-LOCAL PASS
 ```
 
 최근 checkpoint:
 
 ```text
-STEP5_8_PYRAMIDING_EXECUTION_CHECKPOINT_2026-09-01.md
+STEP5_9_REFERENCE_DIFFERENTIAL_CHECKPOINT_2026-09-01.md
 ```
 
-5-8 user-local evidence:
+5-9 user-local evidence:
 
 ```text
+test_axis1_reference_differential.py = OK
+test_axis1_indicator_parity.py = OK
 test_axis1_pyramiding_execution.py = OK
 test_axis1_partial_execution.py = OK
-test_axis1_intrabar_lifecycle.py = OK
-test_axis1_broker_parity.py = OK
 test_frozen_legacy_core_guard.py = OK
 ```
 
 ---
 
-## 현재 5-9 구현
-
-목표:
-
-```text
-기존 frozen core 복제 비교만으로는 잡기 어려운 공통 결함을 피하기 위해
-TA/user indicator를 독립 NumPy reference와 대량 differential 비교
-```
+## 현재 5-10 구현
 
 구현 파일:
 
 ```text
-tests/axis1_reference_indicators.py
-tests/test_axis1_reference_differential.py
+axes/axis1_dsl/execution/full_engine_parity.py
+tests/test_axis1_full_engine_parity.py
 ```
 
-Reference 원칙:
+검증 계약은 세 부분이다.
+
+### 1. Runtime causal-prefix parity
 
 ```text
-AXIS 1 production module import 금지
-frozen core import 금지
-NumPy와 명시적 수식/상태전이만 사용
-production 결과로 expected 생성 금지
+full batch compile
+vs
+1..N bar prefix compile
 ```
 
-검증 대상:
+모든 runtime ndarray, NaN/warmup, trend metadata, on_bar state, MTF output, multi-output, event condition/order argument를 prefix 기준 exact 비교한다.
+
+이 prefix replay는 correctness oracle이며 성능 최적화된 incremental 계산기라고 부르지 않는다.
+
+### 2. Backtest prefix parity
 
 ```text
-rolling/moving average/warmup 계열
-recursive ATR/RSI/MACD/TRIX/CCI/ADX
-JMA trend values + direction metadata
-Supertrend line + direction
-range/VHF/Williams 계열
-cross/bars-since/value-when 등 event-history 계열
-BBands multi-output
-normalized MACD 전체 component
-실제 Axis1DSLRuntime 함수 mapping
+full batch backtest
+vs
+2..N bar prefix backtest replay
 ```
 
-범위 완전성 gate:
+비교:
 
 ```text
-FUNCTION_SPECS에서 category=ta/user인 모든 등록 함수가
-명시적인 differential coverage set에 들어있어야 한다.
-새 ta/user 함수가 registry에 추가되고 reference test가 빠지면 자동 FAIL한다.
+equity curve
+trades/executions
+closed trades
+broker lifecycle history
+open-position state
 ```
 
-Fixture matrix:
+Artificial prefix-end expiry가 결과를 오염시키지 않도록 parity fixture는 market/GTC 주문을 사용한다.
+
+### 3. Ordered event tape parity
+
+`Axis1EventTapeSession`이 다음 Step 5-6~5-8 권한을 하나의 ordered tape로 연결한다.
 
 ```text
-결정적 비선형 OHLCV
-복수 period 2/3/5/8/14/21
-NaN warmup + 중간 NaN
-flat/zero-range edge
-JMA 여러 phase/length/power
-Supertrend 여러 period/multiplier
-normalized MACD simple/exponential/weighted
+intrabar provisional state
+partial fill broker
+pyramiding multi-lot accounting
 ```
 
-Step 5-9에서 production indicator/runtime를 변경하지 않았다. 차이가 나오면 test/reference defect와 product defect를 먼저 구분하고 assertion/tolerance를 약화하지 않는다.
+지원 event:
+
+```text
+BEGIN_BAR
+TICK
+SUBMIT_ENTRY
+SUBMIT_EXIT
+FILL
+CANCEL
+COMMIT_BAR
+ROLLBACK_BAR
+```
+
+같은 tape를 한 번에 replay한 결과와 event별 streaming apply 결과가 exact 동일해야 한다.
+
+중요 권위:
+
+```text
+broker/accounting fill fact는 실제 체결 사실로 보존
+strategy provisional rollback은 실제 fill을 취소하지 않음
+```
+
+현재 migrated runtime/backtest/broker와 frozen core는 직접 수정하지 않았다.
 
 ---
 
@@ -131,8 +148,9 @@ core tree: 8b3f081de926f5c9f69e9cdbc158b81b2275176c
 ```text
 core/ 수정 / 이동 / 삭제 / 신규 파일 추가
 expected frozen hash 변경으로 위반 수용
-reference expected를 actual에 맞춰 임의 완화
-Step 5-10 batch/stream parity 선행 구현
+prefix replay를 실시간 성능 구현으로 과장
+intrabar event tape를 기존 backtest에 침묵 삽입
+batch/stream 입력조건을 다르게 놓고 parity 주장
 검증완화
 ```
 
@@ -141,8 +159,7 @@ Step 5-10 batch/stream parity 선행 구현
 ## 다음 순서
 
 ```text
-5-9 reference differential fixtures          CURRENT
-5-10 full-engine batch/streaming parity
+5-10 full-engine batch/streaming parity       CURRENT
 6 machine-readable capability/diagnostic registry
 7 Bridge common + AXIS 1 execution contract
 8 AXIS 2 exact-as-of snapshot contract
@@ -173,13 +190,13 @@ Step 5-10 batch/stream parity 선행 구현
 사용자 local에서 최신 branch pull 후:
 
 ```text
+python -m unittest discover -s tests -p "test_axis1_full_engine_parity.py" -v
 python -m unittest discover -s tests -p "test_axis1_reference_differential.py" -v
-python -m unittest discover -s tests -p "test_axis1_indicator_parity.py" -v
 python -m unittest discover -s tests -p "test_axis1_pyramiding_execution.py" -v
 python -m unittest discover -s tests -p "test_axis1_partial_execution.py" -v
 python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py" -v
 ```
 
-모두 PASS하면 5-9 checkpoint 후 5-10 full-engine batch/streaming parity로 이동한다.
+모두 PASS하면 Step 5-10 checkpoint 후 Step 6 machine-readable capability/diagnostic registry로 이동한다.
 
-실패 시 reference defect / product defect / authority drift / environment issue / unknown으로 먼저 분류하고 assertion/contract를 약화하지 않는다.
+실패 시 test defect / product defect / authority drift / environment issue / unknown으로 먼저 분류하고 assertion/contract를 약화하지 않는다.
