@@ -29,8 +29,15 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-08-31 KST**
 ## 0. 현재 포인터
 
 ```text
-CURRENT_STEP = 1
-CURRENT_STEP_NAME = AXIS 1 잔여 exact capability audit 완료
+CURRENT_STEP = 2
+CURRENT_STEP_NAME = AXIS 1 migration manifest 및 이식 경계 순서 확정
+```
+
+완료된 Step:
+
+```text
+STEP 1 = COMPLETE
+결과 문서 = DSL_AXIS1_PRE_MIGRATION_CAPABILITY_AUDIT.md
 ```
 
 현재 작업이 완료될 때마다 반드시:
@@ -47,33 +54,23 @@ CURRENT_STEP_NAME = AXIS 1 잔여 exact capability audit 완료
 
 ---
 
-## 1. AXIS 1 잔여 exact capability audit 완료
+## 1. AXIS 1 잔여 exact capability audit 완료 — COMPLETED
 
-**아직 코드를 이식하거나 신규 기능을 개발하지 않는다.**
+최종 결과는 `DSL_AXIS1_PRE_MIGRATION_CAPABILITY_AUDIT.md`에 기록했다.
 
-확정할 항목:
-
-```text
-1-1. JMA up/down 값 direct strategy access
-1-2. JMA normalized slope strength direct access
-1-3. intermediate/threshold/permission/marker projection completeness
-1-4. Strategy CRUD와 Feature Catalog 실제 물리/저장 경계
-1-5. 기존 capability audit의 IMPLEMENTED / PARTIAL / NOT_IMPLEMENTED 판정 재확인
-```
-
-출력:
+핵심 판정:
 
 ```text
-DSL_AXIS1_PRE_MIGRATION_CAPABILITY_AUDIT.md 최종판
+JMA numeric line                         구현됨
+JMA direction as registered DSL output  부분구현
+JMA normalized slope strength           미구현
+numeric intermediate projection         구현됨
+threshold/permission generic projection 부분구현
+Feature Catalog vs mutable persistence  분리됨
+final AXIS 3 CRUD physical separation   미완성
 ```
 
-완료 조건:
-
-```text
-각 항목이 코드/테스트 evidence를 가진다.
-미구현과 검증부족을 구분한다.
-구형 core/는 변경하지 않는다.
-```
+frozen `core/`는 변경하지 않았다.
 
 ---
 
