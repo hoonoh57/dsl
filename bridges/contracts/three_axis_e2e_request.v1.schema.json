@@ -1,0 +1,57 @@
+{
+  "$id": "bridge.three_axis_e2e_request/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "meta", "run_id", "strategy_ref", "condition_ref", "snapshot", "selection_spec", "execution_inputs"],
+  "properties": {
+    "schema": {"const": "bridge.three_axis_e2e_request/v1"},
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_id", "source_axis", "target_axis", "operation", "contract_version"],
+      "properties": {
+        "request_id": {"type": "string", "minLength": 1},
+        "source_axis": {"enum": ["EXTERNAL", "AXIS1", "AXIS2"]},
+        "target_axis": {"const": "AXIS3"},
+        "operation": {"const": "SELECT_PLAN_BACKTEST"},
+        "contract_version": {"const": "v1"}
+      }
+    },
+    "run_id": {"type": "string", "minLength": 1},
+    "strategy_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy_id", "version", "artifact_hash"],
+      "properties": {
+        "strategy_id": {"type": "string", "minLength": 1},
+        "version": {"type": "integer", "minimum": 1},
+        "artifact_hash": {"type": "string", "minLength": 1}
+      }
+    },
+    "condition_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["condition_id", "version", "artifact_hash"],
+      "properties": {
+        "condition_id": {"type": "string", "minLength": 1},
+        "version": {"type": "integer", "minimum": 1},
+        "artifact_hash": {"type": "string", "minLength": 1}
+      }
+    },
+    "snapshot": {"type": "object"},
+    "selection_spec": {"type": "object"},
+    "execution_inputs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["market"],
+        "properties": {
+          "market": {"type": "object"},
+          "entry_gate": {"type": ["array", "null"], "items": {"type": "boolean"}},
+          "parent_context": {"type": ["object", "null"]}
+        }
+      }
+    }
+  }
+}
