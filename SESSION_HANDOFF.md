@@ -1,6 +1,6 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 4 BOUNDARY 3 / 2026-08-31 KST**
+Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 4 BOUNDARY 4 / 2026-08-31 KST**
 
 이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + exact user-local PASS + 현재 `dsl-live-studio` 상태가 stale 문서보다 우선한다.
 
@@ -18,20 +18,21 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT
 1. SESSION_HANDOFF.md
 2. DSL_NEXT_WORK_ORDER.md
 3. DSL_AXIS1_MIGRATION_MANIFEST.md
-4. STEP4_BOUNDARY2_FUNCTION_REGISTRY_PARITY_CHECKPOINT_2026-08-31.md
-5. STEP4_BOUNDARY1_PARSER_PARITY_CHECKPOINT_2026-08-31.md
-6. STEP3_FROZEN_CORE_GUARD_CHECKPOINT_2026-08-31.md
-7. STEP2_AXIS1_MIGRATION_PLAN_CHECKPOINT_2026-08-31.md
-8. STEP1_AXIS1_CAPABILITY_AUDIT_CHECKPOINT_2026-08-31.md
-9. DSL_AXIS1_PRE_MIGRATION_CAPABILITY_AUDIT.md
-10. DSL_FROZEN_CORE_MIGRATION_POLICY.md
-11. DSL_AXIS2_PRECOMPUTED_SELECTION_POLICY.md
-12. DSL_EXTERNAL_LLM_STRATEGY_AUTHORING_POLICY.md
-13. DSL_AUTHORING_CONTINUOUS_IMPROVEMENT_POLICY.md
-14. DSL_HUMAN_COMMUNICATION_OUTPUT_POLICY.md
-15. DSL_THREE_AXIS_FINAL_TARGET.md
-16. PARENT_CONTEXT_FEATURE_PROVIDER_POLICY.md
-17. current dsl-live-studio HEAD
+4. STEP4_BOUNDARY3_SEMANTIC_PARITY_CHECKPOINT_2026-08-31.md
+5. STEP4_BOUNDARY2_FUNCTION_REGISTRY_PARITY_CHECKPOINT_2026-08-31.md
+6. STEP4_BOUNDARY1_PARSER_PARITY_CHECKPOINT_2026-08-31.md
+7. STEP3_FROZEN_CORE_GUARD_CHECKPOINT_2026-08-31.md
+8. STEP2_AXIS1_MIGRATION_PLAN_CHECKPOINT_2026-08-31.md
+9. STEP1_AXIS1_CAPABILITY_AUDIT_CHECKPOINT_2026-08-31.md
+10. DSL_AXIS1_PRE_MIGRATION_CAPABILITY_AUDIT.md
+11. DSL_FROZEN_CORE_MIGRATION_POLICY.md
+12. DSL_AXIS2_PRECOMPUTED_SELECTION_POLICY.md
+13. DSL_EXTERNAL_LLM_STRATEGY_AUTHORING_POLICY.md
+14. DSL_AUTHORING_CONTINUOUS_IMPROVEMENT_POLICY.md
+15. DSL_HUMAN_COMMUNICATION_OUTPUT_POLICY.md
+16. DSL_THREE_AXIS_FINAL_TARGET.md
+17. PARENT_CONTEXT_FEATURE_PROVIDER_POLICY.md
+18. current dsl-live-studio HEAD
 ```
 
 ---
@@ -41,7 +42,7 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT
 ```text
 CURRENT_STEP = 4
 CURRENT_STEP_NAME = AXIS 1 경계별 이식 + parity
-CURRENT_BOUNDARY = 3 Assignment Flow + Semantic
+CURRENT_BOUNDARY = 4 Indicator Kernel
 BOUNDARY_STATUS = REMOTE_UNVALIDATED
 ```
 
@@ -53,9 +54,21 @@ Step 2 = AXIS 1 migration manifest + 9개 boundary 순서 COMPLETE
 Step 3 = Frozen Core 보호 gate COMPLETE / user-local PASS
 Step 4 Boundary 1 = Parser / AST COMPLETE / user-local PASS
 Step 4 Boundary 2 = Function Registry COMPLETE / user-local PASS
+Step 4 Boundary 3 = Assignment Flow + Semantic COMPLETE / user-local PASS
 ```
 
-사용자는 Boundary 2 진행 시 frozen guard와 function-registry parity가 모두 `OK`임을 보고했다.
+Boundary 3 user-local evidence:
+
+```text
+axis1 parity suite: Ran 12 tests in 0.008s / OK
+frozen core guard: Ran 1 test in 0.043s / OK
+```
+
+판정:
+
+```text
+PASS / semantic migration parity trusted / frozen legacy core unchanged
+```
 
 ---
 
@@ -89,8 +102,8 @@ read / golden regression / migration parity comparison
 ```text
 1 Parser / AST                         COMPLETE / PASS
 2 Function Registry                    COMPLETE / PASS
-3 Assignment Flow + Semantic           CURRENT
-4 Indicator Kernel
+3 Assignment Flow + Semantic           COMPLETE / PASS
+4 Indicator Kernel                     CURRENT
 5 State + Bar Runtime
 6 MTF + Read-Only Context Binding
 7 DSL Runtime
@@ -113,48 +126,57 @@ checkpoint
 
 ---
 
-## 5. Boundary 3 — Assignment Flow + Semantic 현재 상태
+## 5. Boundary 4 — Indicator Kernel 현재 상태
 
 ```text
 legacy:
-  core/assignment_flow.py
-  core/dsl_semantic.py
+  core/indicators.py
+  core/user_indicators.py
 
 axis1:
-  axes/axis1_dsl/core/assignment_flow.py
-  axes/axis1_dsl/core/dsl_semantic.py
+  axes/axis1_dsl/indicators/indicators.py
+  axes/axis1_dsl/indicators/user_indicators.py
 ```
 
 이식 방식:
 
 ```text
-기존 behavior 보존
-내부 import만 새 AXIS 1 Parser/Registry/Assignment Flow로 변경
-신규 문법/기능 추가 없음
+Core indicator 계산은 behavior-preserving copy
+user indicator의 내부 CoreTALib import만 새 AXIS 1 경로로 변경
+신규 지표/DSL 기능 추가 없음
 ```
 
 focused parity:
 
 ```text
-tests/test_axis1_semantic_parity.py
+tests/test_axis1_indicator_parity.py
 ```
 
 검증 범위:
 
 ```text
-on_bar 전/후 assignment dependency partition
-valid semantic symbol/type 결과
-undefined symbol / bad arity / bad argument type
-on_bar function-call rejection
-context-binding required rejection
-error message/code/line/column
-new semantic boundary의 frozen-core runtime import 부재
+기존 TA numeric array
+NaN 위치
+JMA 값 + trend metadata
+Supertrend line/direction tuple
+MACD/ATR/ADX/RSI/CCI/TRIX/VHF 등 대표 전체 public kernel
+bars/value-when/since 계열
+Bollinger tuple 내부 결과
+crossover/crossunder
+normalized MACD macd/signal/hist/hist_abs_pct
+invalid normalized component error
+new indicator modules의 frozen-core runtime import 부재
 ```
 
-현재 remote compare상 이번 Boundary 3 tranche는 checkpoint + 새 AXIS 1 파일 + focused test만 변경됐고 `core/` 변경은 없다.
+주의:
 
-아직 user-local PASS가 없으므로 Boundary 3은 `REMOTE_UNVALIDATED`다.
-Boundary 3 PASS 전 Boundary 4 Indicator Kernel 시작 금지.
+```text
+legacy Python 내부 tuple 결과는 그대로 보존하지만 DSL tuple/multi-output 지원을 추가한 것은 아니다.
+JMA normalized slope 신규기능도 아직 추가하지 않는다.
+```
+
+아직 user-local PASS가 없으므로 Boundary 4는 `REMOTE_UNVALIDATED`다.
+Boundary 4 PASS 전 Boundary 5 State + Bar Runtime 시작 금지.
 
 ---
 
@@ -239,7 +261,8 @@ Step 2: COMPLETE
 Step 3: COMPLETE / USER-LOCAL PASS
 Step 4 Boundary 1: COMPLETE / USER-LOCAL PASS
 Step 4 Boundary 2: COMPLETE / USER-LOCAL PASS
-Step 4 Boundary 3: WRITTEN / REMOTE_UNVALIDATED
+Step 4 Boundary 3: COMPLETE / USER-LOCAL PASS
+Step 4 Boundary 4: WRITTEN / REMOTE_UNVALIDATED
 AXIS 2 implementation: NOT STARTED
 AXIS 3 implementation: scaffold only
 repository-wide compliance: REMEDIATION_REQUIRED
@@ -254,13 +277,11 @@ repository-wide compliance: REMEDIATION_REQUIRED
 사용자 local에서 최신 branch pull 후:
 
 ```text
+python -m unittest discover -s tests -p "test_axis1_indicator_parity.py" -v
 python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py" -v
-python -m unittest discover -s tests -p "test_axis1_parser_parity.py" -v
-python -m unittest discover -s tests -p "test_axis1_function_registry_parity.py" -v
-python -m unittest discover -s tests -p "test_axis1_semantic_parity.py" -v
 ```
 
-모두 PASS하면 Boundary 3 checkpoint 후 Boundary 4 Indicator Kernel로 이동한다.
+둘 다 PASS하면 Boundary 4 checkpoint 후 Boundary 5 State + Bar Runtime으로 이동한다.
 
 실패 시 먼저 test defect / migration defect / authority drift / environment issue / unknown으로 분류하며 assertion을 약화하지 않는다.
 
