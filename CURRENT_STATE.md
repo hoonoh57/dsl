@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **DSL_CORE_PHASE1_TRUSTED / STRATEGY-RESEARCH PHASE ACTIVE / BASELINE-FROZEN / REMEDIATION_REQUIRED**  
+Status: **DSL_CORE_PHASE1_TRUSTED / STRATEGY-RESEARCH PHASE ACTIVE / THREE-AXIS FINAL TARGET ACTIVE / BASELINE-FROZEN / REMEDIATION_REQUIRED**  
 Updated: 2026-08-31 KST
 
 ## Recovery authority
@@ -10,15 +10,54 @@ Updated: 2026-08-31 KST
 ```text
 1. SESSION_HANDOFF.md
 2. DSL_STRATEGY_RESEARCH_PHILOSOPHY.md
-3. CURRENT_STATE.md
-4. current dsl-live-studio branch/head
+3. DSL_THREE_AXIS_FINAL_TARGET.md
+4. CURRENT_STATE.md
+5. current dsl-live-studio branch/head
 ```
 
 Exact user-local PASS evidence and 최신 사용자 결정이 stale 문서보다 우선한다.
 
-사용자가 새 세션에서 `세션이어가!`라고 하면 `SESSION_HANDOFF.md`의 복구 규칙에 따라 **현재 전략 연구 단계부터 즉시 이어간다.**
+사용자가 새 세션에서 `세션이어가!`라고 하면 `SESSION_HANDOFF.md`의 복구 규칙에 따라 **현재 전략 연구 단계부터 즉시 이어간다.** `SESSION_HANDOFF.md`가 `DSL_STRATEGY_RESEARCH_PHILOSOPHY.md`를 읽도록 이미 규정하고 있으며, 그 철학 문서가 `DSL_THREE_AXIS_FINAL_TARGET.md`를 최종 제품 아키텍처 권한 문서로 지정한다.
 
-## Main product direction
+## Main product direction — three-axis final target
+
+최종 제품 목표:
+
+```text
+AXIS 1. DSL Capability Engine
+= 제약이 적은 독립 전략 표현/실행 언어
+= MTF + cascading/context + built-in/user indicators + logic + execution/risk
+
+AXIS 2. Semi-Condition Selection
+= 여러 종목 중 거래가치가 높은 후보군 선별
+= filter/rank/top-N + 고베타/강세/EMA120/position/sector relation/normalized strength
+
+AXIS 3. Strategy Monetization
+= Candidate Set에 Strategy CRUD 전략 적용
+= chart/backtest/version/compare를 통한 맞춤형 수익화
+```
+
+End-to-End 목표:
+
+```text
+조건선별
+ -> Candidate Set
+ -> DSL 전략
+ -> 차트 이유 검증
+ -> 백테스트/비교
+ -> 맞춤형 수익화
+```
+
+세 축의 권한은 섞지 않는다.
+
+```text
+Selector = 누구를 볼 것인가
+DSL      = 무엇을 어떻게 표현/실행할 것인가
+Strategy = 어떤 수익전략을 적용할 것인가
+Chart    = 계산하지 않고 그 이유를 보여주는 계측기
+```
+
+실제 direct Core path는 계속 deterministic하다.
 
 ```text
 UI / Chart
@@ -53,6 +92,16 @@ JSON            = persistence only
 ```
 
 Chart는 DSL 계산을 재계산하지 않고 projection을 표시한다.
+
+3축 추가 권한 분리:
+
+```text
+Feature Catalog = DSL 기능 검증 SSOT / 불변
+Condition CRUD  = Semi-Condition 선별 규칙 / 버전
+Strategy CRUD   = 수익전략 / 복제 / 버전 / 비교 / 폐기
+```
+
+Selector는 주문 의미를 소유하지 않고 Candidate Set과 evidence를 반환한다.
 
 ## DSL Core Phase 1 trusted checkpoint
 
@@ -166,7 +215,8 @@ Strategy CRUD   = 수익전략 실험 / 버전 / 비교 / 삭제
 ```text
 1. 기존 DSL 조합으로 가능한 전략은 Strategy CRUD에서만 작성
 2. 새로운 측정값 자체가 부족할 때만 additive User Indicator
-3. Universe / Permission / Context / Execution / Risk는 실제 필요가 확인될 때 일반 기능으로 확장
+3. Universe / Permission / Context / Execution / Risk는 일반 기능으로 확장
+4. 최종적으로 AXIS 2 Selector와 AXIS 3 Strategy를 분리 연결
 ```
 
 MACD 파라미터를 특정 차트에 맞춰 무한 조정하기보다 다음 측정값을 **전략 Permission 후보**로 연구한다.
@@ -216,34 +266,78 @@ permission bool
 trigger / result
 ```
 
+AXIS 2가 구현되면 Selector evidence도 같은 원칙으로 projection한다.
+
 Chart가 재계산하지 않는다.
 
-## Long-term selection direction
+## AXIS 2 — Semi-Condition Selection target
 
-궁극적인 연구 방향의 한 형태:
+이제 Universe 방향은 장기 아이디어가 아니라 최종 제품의 독립 축으로 승격되었다.
+
+목표 형태:
+
+```text
+Universe
+ -> generic filter
+ -> rank
+ -> top-N
+ -> evidence/reasons
+ -> Candidate Set
+```
+
+실제 전략에서 활용할 수 있는 feature 후보:
 
 ```text
 지수 고베타
-+ 주도섹터/대장/추종 관계
-+ Close > EMA120
-+ normalized Histogram strength/rank
- -> 강세 후보 선별
- -> MACD + JMA timing
- -> 종목당 소수의 고품질 진입
+주도섹터/대장/추종 관계
+Close > EMA120
+normalized Histogram strength/rank
+position
+relative strength
+거래대금/자금유입
 ```
 
-장기적으로:
+하지만 이 조건 묶음을 Core에 하나의 특수 함수로 하드코딩하지 않는다. 일반 filter/rank/top-N/relative-selection contract 위에서 **Condition CRUD**가 조합한다.
+
+장기 구분:
 
 ```text
 DSL SYMBOL   = single-symbol indicator/trigger/permission/execution
 DSL UNIVERSE = cross-sectional filter/rank/top-N/relative selection
 ```
 
-하지만 Universe 언어는 지금 성급히 확장하지 않는다.
+## AXIS 3 — Strategy Monetization target
+
+선별된 Candidate Set에 Strategy CRUD 전략을 적용한다.
+
+```text
+Candidate Set
+ -> Strategy version
+ -> DSL execute
+ -> chart observability
+ -> backtest / compare
+ -> promote / reject
+ -> tailored monetization
+```
+
+모든 종목에 동일 전략 하나를 강제하지 않는다. 후보군 특성/timeframe/normalized strength/context에 맞는 전략 버전을 비교 가능하게 운용하는 것이 최종 목표다.
+
+Baseline은 계속 불변이다.
+
+```text
+MACD_BASELINE_V1
+ -> MACD_HIST_V1
+ -> MACD_JMA_V1
+ -> MACD_HIST_JMA_V1
+ -> MACD_HIST_JMA_POSITION_V1
+ -> selected-universe strategy variants
+```
 
 ## Immediate next work
 
-새 전략을 바로 코딩하기 전에 **DSL 조합능력 audit**을 수행한다.
+최종 목표가 3축으로 상향되었어도 **현재 micro-tranche는 바꾸지 않는다.**
+
+먼저 AXIS 1의 **DSL 조합능력 audit**을 수행한다.
 
 ```text
 1. normalized Histogram direct strategy access
@@ -266,7 +360,25 @@ observability 부족 -> generic projection tranche
 persistence 부족 -> separate Strategy CRUD tranche
 ```
 
-상세 철학은 `DSL_STRATEGY_RESEARCH_PHILOSOPHY.md`가 권한 문서다.
+이 audit가 끝난 뒤 AXIS 2의 최소 generic contract를 설계한다.
+
+```text
+Universe input
+ -> filter
+ -> rank
+ -> top-N
+ -> evidence
+ -> Candidate Set
+```
+
+그 이후에야 실제 고베타/강세/EMA120/sector relation/normalized strength 조건을 Condition CRUD에서 조합하고 AXIS 3 전략과 연결한다.
+
+상세 권한 문서:
+
+```text
+DSL_STRATEGY_RESEARCH_PHILOSOPHY.md
+DSL_THREE_AXIS_FINAL_TARGET.md
+```
 
 ## Deferred / nonclaims
 
