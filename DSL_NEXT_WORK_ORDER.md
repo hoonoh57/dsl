@@ -15,8 +15,9 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-08-31 KST**
 ## 현재 포인터
 
 ```text
-CURRENT_STEP = 3
-CURRENT_STEP_NAME = Frozen Core 보호 gate 검증
+CURRENT_STEP = 4
+CURRENT_STEP_NAME = AXIS 1 경계별 이식 + parity
+CURRENT_BOUNDARY = 1 Parser / AST
 ```
 
 완료:
@@ -29,6 +30,9 @@ STEP 1 COMPLETE = 기존 DSL 남은 기능 exact audit
 STEP 2 COMPLETE = 새 AXIS 1 이식 설계도 + 경계 순서
   -> DSL_AXIS1_MIGRATION_MANIFEST.md
   -> STEP2_AXIS1_MIGRATION_PLAN_CHECKPOINT_2026-08-31.md
+
+STEP 3 COMPLETE = Frozen Core 보호 gate user-local PASS
+  -> STEP3_FROZEN_CORE_GUARD_CHECKPOINT_2026-08-31.md
 ```
 
 현재 Step을 완료할 때마다:
@@ -65,34 +69,33 @@ JMA 접근, projection, Strategy CRUD 경계를 실제 코드/테스트로 확�
 
 ---
 
-## 3. Frozen Core 보호 gate 검증 — CURRENT
+## 3. Frozen Core 보호 gate 검증 — COMPLETE
 
-첫 migration write 전에 기존 `core/`가 동결 기준과 동일한지 확인한다.
-
-기준:
+Frozen tree 기준:
 
 ```text
-frozen tree = 8b3f081de926f5c9f69e9cdbc158b81b2275176c
+8b3f081de926f5c9f69e9cdbc158b81b2275176c
 ```
 
-검증:
+User-local executable guard:
 
 ```text
-tests/test_frozen_legacy_core_guard.py
+python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py"
+Ran 1 test
+OK
 ```
 
-완료 조건:
+판정:
 
 ```text
-frozen core unchanged
-user-local guard PASS evidence
+PASS / no defect detected / frozen core unchanged
 ```
 
-PASS 전 Step 4 시작 금지.
+기존 `core/`는 이후에도 영구 immutable reference다.
 
 ---
 
-## 4. AXIS 1 경계별 이식 + parity
+## 4. AXIS 1 경계별 이식 + parity — CURRENT
 
 Step 2에서 확정한 9개 boundary를 **한 번에 하나씩** 이식한다.
 
@@ -102,7 +105,37 @@ Step 2에서 확정한 9개 boundary를 **한 번에 하나씩** 이식한다.
 이식 -> focused parity -> frozen comparison -> regression -> checkpoint
 ```
 
-전체 `core/` 일괄복사, migration 중 신규기능 추가, legacy core 수정 금지.
+현재:
+
+```text
+Boundary 1 = Parser / AST
+source = core/dsl_parser.py
+target = axes/axis1_dsl/core/dsl_parser.py
+mode = behavior-preserving migration
+```
+
+금지:
+
+```text
+전체 core/ 일괄복사
+migration 중 신규기능 추가
+legacy core 수정
+parity 차이를 compatibility exception으로 숨기기
+```
+
+Boundary 1 완료 조건:
+
+```text
+동일 DSL corpus parse success/failure
+strategy name/timeframe 동일
+AST node structure/fields 동일
+unknown syntax fail-closed 동일
+error line/column/code 동일
+new production parser has no frozen-core runtime import
+focused user-local parity PASS
+```
+
+Boundary 1 PASS + checkpoint 전 Boundary 2 시작 금지.
 
 ---
 
