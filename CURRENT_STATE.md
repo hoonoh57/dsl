@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **DSL_CORE_PHASE1_TRUSTED / STRATEGY-RESEARCH PHASE ACTIVE / THREE-AXIS FINAL TARGET ACTIVE / BASELINE-FROZEN / REMEDIATION_REQUIRED**  
+Status: **DSL_CORE_PHASE1_TRUSTED / STRATEGY-RESEARCH PHASE ACTIVE / THREE-AXIS FINAL TARGET ACTIVE / PHYSICAL-AXIS-SEPARATION ACTIVE / BASELINE-FROZEN / REMEDIATION_REQUIRED**  
 Updated: 2026-08-31 KST
 
 ## Recovery authority
@@ -11,13 +11,14 @@ Updated: 2026-08-31 KST
 1. SESSION_HANDOFF.md
 2. DSL_STRATEGY_RESEARCH_PHILOSOPHY.md
 3. DSL_THREE_AXIS_FINAL_TARGET.md
-4. CURRENT_STATE.md
-5. current dsl-live-studio branch/head
+4. DSL_THREE_AXIS_MODULE_BOUNDARY.md
+5. CURRENT_STATE.md
+6. current dsl-live-studio branch/head
 ```
 
 Exact user-local PASS evidence and 최신 사용자 결정이 stale 문서보다 우선한다.
 
-사용자가 새 세션에서 `세션이어가!`라고 하면 `SESSION_HANDOFF.md`의 복구 규칙에 따라 **현재 전략 연구 단계부터 즉시 이어간다.** `SESSION_HANDOFF.md`가 `DSL_STRATEGY_RESEARCH_PHILOSOPHY.md`를 읽도록 이미 규정하고 있으며, 그 철학 문서가 `DSL_THREE_AXIS_FINAL_TARGET.md`를 최종 제품 아키텍처 권한 문서로 지정한다.
+사용자가 새 세션에서 `세션이어가!`라고 하면 `SESSION_HANDOFF.md`의 복구 규칙에 따라 **현재 전략 연구 단계부터 즉시 이어간다.** 3축의 최종 제품 구조는 `DSL_THREE_AXIS_FINAL_TARGET.md`, 실제 물리 분리와 표준 Bridge 계약은 `DSL_THREE_AXIS_MODULE_BOUNDARY.md`가 권한 문서다.
 
 ## Main product direction — three-axis final target
 
@@ -56,6 +57,33 @@ DSL      = 무엇을 어떻게 표현/실행할 것인가
 Strategy = 어떤 수익전략을 적용할 것인가
 Chart    = 계산하지 않고 그 이유를 보여주는 계측기
 ```
+
+### Physical separation authority
+
+3축은 최종적으로 별도 폴더에 물리 분리한다.
+
+```text
+axes/
+  axis1_dsl/
+  axis2_selection/
+  axis3_monetization/
+
+bridges/
+  contracts/
+  adapters/
+  routing/
+```
+
+축 사이 직접 import, 내부 DB/상태 접근을 금지한다. 상호연동은 versioned 표준 `Request -> Response` Bridge만 허용한다.
+
+```text
+AXIS 2 -> CandidateSetResponse
+AXIS 3 -> StrategyExecutionRequest
+AXIS 1 -> ExecutionResponse + projections
+AXIS 3 -> Monetization/ValidationResponse
+```
+
+내부 구현 변경은 각 축 안에서 자유롭게 수행하고, 외부 영향은 표준 입출력 계약의 additive field 또는 version adapter에서 흡수한다. 기존 trusted DSL Core는 폴더 정리를 이유로 먼저 대규모 이동하지 않고 migration은 별도 tranche로 수행한다.
 
 실제 direct Core path는 계속 deterministic하다.
 
@@ -335,7 +363,7 @@ MACD_BASELINE_V1
 
 ## Immediate next work
 
-최종 목표가 3축으로 상향되었어도 **현재 micro-tranche는 바꾸지 않는다.**
+최종 목표가 3축으로 상향되고 물리 분리 원칙이 추가되었어도 **현재 micro-tranche는 바꾸지 않는다.**
 
 먼저 AXIS 1의 **DSL 조합능력 audit**을 수행한다.
 
@@ -360,24 +388,23 @@ observability 부족 -> generic projection tranche
 persistence 부족 -> separate Strategy CRUD tranche
 ```
 
-이 audit가 끝난 뒤 AXIS 2의 최소 generic contract를 설계한다.
+이 audit가 끝난 뒤 **Bridge v1 계약을 먼저 정의한 다음**, AXIS 2를 새 폴더에서 독립 개발한다.
 
 ```text
-Universe input
- -> filter
- -> rank
- -> top-N
- -> evidence
- -> Candidate Set
+bridges/contracts v1
+ -> AXIS 2: Universe -> filter -> rank -> top-N -> evidence -> Candidate Set
+ -> AXIS 3: Candidate Set -> Strategy CRUD -> AXIS 1 execution request
+ -> AXIS 1: deterministic execution response/projections
 ```
 
-그 이후에야 실제 고베타/강세/EMA120/sector relation/normalized strength 조건을 Condition CRUD에서 조합하고 AXIS 3 전략과 연결한다.
+그 이후에 실제 고베타/강세/EMA120/sector relation/normalized strength 조건을 Condition CRUD에서 조합한다.
 
 상세 권한 문서:
 
 ```text
 DSL_STRATEGY_RESEARCH_PHILOSOPHY.md
 DSL_THREE_AXIS_FINAL_TARGET.md
+DSL_THREE_AXIS_MODULE_BOUNDARY.md
 ```
 
 ## Deferred / nonclaims
