@@ -14,7 +14,7 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-08-31 KST**
 CURRENT_STEP = 5
 CURRENT_STEP_NAME = AXIS 1 신규 DSL 기능 개발
 CURRENT_SUBSTEP = 5-5 bounded loops
-SUBSTEP_STATUS = WRITTEN / REMOTE_UNVALIDATED
+SUBSTEP_STATUS = REMOTE_RETEST_REQUIRED
 ```
 
 완료:
@@ -64,18 +64,6 @@ axes/axis1_dsl/execution/axis1_backtest.py
 tests/test_axis1_bounded_loops.py
 ```
 
-v1 문법 예:
-
-```text
-function mean3(source) {
-    total = 0
-    for i in range(0, 3) {
-        total = total + source[i]
-    }
-    return total / 3
-}
-```
-
 v1 contract:
 
 ```text
@@ -94,15 +82,33 @@ source line 수를 보존하여 downstream 오류 line 유지
 전개식이 과도하게 커지면 fail-closed
 ```
 
-중요 원칙:
+최근 user-local 검증:
 
 ```text
-migrated parser/semantic/runtime/backtest core 직접 확장 없음
-frozen core 수정 없음
-동적 bound / data-dependent bound 금지
-실행 중 break/continue/while 금지
-5-6 tick/fill lifecycle을 선행 구현하지 않음
-검증완화 금지
+test_axis1_bounded_loops.py = Ran 7 / 1 failure
+나머지 5-4/5-3/5-2/5-1 회귀검사와 frozen core guard = OK
+```
+
+원인 분류:
+
+```text
+FEATURE_DEFECT — bounded-loop 자체가 아니라 기존 5-1 ta.bbands multi-output lowering의 NaN-window parity 결함
+```
+
+근거:
+
+```text
+bounded loop가 만든 mean3 series는 앞쪽 2개 bar가 NaN
+CoreTALib.bbands는 period window 안에 NaN이 하나라도 있으면 band 전체를 NaN으로 유지
+기존 ta.bbands lowering은 ta.sma + ta.stdev 조합이어서 stdev의 NaN 정책 차이 때문에 2개 bar를 너무 일찍 materialize
+```
+
+조치:
+
+```text
+migrated core/frozen core/assertion 변경 없음
+multi-output lowering에서 기존 DSL primitive만 사용해 period 연속 finite input이 모일 때까지 NaN window를 보존
+multi-output 회귀검사에 warmup/NaN-window case 추가
 ```
 
 5-5 완료 조건:
