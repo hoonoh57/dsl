@@ -8,6 +8,7 @@ from typing import Dict, Sequence
 
 import numpy as np
 
+from axes.axis1_dsl.core.bounded_loops import lower_bounded_loops
 from axes.axis1_dsl.core.user_functions import lower_user_functions
 from axes.axis1_dsl.core.multi_output import lower_multi_output
 from axes.axis1_dsl.runtime.dsl_context import DSLContextSeriesBinding
@@ -24,7 +25,8 @@ class Axis1DSLRuntime:
         context_binding: DSLContextSeriesBinding | None = None,
         target_times: Sequence[str] | None = None,
     ):
-        functions_lowered = lower_user_functions(code)
+        loops_lowered = lower_bounded_loops(code)
+        functions_lowered = lower_user_functions(loops_lowered.source)
         lowered = lower_multi_output(functions_lowered.source)
         try:
             compiled = MigratedDSLRuntime.compile(
@@ -38,6 +40,7 @@ class Axis1DSLRuntime:
             if mapped == str(exc):
                 raise
             raise DSLRuntimeError(mapped) from exc
+        compiled.bounded_loop_definitions = loops_lowered.manifest()
         compiled.user_function_definitions = functions_lowered.manifest()
         compiled.multi_output_bindings = tuple(item.public_dict() for item in lowered.bindings)
         return compiled
