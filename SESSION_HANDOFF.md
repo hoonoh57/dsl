@@ -1,6 +1,6 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 5-5 / RETEST REQUIRED / 2026-08-31 KST**
+Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 5-6 / 2026-09-01 KST**
 
 이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + user-local PASS + 현재 `dsl-live-studio` 상태가 stale 문서보다 우선한다.
 
@@ -8,7 +8,7 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT
 
 > 사용자 진행보고는 기본적으로 `한 일 / 할 일`만 사람이 이해하는 용어로 짧게 한다.
 
-> 검증된 migrated core는 안정된 실행 장비처럼 유지한다. 신규 DSL 기능은 가능한 한 명시적 contract + 얇은 compile-time lowering/facade 층으로 격리한다.
+> 검증된 migrated core는 안정된 실행 장비처럼 유지한다. 신규 DSL 기능은 가능한 한 명시적 contract + 얇은 compile-time lowering/facade 또는 별도 runtime session으로 격리한다.
 
 ---
 
@@ -16,8 +16,8 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT
 
 ```text
 CURRENT_STEP = 5
-CURRENT_SUBSTEP = 5-5 bounded loops
-STATUS = REMOTE_RETEST_REQUIRED
+CURRENT_SUBSTEP = 5-6 on_tick / on_fill commit/rollback
+STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
 완료:
@@ -31,95 +31,99 @@ Step 5-1 multi-output + destructuring = COMPLETE / USER-LOCAL PASS
 Step 5-2 tuple-aware generic projection = COMPLETE / USER-LOCAL PASS
 Step 5-3 capability/function metadata = COMPLETE / USER-LOCAL PASS
 Step 5-4 user-defined functions = COMPLETE / USER-LOCAL PASS
+Step 5-5 bounded loops = COMPLETE / USER-LOCAL PASS
 ```
 
 최근 checkpoint:
 
 ```text
-STEP5_4_USER_FUNCTIONS_CHECKPOINT_2026-08-31.md
+STEP5_5_BOUNDED_LOOPS_CHECKPOINT_2026-09-01.md
 ```
+
+5-5 final evidence:
+
+```text
+test_axis1_bounded_loops.py = Ran 7 / OK
+test_axis1_multi_output.py = Ran 8 / OK
+test_frozen_legacy_core_guard.py = Ran 1 / OK
+```
+
+5-5 검증 중 발견된 BBands multi-output NaN component semantics 결함도 direct CoreTALib.bbands 비교를 유지한 채 수정되어 최종 PASS했다.
 
 ---
 
-## 현재 5-5 검증상태
+## 현재 5-6 구현
 
-첫 user-local 결과:
+목표:
 
 ```text
-test_axis1_bounded_loops.py = Ran 7 / 1 failure
-나머지 5-4/5-3/5-2/5-1 회귀검사와 frozen core guard = OK
+open bar에서 발생하는 tick/fill 기반 state 변경을 provisional transaction으로 격리하고
+bar 확정 전에는 committed state를 바꾸지 않음
 ```
 
-첫 원인 분류:
+구현 파일:
 
 ```text
-FEATURE_DEFECT — bounded-loop 결과를 ta.bbands multi-output에 넣을 때 warmup NaN parity 불일치
+axes/axis1_dsl/runtime/intrabar_lifecycle.py
+axes/axis1_dsl/runtime/axis1_runtime.py
+axes/axis1_dsl/execution/axis1_backtest.py
+tests/test_axis1_intrabar_lifecycle.py
 ```
 
-첫 수정은 upper/middle/lower 전체를 같은 연속-finite mask로 처리했다. 이 수정 후 user-local 재검증에서:
+Lowering/실행 경계:
 
 ```text
-test_axis1_bounded_loops.py = Ran 7 / 1 failure
-test_axis1_multi_output.py = Ran 8 / 1 failure
-```
-
-재검증으로 확인된 정확한 contract:
-
-```text
-CoreTALib.bbands middle:
-  CoreTALib.sma 사용
-  SMA는 rolling 입력 NaN을 0으로 취급하는 기존 semantics
-
-CoreTALib.bbands upper/lower deviation:
-  직접 np.std(window) 사용
-  window 안에 NaN이 하나라도 있으면 deviation은 NaN
-```
-
-따라서 BBands 세 출력의 warmup/NaN semantics는 동일하지 않다. 첫 보정은 middle까지 강제로 NaN 처리하여 과도한 masking을 만들었다.
-
-현재 수정:
-
-```text
-axes/axis1_dsl/core/multi_output.py
-middle은 ta.sma 결과를 그대로 사용
-upper/lower에 쓰는 deviation만 period 연속 유효값 전까지 NaN 유지
-기존 DSL primitive만 사용
-migrated Parser/Semantic/Runtime/Backtest 직접 변경 없음
-frozen core 변경 없음
-assertion/expected 완화 없음
-```
-
-기존 회귀검사 `test_bbands_destructuring_preserves_input_nan_windows`는 direct `CoreTALib.bbands`와 세 component를 exact 비교하므로 현재 수정이 middle/upper/lower 각각의 기존 semantics를 모두 재현하는지 검증한다.
-
-현재는 user-local 재검증 전이므로 5-5 PASS로 부르지 않는다.
-
----
-
-## 5-5 bounded loop contract
-
-```text
-user-defined function 내부에서만 for ... in range(...) 허용
-range는 1~3개의 compile-time 정수 위치 인수
-최대 64회
-step=0 금지
-index read-only
-앞서 선언된 function local accumulator만 loop에서 갱신
-parameter mutation 금지
-nested loop/control block 금지
-compile-time 전개 후 runtime loop는 존재하지 않음
-source line 수 보존
-과도한 expression 전개는 fail-closed
-```
-
-Lowering 순서:
-
-```text
-bounded loops
+on_tick/on_fill handler extraction
+ -> bounded loops
  -> user functions
  -> multi-output
- -> migrated parser/semantic/runtime/backtest
- -> generic projection
+ -> migrated Parser/Semantic/Runtime
+
+compiled history의 마지막 state
+ -> Axis1DSLRuntime.open_intrabar_session
+ -> begin_bar
+ -> on_tick / on_fill ...
+ -> commit_bar | rollback_bar
 ```
+
+v1 handler contract:
+
+```text
+on_tick/on_fill 각각 최대 하나
+선언된 strategy state만 set 가능
+if/else 허용
+함수 호출/indicator/order/context/provider/loop 금지
+state type 변경 금지
+```
+
+Event fields:
+
+```text
+on_tick: tick.price, tick.volume, tick.time
+on_fill: fill.price, fill.quantity, fill.side, fill.order_id, fill.time
+```
+
+Transaction semantics:
+
+```text
+begin_bar에서 committed -> provisional 복사
+on_tick/on_fill은 provisional만 순서대로 변경
+각 event는 atomic: 실행 실패 시 그 event 직전 provisional로 복구
+rollback_bar는 현재 bar 전체 provisional 변경 폐기
+commit_bar는 provisional을 committed로 승격하고 revision +1
+rollback은 revision을 증가시키지 않음
+commit/rollback 후 다음 begin_bar 전 event 실행 금지
+```
+
+중요 정책:
+
+```text
+batch backtest는 Step 5-6에서 intrabar event tape를 아직 소비하지 않는다.
+on_tick/on_fill 전략을 batch backtest가 조용히 무시하면 잘못된 결과가 되므로 event tape 없이 호출 시 fail-closed한다.
+full batch/stream event parity는 Step 5-10에서 검증한다.
+```
+
+기존 migrated parser/semantic/runtime/broker와 frozen legacy core는 직접 수정하지 않았다.
 
 ---
 
@@ -137,8 +141,10 @@ core tree: 8b3f081de926f5c9f69e9cdbc158b81b2275176c
 core/ 수정 / 이동 / 삭제 / 신규 파일 추가
 expected frozen hash 변경으로 위반 수용
 새 feature를 frozen core에 역이식
-runtime while/break/continue/dynamic bound 추가
-신규기능 때문에 migrated core를 불필요하게 대수술
+intrabar handler에서 order placement/indicator recomputation/provider access 추가
+provisional state를 committed state처럼 취급
+5-7 partial fills 선행 구현
+5-8 pyramiding 선행 구현
 검증완화
 ```
 
@@ -147,8 +153,7 @@ runtime while/break/continue/dynamic bound 추가
 ## 다음 순서
 
 ```text
-5-5 bounded loops                         CURRENT / RETEST REQUIRED
-5-6 on_tick / on_fill commit/rollback
+5-6 on_tick / on_fill commit/rollback       CURRENT
 5-7 partial fills / partial exits
 5-8 pyramiding / multi-position
 5-9 reference differential fixtures
@@ -183,11 +188,14 @@ runtime while/break/continue/dynamic bound 추가
 사용자 local에서 최신 branch pull 후:
 
 ```text
+python -m unittest discover -s tests -p "test_axis1_intrabar_lifecycle.py" -v
 python -m unittest discover -s tests -p "test_axis1_bounded_loops.py" -v
+python -m unittest discover -s tests -p "test_axis1_user_functions.py" -v
 python -m unittest discover -s tests -p "test_axis1_multi_output.py" -v
+python -m unittest discover -s tests -p "test_axis1_generic_projection.py" -v
 python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py" -v
 ```
 
-세 검사 모두 PASS하면 앞서 이미 OK였던 나머지 회귀검사 결과와 합쳐 5-5 checkpoint 후 5-6으로 이동한다.
+모두 PASS하면 5-6 checkpoint 후 5-7 partial fills / partial exits로 이동한다.
 
-실패 시 새 오류를 test defect / feature defect / authority drift / environment issue / unknown으로 다시 분류하고 원칙/assertion을 약화하지 않는다.
+실패 시 test defect / feature defect / authority drift / environment issue / unknown으로 먼저 분류하고 assertion/contract를 약화하지 않는다.
