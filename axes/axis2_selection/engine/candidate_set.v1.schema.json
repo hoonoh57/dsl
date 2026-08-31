@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "axis2_candidate_set/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "selection_id", "condition_version", "selection_hash",
+    "snapshot_id", "snapshot_hash", "as_of", "knowledge_cutoff", "universe_id",
+    "source_symbol_count", "eligible_count_before_top_n", "selected_count",
+    "candidates", "exclusions", "ordering", "candidate_set_hash"
+  ],
+  "properties": {
+    "schema_version": {"const": "axis2_candidate_set/v1"},
+    "selection_id": {"type": "string", "minLength": 1},
+    "condition_version": {"type": "string", "minLength": 1},
+    "selection_hash": {"type": "string", "minLength": 1},
+    "snapshot_id": {"type": "string", "minLength": 1},
+    "snapshot_hash": {"type": "string", "minLength": 1},
+    "as_of": {"type": "string", "pattern": "^[0-9]{14}$"},
+    "knowledge_cutoff": {"type": "string", "pattern": "^[0-9]{14}$"},
+    "universe_id": {"type": "string", "minLength": 1},
+    "source_symbol_count": {"type": "integer", "minimum": 0},
+    "eligible_count_before_top_n": {"type": "integer", "minimum": 0},
+    "selected_count": {"type": "integer", "minimum": 0},
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["symbol", "ordinal", "evidence"],
+        "properties": {
+          "symbol": {"type": "string", "minLength": 1},
+          "ordinal": {"type": "integer", "minimum": 1},
+          "evidence": {"type": "array", "items": {"type": "object"}}
+        }
+      }
+    },
+    "exclusions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["symbol", "reason_codes", "failed_rule_ids"],
+        "properties": {
+          "symbol": {"type": "string", "minLength": 1},
+          "reason_codes": {"type": "array", "items": {"type": "string"}},
+          "failed_rule_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "ordering": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["feature_id", "metric", "direction", "peer_group_id", "tie_breaker", "top_n", "rank_recomputed"],
+          "properties": {
+            "feature_id": {"type": "string"},
+            "metric": {"enum": ["VALUE", "RANK", "PERCENTILE"]},
+            "direction": {"enum": ["ASC", "DESC"]},
+            "peer_group_id": {"type": ["string", "null"]},
+            "tie_breaker": {"const": "SYMBOL_ASC"},
+            "top_n": {"type": ["integer", "null"], "minimum": 1},
+            "rank_recomputed": {"const": false}
+          }
+        }
+      ]
+    },
+    "candidate_set_hash": {"type": "string", "minLength": 1}
+  }
+}
