@@ -40,7 +40,7 @@ test('DSL chart timeframe guard fails closed on mismatched chart timeframe', () 
   assert.doesNotThrow(() => assertDslChartTimeframeCompatible('1m', { request: { period: 'minute', interval: '1' } }));
   assert.throws(
     () => assertDslChartTimeframeCompatible('1m', { request: { period: 'day' } }),
-    /현재 차트 day과 DSL timeframe 1m이 일치하지 않습니다/,
+    /현재 차트 1일과 DSL timeframe 1m이 일치하지 않습니다/,
   );
   assert.throws(
     () => assertDslChartTimeframeCompatible('1m', { request: { period: 'minute', interval: '5' } }),
