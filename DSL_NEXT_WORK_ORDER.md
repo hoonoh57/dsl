@@ -55,15 +55,6 @@ runtime에 동적 loop 권한이나 무한반복 가능성을 추가하지 않�
  -> 검증된 migrated Parser/Semantic/Runtime/Backtest
 ```
 
-구현:
-
-```text
-axes/axis1_dsl/core/bounded_loops.py
-axes/axis1_dsl/runtime/axis1_runtime.py
-axes/axis1_dsl/execution/axis1_backtest.py
-tests/test_axis1_bounded_loops.py
-```
-
 v1 contract:
 
 ```text
@@ -82,33 +73,37 @@ source line 수를 보존하여 downstream 오류 line 유지
 전개식이 과도하게 커지면 fail-closed
 ```
 
-최근 user-local 검증:
+최근 user-local 재검증:
 
 ```text
 test_axis1_bounded_loops.py = Ran 7 / 1 failure
-나머지 5-4/5-3/5-2/5-1 회귀검사와 frozen core guard = OK
+test_axis1_multi_output.py = Ran 8 / 1 failure
+나머지 이전 회귀검사 = OK
 ```
 
 원인 분류:
 
 ```text
-FEATURE_DEFECT — bounded-loop 자체가 아니라 기존 5-1 ta.bbands multi-output lowering의 NaN-window parity 결함
+FEATURE_DEFECT — 5-1 ta.bbands multi-output lowering의 component별 NaN semantics 불일치
 ```
 
-근거:
+정확한 근거:
 
 ```text
-bounded loop가 만든 mean3 series는 앞쪽 2개 bar가 NaN
-CoreTALib.bbands는 period window 안에 NaN이 하나라도 있으면 band 전체를 NaN으로 유지
-기존 ta.bbands lowering은 ta.sma + ta.stdev 조합이어서 stdev의 NaN 정책 차이 때문에 2개 bar를 너무 일찍 materialize
+CoreTALib.bbands의 middle은 CoreTALib.sma를 사용하므로 rolling window의 NaN을 0으로 취급하는 기존 SMA semantics를 그대로 따른다.
+반면 upper/lower의 deviation은 직접 np.std(window)를 사용하므로 window 안에 NaN이 하나라도 있으면 deviation이 NaN이다.
+따라서 middle과 upper/lower는 warmup/NaN semantics가 서로 다르다.
+첫 보정은 이 차이를 놓치고 세 component를 같은 finite-window mask로 묶어 middle을 과도하게 NaN 처리했다.
 ```
 
-조치:
+현재 조치:
 
 ```text
+middle = 기존 ta.sma 결과 그대로 유지
+upper/lower deviation만 period 연속 유효값 전까지 NaN으로 유지
+기존 DSL primitive만 사용
 migrated core/frozen core/assertion 변경 없음
-multi-output lowering에서 기존 DSL primitive만 사용해 period 연속 finite input이 모일 때까지 NaN window를 보존
-multi-output 회귀검사에 warmup/NaN-window case 추가
+기존 direct CoreTALib.bbands exact 비교 유지
 ```
 
 5-5 완료 조건:
