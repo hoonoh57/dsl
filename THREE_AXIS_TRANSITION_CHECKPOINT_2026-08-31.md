@@ -10,6 +10,8 @@ Status: **ACTIVE SESSION RECOVERY CHECKPOINT / READ WITH CURRENT_STATE + SESSION
 DSL_FROZEN_CORE_MIGRATION_POLICY.md
 DSL_AXIS1_PRE_MIGRATION_CAPABILITY_AUDIT.md
 DSL_AXIS2_PRECOMPUTED_SELECTION_POLICY.md
+DSL_EXTERNAL_LLM_STRATEGY_AUTHORING_POLICY.md
+skills/external_llm_strategy_authoring/SKILL.md
 DSL_THREE_AXIS_MODULE_BOUNDARY.md
 DSL_THREE_AXIS_FINAL_TARGET.md
 PARENT_CONTEXT_FEATURE_PROVIDER_POLICY.md
@@ -141,39 +143,123 @@ historical point-in-time replay validation
 
 AXIS 1은 필요 시 일부 결과를 read-only `ctx.*`/execution input으로 소비할 뿐 universe 검색/peer ranking을 수행하지 않는다.
 
-## 5. Immediate next micro-tranche
+## 5. External LLM Authoring Lane is parallel, not a fourth execution axis
 
-다음 작업은 대규모 migration이 아니다.
+자연어를 자체 NLP 엔진으로 완전히 이해/검증하려고 하지 않는다.
+
+대신 다음 human-mediated loop를 병행한다.
 
 ```text
-1. AXIS 1 기존 조합능력 exact audit 잔여항목 완료
+user natural language
+ -> local Prompt Builder
+ -> human -> external LLM
+ -> strict structured strategy draft
+ -> local deterministic validation
+ -> PASS: Strategy/Condition draft
+ -> FAIL: correction prompt
+ -> human -> external LLM
+ -> repeat
+```
+
+권한:
+
+```text
+External LLM = untrusted strategy proposal generator
+Human        = mediation / intent confirmation
+Local system = schema/capability/data-source/DSL validation authority
+AXIS 2       = selection execution authority
+AXIS 3       = Strategy/Condition persistence and orchestration
+AXIS 1       = deterministic DSL execution authority
+```
+
+Repo-local skill:
+
+```text
+skills/external_llm_strategy_authoring/SKILL.md
+```
+
+Structured response contract:
+
+```text
+authoring/contracts/external_strategy_draft.v1.schema.json
+schema_version = external_strategy_draft/v1
+```
+
+스킬에는 현재 DSL 문법/함수, data/context causality, AXIS 2 precomputed feature boundary, 반환구조, unsupported capability 처리, correction mode를 기록한다.
+
+중요:
+
+```text
+SKILL.md != execution SSOT
+```
+
+최종적으로 skill/prompt는 AXIS 1 capability registry + AXIS 2 feature/data-source registry + Bridge schemas + error catalog에서 생성한다.
+
+외부 LLM이 현재 미구현 기능을 필요로 하면 문법을 발명하지 않고:
+
+```text
+needs_capability
+```
+
+로 반환한다. 로컬 validator는 이를 `BLOCKED_NEEDS_CAPABILITY`로 처리할 수 있어야 한다.
+
+Correction loop는 exact validator error를 다시 외부 LLM에 전달하며, 오류를 숨기거나 assertion을 완화하지 않는다.
+
+## 6. Immediate next micro-tranches
+
+대규모 migration을 하지 않는다. 다음 track은 병행 가능하지만 각 track 내부는 micro-tranche로 진행한다.
+
+```text
+Track A — AXIS 1
+1. 기존 조합능력 exact audit 잔여항목 완료
    - JMA up/down/normalized slope direct access
    - projection completeness
    - Strategy CRUD separation
+2. AXIS 1 migration manifest
+3. 첫 migration boundary 1개 이식 + parity
+4. tuple/multi-output부터 신규 DSL capability 개발
 
-2. AXIS 1 migration manifest 작성
-   - 어떤 frozen core 파일이 새 axis1의 어떤 책임으로 이식되는지 mapping
-   - 파일을 그대로 복사할지 재구성할지 구분
+Track B — AXIS 2
+1. precomputed snapshot schema v1
+2. point-in-time market/sector/beta/histogram evidence contract
+3. generic filter/rank/top-N
+4. CandidateSetResponse v1
 
-3. 첫 migration boundary 1개만 이식
-   - automated parity
-   - frozen guard
-   - checkpoint
+Track C — AXIS 3
+1. Condition CRUD / Strategy CRUD separation
+2. strategy version/lineage contract
+3. Candidate Set -> AXIS 1 execution request orchestration
 
-4. AXIS 2 snapshot schema v1 설계는 AXIS 1과 독립 병행 가능
+Track D — External LLM Authoring
+1. SKILL.md v1 [DONE]
+2. external_strategy_draft/v1 schema [DONE]
+3. Prompt Builder
+4. response ingest/schema validator
+5. capability/data-source validator
+6. DSL Parser/Semantic adapter
+7. Correction Prompt Builder
+8. human-mediated iteration workflow
+9. generated skill/prompt from machine registries
 ```
 
-첫 migration boundary가 무엇인지 문서 audit로 결정하기 전에는 무작정 전체 `core/`를 복사하지 않는다.
+첫 migration boundary가 무엇인지 audit로 결정하기 전에는 전체 `core/`를 무작정 복사하지 않는다.
 
-## 6. Current compliance wording
+Track D는 AXIS 1/2/3 구현 완료를 기다리지 않고 개발할 수 있지만, 외부 draft를 실제 Strategy/Condition으로 승격할 때는 당시의 machine capability/data-source contract를 다시 검증한다.
+
+## 7. Current compliance wording
 
 ```text
 frozen-core transition documents/roots: established
 frozen guard: added, local execution PASS not yet reported
 AXIS 1 migration: NOT STARTED
 AXIS 2 implementation: NOT STARTED
+AXIS 3 implementation: scaffold only
 Bridge v1 schema: DESIGN PENDING
+External LLM authoring policy: ESTABLISHED
+External LLM authoring skill v1: ADDED
+external_strategy_draft/v1 JSON schema: ADDED
+Prompt Builder / ingest validator / correction loop: NOT IMPLEMENTED
 repository-wide compliance: REMEDIATION_REQUIRED
 ```
 
-부분 진척을 전체 3축 완료나 repository-wide PASS로 표현하지 않는다.
+부분 진척을 전체 3축 완료, 자연어 전략작성 완료, 또는 repository-wide PASS로 표현하지 않는다.
