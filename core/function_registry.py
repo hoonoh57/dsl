@@ -36,6 +36,7 @@ FUNCTION_SPECS = {
         _spec("ta.supertrend",0,2,"series<number>","ta.supertrend([period, multiplier]) -> trend_series","ta"),
         _spec("ta.supertrend_direction",0,2,"series<number>","ta.supertrend_direction([period, multiplier]) -> direction_series","ta"),
         _spec("ta.macd",1,4,"series<number>","ta.macd(series[, short, long, method]) -> series","ta"),
+        _spec("user.macd_normalized",2,6,"series<number>","user.macd_normalized(series, component[, short, long, signal, method]) -> series","user"),
         _spec("ta.atr",0,1,"series<number>","ta.atr([period]) -> series","ta"),
         _spec("ta.adx",0,1,"series<number>","ta.adx([period]) -> series","ta"),
         _spec("ta.trix",0,1,"series<number>","ta.trix([period]) -> series","ta"),
