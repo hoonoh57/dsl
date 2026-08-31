@@ -13,7 +13,7 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-09-01 KST**
 ```text
 CURRENT_STEP = 5
 CURRENT_STEP_NAME = AXIS 1 신규 DSL 기능 개발
-CURRENT_SUBSTEP = 5-6 on_tick / on_fill commit/rollback
+CURRENT_SUBSTEP = 5-7 partial fills / partial exits
 SUBSTEP_STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
@@ -34,136 +34,136 @@ STEP 5-4 COMPLETE = user-defined functions user-local PASS
   -> STEP5_4_USER_FUNCTIONS_CHECKPOINT_2026-08-31.md
 STEP 5-5 COMPLETE = bounded loops user-local PASS
   -> STEP5_5_BOUNDED_LOOPS_CHECKPOINT_2026-09-01.md
+STEP 5-6 COMPLETE = on_tick/on_fill commit/rollback user-local PASS
+  -> STEP5_6_INTRABAR_LIFECYCLE_CHECKPOINT_2026-09-01.md
 ```
 
-5-5 final user-local evidence:
+5-6 user-local evidence:
 
 ```text
-test_axis1_bounded_loops.py = Ran 7 / OK
-test_axis1_multi_output.py = Ran 8 / OK
-test_frozen_legacy_core_guard.py = Ran 1 / OK
+test_axis1_intrabar_lifecycle.py = OK
+test_axis1_bounded_loops.py = OK
+test_axis1_user_functions.py = OK
+test_axis1_multi_output.py = OK
+test_axis1_generic_projection.py = OK
+test_frozen_legacy_core_guard.py = OK
 ```
 
 ---
 
-## 5-6 현재 — on_tick / on_fill commit/rollback
+## 5-7 현재 — partial fills / partial exits
 
 목표:
 
 ```text
-실시간 bar가 확정되기 전 tick/fill event로 바뀌는 state를 provisional 영역에만 보관하고
-bar 확정 시 commit, 취소/재구성 시 rollback하여 마지막 확정 state를 정확히 보존
-```
-
-구조:
-
-```text
-사용자 DSL
- -> on_tick/on_fill handler extraction
- -> bounded loops
- -> user functions
- -> multi-output
- -> migrated Parser/Semantic/Runtime
-
-live continuation:
-committed state
- -> begin_bar
- -> ordered on_tick/on_fill provisional mutations
- -> commit_bar OR rollback_bar
+하나의 주문이 여러 체결로 나뉘어도 누적체결/잔량/평균체결가를 권위 있게 보존하고
+하나의 보유 포지션을 여러 차례 부분청산해도 수량/비용/PnL이 정확히 이어지도록 함
 ```
 
 구현:
 
 ```text
-axes/axis1_dsl/runtime/intrabar_lifecycle.py
-axes/axis1_dsl/runtime/axis1_runtime.py
-axes/axis1_dsl/execution/axis1_backtest.py
-tests/test_axis1_intrabar_lifecycle.py
+axes/axis1_dsl/execution/partial_execution.py
+tests/test_axis1_partial_execution.py
 ```
 
-v1 DSL 예:
+구조:
 
 ```text
-state peak = 0
-state fill_count = 0
+PartialFillBroker
+  order requested quantity
+  -> fill slice 1 ... N
+  -> PARTIALLY_FILLED | FILLED
+  -> cumulative quantity / remaining quantity / weighted average fill / fill ledger
 
-on_tick {
-    if (tick.price > peak) {
-        set peak = tick.price
-    }
-}
+SinglePositionLedger
+  one original entry order may complete through multiple fill slices
+  -> weighted average entry price
+  -> partial exit slices
+  -> proportional entry-fee allocation
+  -> realized PnL per exit slice
+  -> remaining position quantity
 
-on_fill {
-    set fill_count = fill_count + 1
-}
+PartialExecutionSession
+  broker fill fact + single-position accounting coordination
 ```
 
-v1 contract:
+5-7 contract:
 
 ```text
-on_tick/on_fill은 strategy top-level 각각 최대 1개
-handler는 선언된 state만 변경
-on_tick event fields = tick.price / tick.volume / tick.time
-on_fill event fields = fill.price / fill.quantity / fill.side / fill.order_id / fill.time
-handler 내부 = set + if/else + scalar arithmetic/comparison/boolean only
-indicator/function call, order placement, provider/context access, loop 금지
-state type 변경 금지
-begin_bar 이후 event만 허용
-모든 event mutation은 provisional
-한 event 실행 실패 시 그 event 직전 provisional snapshot으로 atomic rollback
-rollback_bar = 현재 bar의 모든 provisional mutation 폐기
-commit_bar = provisional snapshot을 새 committed state로 승격
-commit revision은 commit에서만 증가
-on_fill은 같은 bar에서 앞선 on_tick provisional state를 순서대로 관찰
-source line 수 보존
+PARTIALLY_FILLED 상태를 명시적으로 보유
+requested / cumulative filled / remaining quantity를 별도 보존
+fill quantity는 remaining을 초과할 수 없음
+각 fill은 별도 immutable fill record
+weighted average fill price 유지
+부분체결 후 cancel은 이미 체결된 수량을 되돌리지 않고 잔량만 취소
+부분청산은 현재 position quantity 이하만 허용
+entry fee는 partial exit quantity 비율로 배분
+exit fill마다 gross/net realized PnL 기록
+position quantity가 0이 될 때만 position 완전 종료
+```
+
+Step 5-8 경계 보호:
+
+```text
+새 entry order로 기존 position에 추가 진입 금지
+같은 원 original entry order의 잔여 partial fill만 계속 허용
+동시에 여러 active exit order 금지
+pyramiding / multi-position / lot selection은 Step 5-8 전까지 금지
+```
+
+Step 5-6 연동:
+
+```text
+각 partial fill slice는 on_fill event payload로 변환 가능
+strategy intrabar state rollback은 실제 broker/accounting fill fact를 되돌리지 않음
+exchange execution fact와 provisional strategy state의 authority를 분리
 ```
 
 Batch policy:
 
 ```text
-Step 5-6 batch backtest는 intrabar event tape를 아직 소비하지 않음
-따라서 on_tick/on_fill 전략을 event tape 없이 batch backtest하면 fail-closed
-침묵 무시/임의 bar-close 치환 금지
-full batch/stream event parity는 Step 5-10 authority
+migrated BacktestEngine의 기존 whole-fill 동작은 Step 5-7에서 변경하지 않음
+partial-fill event tape 기반 batch/stream 동일성은 Step 5-10에서 검증
+기존 백테스트 결과를 임의 partial-fill로 바꾸지 않음
 ```
 
 중요 원칙:
 
 ```text
-migrated Parser/Semantic/Runtime/Broker 직접 변경 없음
 frozen core 수정 없음
-실시간 indicator 재계산 권한 추가 없음
-provisional state를 committed처럼 외부 노출하지 않음
-5-7 partial fill을 선행 구현하지 않음
-5-8 pyramiding을 선행 구현하지 않음
+migrated BrokerEmulator/BacktestEngine 직접 수정 없음
+기존 whole-fill lifecycle은 full-quantity 한 번 체결 시 동일 status shape 유지
 검증완화 금지
+5-8 선행 구현 금지
 ```
 
-5-6 완료 조건:
+5-7 완료 조건:
 
 ```text
-tick/fill ordered provisional mutation 정상
-committed state는 commit 전 불변
-rollback 후 exact committed snapshot 복원
-commit 후 새 snapshot과 revision 확정
-failed event atomic rollback
-state coverage/type mismatch fail-closed
-wrong event field/free variable/call/undeclared target fail-closed
-bar lifecycle 순서 위반 fail-closed
-batch backtest no-event-tape fail-closed
-기존 5-1~5-5 facade 회귀검사 PASS
+full fill 기존 lifecycle status shape 유지
+partial fill cumulative/remaining/weighted average 정확
+partial cancel executed quantity 보존
+order overfill atomic fail-closed
+partial entry 여러 fill 후 weighted position 정확
+partial exit 여러 fill/order 후 remaining quantity/PnL 정확
+entry fee proportional allocation 정확
+position over-exit atomic fail-closed
+pyramiding fail-closed
+각 partial fill -> 기존 on_fill provisional state 연동 가능
+new module frozen-core import 없음
+5-1~5-6 회귀검사 PASS
 frozen core guard PASS
-focused user-local intrabar lifecycle test PASS
+focused user-local partial-execution test PASS
 ```
 
-5-6 PASS + checkpoint 전 5-7 시작 금지.
+5-7 PASS + checkpoint 전 5-8 시작 금지.
 
 ---
 
 ## 이후 고정 순서
 
 ```text
-5-7 partial fills / partial exits
 5-8 pyramiding / multi-position accounting
 5-9 full reference differential fixtures
 5-10 full-engine batch/streaming parity
@@ -186,10 +186,10 @@ focused user-local intrabar lifecycle test PASS
 ```text
 frozen legacy core 수정 금지
 검증된 migrated core를 신규기능 때문에 불필요하게 흔들지 않음
-새 기능은 가능한 한 명시적 contract + lowering/facade로 격리
+새 기능은 가능한 한 명시적 contract + 격리된 facade/session으로 추가
 fail-closed 유지
 검증완화/compatibility exception 금지
 현재 순서 건너뛰기 금지
 ```
 
-중요 방침/로직/순서 변경은 그 턴에 이 문서와 `SESSION_HANDOFF.md`에 함께 반영한다.
+중요 방침/로직/순서 변경은 그 턴에 이 문서와 SESSION_HANDOFF.md에 함께 반영한다.
