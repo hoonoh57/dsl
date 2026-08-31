@@ -11,9 +11,9 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-09-01 KST**
 ## 현재 포인터
 
 ```text
-CURRENT_STEP = 5
-CURRENT_STEP_NAME = AXIS 1 신규 DSL 기능 개발
-CURRENT_SUBSTEP = 5-10 full-engine batch/streaming parity
+CURRENT_STEP = 6
+CURRENT_STEP_NAME = AXIS 1 machine-readable capability/diagnostic registry
+CURRENT_SUBSTEP = 6-1 canonical capability + diagnostic registry
 SUBSTEP_STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
@@ -24,23 +24,25 @@ STEP 1 COMPLETE = 기존 DSL 남은 기능 exact audit
 STEP 2 COMPLETE = AXIS 1 migration manifest + 9개 boundary 순서
 STEP 3 COMPLETE = Frozen Core 보호 gate user-local PASS
 STEP 4 COMPLETE = AXIS 1 9개 migration boundary 모두 user-local PASS
-STEP 5-1 COMPLETE = tuple / multi-output + destructuring user-local PASS
-STEP 5-2 COMPLETE = tuple-aware generic projection user-local PASS
-STEP 5-3 COMPLETE = capability/function metadata completeness user-local PASS
-STEP 5-4 COMPLETE = user-defined functions user-local PASS
-STEP 5-5 COMPLETE = bounded loops user-local PASS
-STEP 5-6 COMPLETE = on_tick/on_fill commit/rollback user-local PASS
-STEP 5-7 COMPLETE = partial fills / partial exits user-local PASS
-STEP 5-8 COMPLETE = pyramiding / multi-position accounting user-local PASS
-STEP 5-9 COMPLETE = full reference differential fixtures user-local PASS
-  -> STEP5_9_REFERENCE_DIFFERENTIAL_CHECKPOINT_2026-09-01.md
+STEP 5 COMPLETE = AXIS 1 신규 DSL 기능 개발 + 검증 전체 user-local PASS
+  5-1 multi-output + destructuring
+  5-2 tuple-aware generic projection
+  5-3 capability/function metadata completeness
+  5-4 user-defined functions
+  5-5 bounded loops
+  5-6 on_tick/on_fill commit/rollback
+  5-7 partial fills / partial exits
+  5-8 pyramiding / multi-position accounting
+  5-9 full reference differential fixtures
+  5-10 full-engine batch/streaming parity
+  -> STEP5_10_FULL_ENGINE_PARITY_CHECKPOINT_2026-09-01.md
 ```
 
-5-9 user-local evidence:
+5-10 user-local evidence:
 
 ```text
+test_axis1_full_engine_parity.py = OK
 test_axis1_reference_differential.py = OK
-test_axis1_indicator_parity.py = OK
 test_axis1_pyramiding_execution.py = OK
 test_axis1_partial_execution.py = OK
 test_frozen_legacy_core_guard.py = OK
@@ -48,129 +50,111 @@ test_frozen_legacy_core_guard.py = OK
 
 ---
 
-## 5-10 현재 — full-engine batch/streaming parity
+## Step 6 현재 — machine-readable capability/diagnostic registry
 
 목표:
 
 ```text
-같은 causal market 입력과 같은 ordered event tape에 대해
-batch 계산과 bar/event 순차 입력 결과가 상태/신호/체결/손익 수준에서 동일함을 한 검증 계약으로 묶는다.
+AXIS 1이 무엇을 지원하고 무엇을 지원하지 않는지,
+각 기능의 경계/권위/검증근거가 무엇인지,
+각 진단값의 producer/path/authority/shape가 무엇인지
+하나의 deterministic machine-readable registry에서 조회 가능하게 한다.
 ```
 
 구현:
 
 ```text
-axes/axis1_dsl/execution/full_engine_parity.py
-tests/test_axis1_full_engine_parity.py
+axes/axis1_dsl/core/capability_diagnostic_registry.py
+tests/test_axis1_capability_diagnostic_registry.py
 ```
 
-### A. Runtime causal-prefix parity
+기존 Step 5-3 관계:
 
 ```text
-full market 1회 batch compile
-vs
-1 bar -> 2 bars -> ... -> N bars prefix compile
+Step 5-3 capability_metadata = 함수 단위 output/lookback/warmup/NaN/causality metadata
+Step 6 registry = 위 함수 metadata를 재사용 + DSL/runtime/execution/projection/verification capability + diagnostic contract를 한 manifest로 집계
 ```
 
-매 prefix마다 다음을 exact 비교한다.
+Registry contract:
 
 ```text
-모든 ndarray runtime value
-NaN/warmup 위치
-JMA 등 trend metadata
-on_bar state output
-MTF confirmed output
-multi-output result
-이벤트 condition
-주문 argument series/scalar
+schema = axis1_capability_diagnostic_registry/v1
+canonical deterministic registry_hash 제공
+모든 registered single/multi-output function을 자동 포함
+feature capability는 SUPPORTED / SUPPORTED_WITH_BOUNDARY / VERIFICATION_ONLY / NOT_SUPPORTED / NOT_CERTIFIED로 명시
+unknown capability/diagnostic 조회는 fail-closed
+require_supported는 실행 가능한 capability만 허용
 ```
 
-이 방식은 성능 최적화용 incremental kernel이 아니라 **correctness oracle**이다. 미래 bar가 과거 값을 바꾸는지 직접 검출한다.
-
-### B. Backtest prefix parity
+명시적 feature 범위:
 
 ```text
-full batch backtest
-vs
-동일 데이터를 2..N bar prefix로 반복 replay
+multi-output
+user functions
+bounded loops
+exact parent context
+confirmed MTF
+intrabar provisional state
+partial fills / partial exits
+same-direction pyramiding
+non-computing generic projection
+reference differential verification
+batch/stream parity verification
 ```
 
-비교:
+명시적 negative/boundary capability:
 
 ```text
-equity curve
-execution/trade records
-closed trades
-broker lifecycle history
-open-position state
-closed-trade count
+execution.hedging = NOT_SUPPORTED
+runtime.optimized_incremental_kernel = NOT_CERTIFIED
+verification-only capability는 product execution support로 오인하지 않음
 ```
 
-prefix 끝을 인위적 세션 종료로 오인하지 않도록 이 parity fixture는 market/GTC lifecycle을 사용한다.
-
-### C. Ordered intrabar/execution event-tape parity
-
-기존 Step 5-6/5-7/5-8 session을 하나의 ordered tape consumer로 묶는다.
+Diagnostic registry 범위:
 
 ```text
-BEGIN_BAR
-TICK
-SUBMIT_ENTRY / SUBMIT_EXIT
-FILL
-CANCEL
-COMMIT_BAR / ROLLBACK_BAR
+batch signal counts / rejections / broker history
+parent-context / entry-policy diagnostics
+bounded-loop / user-function / multi-output / projection facade diagnostics
+intrabar transaction audit
+partial execution broker/accounting snapshot
+pyramiding lot/accounting snapshot
+runtime/backtest parity report
 ```
 
-동일 tape를:
+Step 6 중요 원칙:
 
 ```text
-전체 sequence replay
-vs
-event 1개씩 streaming apply
+registry는 선언/조회 계층이며 계산 kernel이 아님
+execution/runtime/indicator/provider를 import하지 않음
+frozen core import/수정 없음
+검증결과를 임의로 SUPPORTED로 승격하지 않음
+NOT_SUPPORTED/NOT_CERTIFIED 상태도 registry에서 숨기지 않음
 ```
 
-하여 exact final snapshot과 event result를 비교한다.
-
-권위 분리:
+Step 6 완료 조건:
 
 ```text
-실제 broker/accounting fill fact는 authoritative
-strategy intrabar provisional state rollback은 fill fact를 되돌리지 않음
-```
-
-### 경계
-
-```text
-migrated runtime/backtest/broker core 직접 수정 없음
-frozen legacy core 수정 없음
-prefix replay 검증을 성능 좋은 실시간 incremental engine이라고 과장하지 않음
-Axis1BacktestEngine에 intrabar tape를 침묵 삽입하지 않음
-batch/stream parity는 동일 입력/동일 event ordering에서만 주장
-```
-
-5-10 완료 조건:
-
-```text
-runtime 모든 causal prefix exact parity PASS
-state + MTF + multi-output + event condition parity PASS
-batch backtest equity/trade/broker lifecycle prefix parity PASS
-intrabar + partial fill + pyramiding ordered tape batch/stream parity PASS
-rollback 후 strategy state와 execution fact authority separation PASS
-new parity layer frozen-core import 없음
-5-9 reference differential 회귀 PASS
-5-8/5-7 execution 회귀 PASS
+registry schema + deterministic hash PASS
+모든 Step 5-3 function capability metadata가 exact registry record로 포함
+Step 5 feature support/boundary/negative status machine-readable PASS
+현재 Axis1BacktestEngine 주요 diagnostic output path 등록 PASS
+unknown/unsupported capability fail-closed PASS
+verification-only와 product support 분리 PASS
+registry module execution/runtime/indicator/frozen-core import isolation PASS
+기존 capability metadata test PASS
+full-engine parity 회귀 PASS
 frozen core guard PASS
-focused user-local full-engine parity test PASS
+focused user-local registry test PASS
 ```
 
-5-10 PASS + checkpoint 전 Step 6 시작 금지.
+Step 6 PASS + checkpoint 전 Step 7 시작 금지.
 
 ---
 
 ## 이후 고정 순서
 
 ```text
-6 AXIS 1 machine-readable capability/diagnostic registry
 7 Bridge common + AXIS 1 execution contract
 8 AXIS 2 exact-as-of snapshot contract
 9 AXIS 2 selection engine / core selectors
@@ -189,7 +173,7 @@ focused user-local full-engine parity test PASS
 ```text
 frozen legacy core 수정 금지
 검증된 migrated core를 신규기능 때문에 불필요하게 흔들지 않음
-새 기능은 가능한 한 명시적 contract + 격리된 facade/session으로 추가
+새 기능은 가능한 한 명시적 contract + 격리된 facade/session/registry로 추가
 fail-closed 유지
 검증완화/compatibility exception 금지
 현재 순서 건너뛰기 금지
