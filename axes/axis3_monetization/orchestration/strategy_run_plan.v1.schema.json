@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "axis3_strategy_run_plan/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "run_id", "strategy_id", "strategy_version", "strategy_hash",
+    "condition_id", "condition_version", "condition_hash", "candidate_set_hash",
+    "selection_hash", "snapshot_hash", "as_of", "intent_count", "intents", "plan_hash"
+  ],
+  "properties": {
+    "schema_version": {"const": "axis3_strategy_run_plan/v1"},
+    "run_id": {"type": "string", "minLength": 1},
+    "strategy_id": {"type": "string", "minLength": 1},
+    "strategy_version": {"type": "integer", "minimum": 1},
+    "strategy_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "condition_id": {"type": "string", "minLength": 1},
+    "condition_version": {"type": "integer", "minimum": 1},
+    "condition_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "candidate_set_hash": {"type": "string", "minLength": 1},
+    "selection_hash": {"type": "string", "minLength": 1},
+    "snapshot_hash": {"type": "string", "minLength": 1},
+    "as_of": {"type": "string", "pattern": "^[0-9]{14}$"},
+    "intent_count": {"type": "integer", "minimum": 0},
+    "intents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "symbol", "candidate_ordinal", "strategy_id", "strategy_version", "strategy_hash",
+          "timeframe", "dsl_code", "settings", "condition_id", "condition_version",
+          "condition_hash", "candidate_set_hash", "evidence"
+        ]
+      }
+    },
+    "plan_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}
