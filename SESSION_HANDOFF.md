@@ -1,6 +1,6 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 5-4 / 2026-08-31 KST**
+Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 5-5 / 2026-08-31 KST**
 
 이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + user-local PASS + 현재 `dsl-live-studio` 상태가 stale 문서보다 우선한다.
 
@@ -8,7 +8,7 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT
 
 > 사용자 진행보고는 기본적으로 `한 일 / 할 일`만 사람이 이해하는 용어로 짧게 한다.
 
-> 검증된 migrated core는 안정된 실행 장비처럼 유지한다. 신규 DSL 기능은 가능한 한 명시적 contract + 얇은 lowering/facade 층으로 격리해 기존 메인 로직 오염을 피한다.
+> 검증된 migrated core는 안정된 실행 장비처럼 유지한다. 신규 DSL 기능은 가능한 한 명시적 contract + 얇은 compile-time lowering/facade 층으로 격리한다.
 
 ---
 
@@ -16,7 +16,7 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT
 
 ```text
 CURRENT_STEP = 5
-CURRENT_SUBSTEP = 5-4 user-defined functions
+CURRENT_SUBSTEP = 5-5 bounded loops
 STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
@@ -30,79 +30,72 @@ Step 4 AXIS 1 9개 migration boundary = COMPLETE / USER-LOCAL PASS
 Step 5-1 multi-output + destructuring = COMPLETE / USER-LOCAL PASS
 Step 5-2 tuple-aware generic projection = COMPLETE / USER-LOCAL PASS
 Step 5-3 capability/function metadata = COMPLETE / USER-LOCAL PASS
+Step 5-4 user-defined functions = COMPLETE / USER-LOCAL PASS
 ```
 
 최근 checkpoint:
 
 ```text
-STEP5_3_CAPABILITY_METADATA_CHECKPOINT_2026-08-31.md
+STEP5_4_USER_FUNCTIONS_CHECKPOINT_2026-08-31.md
 ```
 
-5-3 user-local evidence:
+5-4 user-local evidence:
 
 ```text
-tests/test_axis1_capability_metadata.py = OK
-tests/test_axis1_generic_projection.py = OK
-tests/test_frozen_legacy_core_guard.py = OK
+test_axis1_user_functions.py = OK
+test_axis1_multi_output.py = OK
+test_axis1_generic_projection.py = OK
+test_axis1_capability_metadata.py = OK
+test_frozen_legacy_core_guard.py = OK
 ```
 
 ---
 
-## 현재 5-4 구현
+## 현재 5-5 구현
 
 목표:
 
 ```text
-반복 계산식을 전략 내부의 이름 있는 순수 함수로 작성할 수 있게 하되
-실행 runtime에 동적 함수 권한을 추가하지 않고 compile 전에 deterministic expression으로 소거
+반복 횟수가 compile 전에 확정되는 순수 계산만 허용하고
+runtime에 loop 실행권한이나 무한반복 가능성을 추가하지 않음
 ```
 
 구현 파일:
 
 ```text
-axes/axis1_dsl/core/user_functions.py
+axes/axis1_dsl/core/bounded_loops.py
 axes/axis1_dsl/runtime/axis1_runtime.py
 axes/axis1_dsl/execution/axis1_backtest.py
-tests/test_axis1_user_functions.py
-```
-
-문법 예:
-
-```text
-function centered(source, period) {
-    basis = ta.sma(source, period)
-    return source - basis
-}
-
-strength = centered(close, 20)
-```
-
-현재 contract:
-
-```text
-strategy top-level 함수 선언
-위치 인수만 허용
-ordered local + final return expression
-순수 계산만 허용
-외부 시장값/ctx는 암묵 참조 금지 -> 함수 인수로 명시 전달
-builtin/user-function 합성 허용
-직접/간접 recursion 금지
-if/loop/state/order/on_bar 등 함수 내부 control/mutation 금지
-함수 호출은 기존 expression으로 inline
-inline 후 기존 Semantic이 실제 scalar/series/bool/string type을 검증
-함수 선언 line은 blank line으로 보존해 downstream 오류 line 유지
+tests/test_axis1_bounded_loops.py
 ```
 
 Lowering 순서:
 
 ```text
-user functions
+bounded loops
+ -> user functions
  -> multi-output
  -> migrated parser/semantic/runtime/backtest
  -> generic projection
 ```
 
-Backtest diagnostics에는 함수 이름/parameter/local/line의 공개 정의정보만 보존한다. 함수 실행 자체는 runtime registry가 아니라 compile-time inline이다.
+v1 범위:
+
+```text
+user-defined function 내부에서만 for ... in range(...) 허용
+range는 1~3개의 compile-time 정수 위치 인수
+최대 64회
+step=0 금지
+index read-only
+앞서 선언된 function local accumulator만 loop에서 갱신
+parameter mutation 금지
+nested loop/control block 금지
+compile-time 전개 후 runtime loop는 존재하지 않음
+source line 수 보존
+과도한 expression 전개는 fail-closed
+```
+
+Backtest diagnostics에는 function/index/range/iteration-count/target metadata를 보존한다. 내부 helper 이름은 user-function lowering에서 소거되어 실행 indicator/projection으로 나오지 않아야 한다.
 
 ---
 
@@ -120,8 +113,8 @@ core tree: 8b3f081de926f5c9f69e9cdbc158b81b2275176c
 core/ 수정 / 이동 / 삭제 / 신규 파일 추가
 expected frozen hash 변경으로 위반 수용
 새 feature를 frozen core에 역이식
+runtime while/break/continue/dynamic bound 추가
 신규기능 때문에 migrated core를 불필요하게 대수술
-5-5 bounded loop 선행 구현
 검증완화
 ```
 
@@ -130,8 +123,7 @@ expected frozen hash 변경으로 위반 수용
 ## 다음 순서
 
 ```text
-5-4 user-defined functions                 CURRENT
-5-5 bounded loops
+5-5 bounded loops                         CURRENT
 5-6 on_tick / on_fill commit/rollback
 5-7 partial fills / partial exits
 5-8 pyramiding / multi-position
@@ -167,6 +159,7 @@ expected frozen hash 변경으로 위반 수용
 사용자 local에서:
 
 ```text
+python -m unittest discover -s tests -p "test_axis1_bounded_loops.py" -v
 python -m unittest discover -s tests -p "test_axis1_user_functions.py" -v
 python -m unittest discover -s tests -p "test_axis1_multi_output.py" -v
 python -m unittest discover -s tests -p "test_axis1_generic_projection.py" -v
@@ -174,6 +167,6 @@ python -m unittest discover -s tests -p "test_axis1_capability_metadata.py" -v
 python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py" -v
 ```
 
-모두 PASS하면 5-4 checkpoint 후 5-5 bounded loops로 이동한다.
+모두 PASS하면 5-5 checkpoint 후 5-6 on_tick/on_fill commit/rollback으로 이동한다.
 
 실패 시 test defect / feature defect / authority drift / environment issue / unknown으로 먼저 분류하고 원칙/assertion을 약화하지 않는다.
