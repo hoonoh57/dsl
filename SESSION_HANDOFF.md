@@ -1,6 +1,6 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 5-8 / 2026-09-01 KST**
+Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 5-9 / 2026-09-01 KST**
 
 이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + user-local PASS + 현재 dsl-live-studio 상태가 stale 문서보다 우선한다.
 
@@ -8,7 +8,7 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT
 
 > 사용자 진행보고는 기본적으로 한 일 / 할 일만 사람이 이해하는 용어로 짧게 한다.
 
-> 검증된 migrated core는 안정된 실행 장비처럼 유지한다. 신규 기능은 가능한 한 별도 lowering/facade/session으로 격리한다.
+> 검증된 migrated core는 안정된 실행 장비처럼 유지한다. 신규 기능과 검증은 가능한 한 별도 lowering/facade/session/test-reference 층으로 격리한다.
 
 ---
 
@@ -16,7 +16,7 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT
 
 ```text
 CURRENT_STEP = 5
-CURRENT_SUBSTEP = 5-8 pyramiding / multi-position accounting
+CURRENT_SUBSTEP = 5-9 full reference differential fixtures
 STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
@@ -34,17 +34,19 @@ Step 5-4 user-defined functions = COMPLETE / USER-LOCAL PASS
 Step 5-5 bounded loops = COMPLETE / USER-LOCAL PASS
 Step 5-6 on_tick/on_fill commit/rollback = COMPLETE / USER-LOCAL PASS
 Step 5-7 partial fills / partial exits = COMPLETE / USER-LOCAL PASS
+Step 5-8 pyramiding / multi-position = COMPLETE / USER-LOCAL PASS
 ```
 
 최근 checkpoint:
 
 ```text
-STEP5_7_PARTIAL_EXECUTION_CHECKPOINT_2026-09-01.md
+STEP5_8_PYRAMIDING_EXECUTION_CHECKPOINT_2026-09-01.md
 ```
 
-5-7 user-local evidence:
+5-8 user-local evidence:
 
 ```text
+test_axis1_pyramiding_execution.py = OK
 test_axis1_partial_execution.py = OK
 test_axis1_intrabar_lifecycle.py = OK
 test_axis1_broker_parity.py = OK
@@ -53,84 +55,66 @@ test_frozen_legacy_core_guard.py = OK
 
 ---
 
-## 현재 5-8 구현
+## 현재 5-9 구현
 
 목표:
 
 ```text
-같은 방향의 분할진입을 entry order별 독립 lot으로 관리하고
-여러 lot의 총 수량/평균단가/비용/실현손익을 결정적으로 계산
+기존 frozen core 복제 비교만으로는 잡기 어려운 공통 결함을 피하기 위해
+TA/user indicator를 독립 NumPy reference와 대량 differential 비교
 ```
 
 구현 파일:
 
 ```text
-axes/axis1_dsl/execution/pyramiding_execution.py
-tests/test_axis1_pyramiding_execution.py
+tests/axis1_reference_indicators.py
+tests/test_axis1_reference_differential.py
 ```
 
-주요 객체:
+Reference 원칙:
 
 ```text
-PositionLot
-LotRealization
-PyramidingLedger
-PyramidingExecutionSession
+AXIS 1 production module import 금지
+frozen core import 금지
+NumPy와 명시적 수식/상태전이만 사용
+production 결과로 expected 생성 금지
 ```
 
-Step 5-7의 `PartialFillBroker`를 그대로 재사용한다. 기존 `PartialExecutionSession`은 수정하지 않아 single-position + pyramiding fail-closed contract를 유지한다.
-
-Entry contract:
+검증 대상:
 
 ```text
-같은 entry order의 여러 partial fill = 같은 lot에 누적
-새 same-direction entry order = 새 lot
-기본 max_lots = 4
-aggregate quantity = active lot 수량 합
-aggregate average entry = active lot 수량가중 평균
-long exposure 중 SELL_SHORT 추가진입 금지
-short exposure 중 BUY 추가진입 금지
-hedging/netting 금지
+rolling/moving average/warmup 계열
+recursive ATR/RSI/MACD/TRIX/CCI/ADX
+JMA trend values + direction metadata
+Supertrend line + direction
+range/VHF/Williams 계열
+cross/bars-since/value-when 등 event-history 계열
+BBands multi-output
+normalized MACD 전체 component
+실제 Axis1DSLRuntime 함수 mapping
 ```
 
-Exit contract:
+범위 완전성 gate:
 
 ```text
-기본 allocation = FIFO(entry sequence)
-lot_id를 지정하면 그 lot만 target exit
-한 exit fill이 lot 여러 개를 건너가면 lot별 realized slice 생성
-각 lot의 remaining entry fee를 실제 청산수량 비율로 배분
-exit fee/gross/net PnL도 allocation별 계산
-aggregate quantity가 0이 될 때 closed cycle +1
-flat 이후에는 반대 방향 새 cycle 가능
+FUNCTION_SPECS에서 category=ta/user인 모든 등록 함수가
+명시적인 differential coverage set에 들어있어야 한다.
+새 ta/user 함수가 registry에 추가되고 reference test가 빠지면 자동 FAIL한다.
 ```
 
-Fail-closed:
+Fixture matrix:
 
 ```text
-max_lots 초과
-opposite-direction 추가진입
-aggregate over-exit
-target lot over-exit
-inactive/unknown lot target
-Step 5-8에서는 동시 active exit order 여러 개 금지
+결정적 비선형 OHLCV
+복수 period 2/3/5/8/14/21
+NaN warmup + 중간 NaN
+flat/zero-range edge
+JMA 여러 phase/length/power
+Supertrend 여러 period/multiplier
+normalized MACD simple/exponential/weighted
 ```
 
-5-6 intrabar 연동:
-
-```text
-각 pyramiding partial fill result를 기존 IntrabarStateSession.on_fill payload로 변환 가능
-strategy state rollback은 실제 broker/accounting execution fact를 되돌리지 않음
-```
-
-Batch boundary:
-
-```text
-기존 migrated BacktestEngine은 그대로 single-position whole-fill authoritative
-현재 Step 5-8은 별도 execution session에만 multi-lot 권한 추가
-DSL order syntax와 batch event tape 통합은 아직 하지 않음
-full batch/stream parity는 Step 5-10 authority
-```
+Step 5-9에서 production indicator/runtime를 변경하지 않았다. 차이가 나오면 test/reference defect와 product defect를 먼저 구분하고 assertion/tolerance를 약화하지 않는다.
 
 ---
 
@@ -147,9 +131,8 @@ core tree: 8b3f081de926f5c9f69e9cdbc158b81b2275176c
 ```text
 core/ 수정 / 이동 / 삭제 / 신규 파일 추가
 expected frozen hash 변경으로 위반 수용
-migrated BrokerEmulator/BacktestEngine 직접 대수술
-hedging/netting 묵시 허용
-lot allocation 규칙의 비결정적 변경
+reference expected를 actual에 맞춰 임의 완화
+Step 5-10 batch/stream parity 선행 구현
 검증완화
 ```
 
@@ -158,8 +141,7 @@ lot allocation 규칙의 비결정적 변경
 ## 다음 순서
 
 ```text
-5-8 pyramiding / multi-position              CURRENT
-5-9 reference differential fixtures
+5-9 reference differential fixtures          CURRENT
 5-10 full-engine batch/streaming parity
 6 machine-readable capability/diagnostic registry
 7 Bridge common + AXIS 1 execution contract
@@ -191,13 +173,13 @@ lot allocation 규칙의 비결정적 변경
 사용자 local에서 최신 branch pull 후:
 
 ```text
+python -m unittest discover -s tests -p "test_axis1_reference_differential.py" -v
+python -m unittest discover -s tests -p "test_axis1_indicator_parity.py" -v
 python -m unittest discover -s tests -p "test_axis1_pyramiding_execution.py" -v
 python -m unittest discover -s tests -p "test_axis1_partial_execution.py" -v
-python -m unittest discover -s tests -p "test_axis1_intrabar_lifecycle.py" -v
-python -m unittest discover -s tests -p "test_axis1_broker_parity.py" -v
 python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py" -v
 ```
 
-모두 PASS하면 5-8 checkpoint 후 5-9 reference differential fixtures로 이동한다.
+모두 PASS하면 5-9 checkpoint 후 5-10 full-engine batch/streaming parity로 이동한다.
 
-실패 시 test defect / feature defect / authority drift / environment issue / unknown으로 먼저 분류하고 assertion/contract를 약화하지 않는다.
+실패 시 reference defect / product defect / authority drift / environment issue / unknown으로 먼저 분류하고 assertion/contract를 약화하지 않는다.
