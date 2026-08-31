@@ -1,8 +1,47 @@
 # DSL Strategy Research Philosophy
 
-Status: **ACTIVE DESIGN AUTHORITY / STRATEGY RESEARCH / 2026-08-31 KST**
+Status: **ACTIVE DESIGN AUTHORITY / STRATEGY RESEARCH / THREE-AXIS FINAL TARGET / 2026-08-31 KST**
 
 이 문서는 DSL을 단순한 지표 호출 언어가 아니라, **검증된 Core를 오염시키지 않으면서 새로운 수익 전략을 반복적으로 만들고 비교할 수 있는 전략 연구 언어**로 발전시키기 위한 현재 철학을 고정한다.
+
+최종 제품 아키텍처 권한 문서: `DSL_THREE_AXIS_FINAL_TARGET.md`
+
+## 0. 최종 목표 상향 — 3축 체계
+
+현재 프로젝트의 최종 확장 목표를 다음 3축으로 상향한다.
+
+```text
+AXIS 1. DSL Capability Engine
+= 자체로도 완전하고 제약이 적은 전략 표현/실행 능력
+= MTF + cascading/context knowledge + built-in/user indicators + logic + execution/risk
+
+AXIS 2. Semi-Condition Selection
+= 여러 종목 중 거래가치가 높은 후보군 선별
+= 고베타/강세/EMA120/position/sector-leader-follower/normalized strength/filter/rank/top-N
+
+AXIS 3. Strategy Monetization
+= 선별 후보에 Strategy CRUD의 전략을 적용
+= chart/backtest/compare/version을 통해 맞춤형 수익화
+```
+
+통합 흐름은:
+
+```text
+조건선별 -> 전략 -> 맞춤형 수익화
+```
+
+이다.
+
+세 축은 동시에 실행 가능해야 하지만 권한은 분리한다.
+
+```text
+Selector = 누구를 볼 것인가
+DSL      = 무엇을 어떻게 표현/실행할 것인가
+Strategy = 그 후보에서 어떤 수익전략을 적용할 것인가
+Chart    = 계산하지 않고 그 이유를 보여주는 계측기
+```
+
+최종 목표가 상향되었어도 현재 개발 순서는 바꾸지 않는다. 먼저 현재 DSL의 조합능력을 audit하고, 부족한 AXIS 1 능력만 최소 보완한 뒤 AXIS 2의 generic selection contract로 확장한다.
 
 ## 1. 궁극적 목표
 
@@ -233,7 +272,7 @@ DSL SYMBOL   = 한 종목 내부의 indicator/trigger/permission/execution
 DSL UNIVERSE = 여러 종목 사이의 filter/rank/top-N/relative selection
 ```
 
-Universe 기능은 필요가 실제로 확인된 뒤 일반적인 cross-sectional 기능으로 설계한다. 현재 전략 연구를 이유로 성급하게 복잡한 Universe 언어를 만들지 않는다.
+이제 이 Universe 방향은 `DSL_THREE_AXIS_FINAL_TARGET.md`의 **AXIS 2 Semi-Condition Selection**으로 최종 제품 목표에 승격되었다. 다만 구현은 여전히 generic cross-sectional 기능부터 시작하며 특정 전략 묶음을 하드코딩하지 않는다.
 
 ## 10. Timeframe 권한
 
@@ -285,3 +324,5 @@ Universe 기능은 필요가 실제로 확인된 뒤 일반적인 cross-sectiona
 ```
 
 모두 가능하면 Core를 수정하지 않는다. 부족한 부분만 가장 작은 additive tranche로 보완한다.
+
+이 audit가 끝나면 다음 단계는 **AXIS 2 Semi-Condition Selection의 최소 generic contract**를 설계하는 것이다. 첫 범위는 `Universe input -> filter -> rank -> top-N -> evidence -> Candidate Set`이며, 고베타/강세/EMA120/normalized strength 같은 실제 전략 조건은 이 범용 계약 위의 Condition CRUD에서 조합한다.
