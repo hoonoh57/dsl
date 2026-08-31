@@ -9,6 +9,7 @@ from typing import Dict, Mapping, Sequence
 import numpy as np
 
 from core.indicators import CoreTALib
+from core.user_indicators import normalized_macd_component
 from core.dsl_parser import DSLParseError, DSLParser
 from core.dsl_semantic import DSLSemanticAnalyzer, DSLSemanticError
 from core.dsl_context import DSLContextSeriesBinding
@@ -181,6 +182,19 @@ class ExpressionEvaluator(ast.NodeVisitor):
                 _ma_method(method, "ta.macd method"),
             )
 
+        def normalized_macd_fn(series, component, short=12, long=26, signal=9, method="exponential"):
+            try:
+                return normalized_macd_component(
+                    series,
+                    component,
+                    _positive_period(short, "user.macd_normalized short"),
+                    _positive_period(long, "user.macd_normalized long"),
+                    _positive_period(signal, "user.macd_normalized signal"),
+                    _ma_method(method, "user.macd_normalized method"),
+                )
+            except ValueError as exc:
+                raise DSLRuntimeError(str(exc)) from exc
+
         def atr_fn(period=14):
             return CoreTALib.atr(values["high"], values["low"], values["close"], _positive_period(period, "ta.atr period"))
 
@@ -246,6 +260,7 @@ class ExpressionEvaluator(ast.NodeVisitor):
             "ta.supertrend": lambda period=10, multiplier=3.0: supertrend_fn(period, multiplier, False),
             "ta.supertrend_direction": lambda period=10, multiplier=3.0: supertrend_fn(period, multiplier, True),
             "ta.macd": macd_fn,
+            "user.macd_normalized": normalized_macd_fn,
             "ta.atr": atr_fn,
             "ta.adx": adx_fn,
             "ta.trix": trix_fn,
