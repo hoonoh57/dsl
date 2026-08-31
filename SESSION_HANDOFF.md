@@ -47,48 +47,49 @@ STEP5_4_USER_FUNCTIONS_CHECKPOINT_2026-08-31.md
 
 ```text
 test_axis1_bounded_loops.py = Ran 7 / 1 failure
-test_axis1_user_functions.py = OK
-나머지 multi-output / generic projection / capability metadata / frozen core guard = OK
+나머지 5-4/5-3/5-2/5-1 회귀검사와 frozen core guard = OK
 ```
 
-실패 위치:
+첫 원인 분류:
 
 ```text
-bounded-loop function mean3(close)를 ta.bbands multi-output 입력으로 연결한 case
+FEATURE_DEFECT — bounded-loop 결과를 ta.bbands multi-output에 넣을 때 warmup NaN parity 불일치
 ```
 
-원인 분류:
+첫 수정은 upper/middle/lower 전체를 같은 연속-finite mask로 처리했다. 이 수정 후 user-local 재검증에서:
 
 ```text
-FEATURE_DEFECT
+test_axis1_bounded_loops.py = Ran 7 / 1 failure
+test_axis1_multi_output.py = Ran 8 / 1 failure
 ```
 
-정확한 원인:
+재검증으로 확인된 정확한 contract:
 
 ```text
-반복문 전개 자체는 수동 history expression과 일치했다.
-문제는 기존 5-1 ta.bbands multi-output lowering이 ta.sma + ta.stdev 조합을 사용하면서
-CoreTALib.bbands의 NaN-window 보존 semantics를 완전히 재현하지 못한 것이다.
-입력 series에 warmup NaN이 있으면 band가 2 bar 일찍 materialize되었다.
+CoreTALib.bbands middle:
+  CoreTALib.sma 사용
+  SMA는 rolling 입력 NaN을 0으로 취급하는 기존 semantics
+
+CoreTALib.bbands upper/lower deviation:
+  직접 np.std(window) 사용
+  window 안에 NaN이 하나라도 있으면 deviation은 NaN
 ```
 
-수정:
+따라서 BBands 세 출력의 warmup/NaN semantics는 동일하지 않다. 첫 보정은 middle까지 강제로 NaN 처리하여 과도한 masking을 만들었다.
+
+현재 수정:
 
 ```text
-axes/axis1_dsl/core/multi_output.py만 additive lowering 수준에서 보정
-기존 DSL primitive로 연속 finite bar 수를 확인하여 period window가 완전히 유효하기 전에는 NaN 보존
+axes/axis1_dsl/core/multi_output.py
+middle은 ta.sma 결과를 그대로 사용
+upper/lower에 쓰는 deviation만 period 연속 유효값 전까지 NaN 유지
+기존 DSL primitive만 사용
 migrated Parser/Semantic/Runtime/Backtest 직접 변경 없음
 frozen core 변경 없음
 assertion/expected 완화 없음
 ```
 
-회귀검사 추가:
-
-```text
-tests/test_axis1_multi_output.py
- -> BBands input 자체에 warmup NaN이 있는 경우 direct CoreTALib.bbands와 exact 비교
- -> scalar period variable도 사용해 동적 scalar period contract 보존
-```
+기존 회귀검사 `test_bbands_destructuring_preserves_input_nan_windows`는 direct `CoreTALib.bbands`와 세 component를 exact 비교하므로 현재 수정이 middle/upper/lower 각각의 기존 semantics를 모두 재현하는지 검증한다.
 
 현재는 user-local 재검증 전이므로 5-5 PASS로 부르지 않는다.
 
@@ -179,7 +180,7 @@ runtime while/break/continue/dynamic bound 추가
 
 ## 다음 exact action
 
-사용자 local에서 최신 branch pull 후 우선 수정 직접 관련 검사:
+사용자 local에서 최신 branch pull 후:
 
 ```text
 python -m unittest discover -s tests -p "test_axis1_bounded_loops.py" -v
