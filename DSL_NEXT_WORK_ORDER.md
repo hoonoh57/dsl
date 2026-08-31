@@ -13,7 +13,7 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-08-31 KST**
 ```text
 CURRENT_STEP = 5
 CURRENT_STEP_NAME = AXIS 1 신규 DSL 기능 개발
-CURRENT_SUBSTEP = 5-1 tuple / multi-output typed return + destructuring
+CURRENT_SUBSTEP = 5-2 tuple-aware generic projection
 SUBSTEP_STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
@@ -25,6 +25,8 @@ STEP 2 COMPLETE = AXIS 1 migration manifest + 9개 boundary 순서
 STEP 3 COMPLETE = Frozen Core 보호 gate user-local PASS
 STEP 4 COMPLETE = AXIS 1 9개 migration boundary 모두 user-local PASS
   -> STEP4_BOUNDARY9_BACKTEST_PROJECTION_PARITY_CHECKPOINT_2026-08-31.md
+STEP 5-1 COMPLETE = tuple / multi-output typed return + destructuring user-local PASS
+  -> STEP5_1_MULTI_OUTPUT_CHECKPOINT_2026-08-31.md
 ```
 
 Step 4 최종 상태:
@@ -41,73 +43,62 @@ Step 4 최종 상태:
 9 Backtest + Projection Output         PASS
 ```
 
-Boundary 9 첫 재검증 실패 2건은 legacy에서도 금지된 close-order 인수를 사용한 TEST_DEFECT였고, fixture만 정상 문법으로 수정한 뒤 user-local PASS했다. Product/core/assertion 완화는 없었다.
-
 ---
 
-## 5-1 현재 — multi-output + destructuring
+## 5-2 현재 — tuple-aware generic projection
 
-사용자 우려에 따라 신규 기능은 검증된 migration core를 자주 뜯어고치지 않는다.
+목표는 multi-output 결과를 특정 지표 이름별 예외처리 없이 공통 projection contract로 노출하는 것이다.
+
+원칙:
 
 ```text
-사용자 DSL 신규문법
- -> fail-closed typed lowering
- -> 검증된 migrated Parser/Semantic/Runtime/Backtest
+지표/조건 값을 Chart에서 재계산하지 않음
+이미 실행된 Backtest indicator output + multi-output binding metadata만 소비
+사용자가 붙인 target 이름과 등록 component identity를 보존
+pane/overlay와 direction-color는 기존 실행 output을 그대로 재사용
+특정 ta.supertrend / ta.bbands / MACD 이름을 renderer logic에 하드코딩하지 않음
+projection이 없어도 거래/백테스트 실행 결과를 바꾸지 않음
 ```
 
-즉, **기존 실행 core는 안정된 장비처럼 유지하고 신규 문법은 얇은 compiler lowering 층에서 수용**한다.
-
-현재 구현:
+구조:
 
 ```text
-axes/axis1_dsl/core/multi_output.py
-axes/axis1_dsl/runtime/axis1_runtime.py
-axes/axis1_dsl/execution/axis1_backtest.py
-tests/test_axis1_multi_output.py
+Axis1BacktestEngine
+ -> migrated BacktestEngine 결과
+ -> generic projection manifest 부착
+ -> 기존 indicators data는 재계산 없이 참조/주석만 추가
 ```
 
-지원 v1:
+5-2 완료 조건:
 
 ```text
-line, direction = ta.supertrend([period, multiplier])
-upper, middle, lower = ta.bbands(series[, period, multiplier])
-macd, signal, hist, strength = user.macd_normalized_all(series[, short, long, signal, method])
-```
-
-규칙:
-
-```text
-multi-output는 strategy top-level 선언만 허용
-등록된 multi-output 함수만 허용
-반환 component 수와 대상 변수 수 exact 일치
-component type을 명시적으로 등록
-중복/예약 이름 fail-closed
-v1 multi-output 호출은 위치 인수만 허용
-lowering 뒤 기존 semantic/runtime 검증을 다시 통과해야 함
-frozen core import/수정 없음
-```
-
-5-1 완료 조건:
-
-```text
-3개 등록 multi-output 함수의 component 결과가 기존 kernel/component 결과와 동일
-destructuring 결과를 후속 조건식에서 정상 사용
-잘못된 arity/함수/대상/인수 방식 fail-closed
-backtest facade가 destructuring을 소비
-multi-output typed metadata 보존
-new additive modules에 frozen core import 없음
+single-output numeric series도 공통 projection manifest에 노출
+multi-output 각 target이 function/component/type identity를 보존
+기존 indicator data/overlay/direction-color를 그대로 사용
+값이 없는 warmup-only component를 임의 값으로 합성하지 않음
+projection module이 indicator kernel/runtime/provider/frozen core를 호출하지 않음
+기존 5-1 multi-output test PASS
 frozen core guard PASS
-user-local focused test PASS
+focused user-local projection test PASS
 ```
 
-5-1 PASS + checkpoint 전 5-2 시작 금지.
+금지:
+
+```text
+Chart에서 indicator 재계산
+missing 값을 0/default/fill-forward로 생성
+특정 지표별 renderer 분기 확대
+5-3 capability metadata를 선행 구현
+migrated execution core 대수술
+```
+
+5-2 PASS + checkpoint 전 5-3 시작 금지.
 
 ---
 
 ## 이후 고정 순서
 
 ```text
-5-2 tuple-aware generic projection
 5-3 capability/function metadata completeness
 5-4 user-defined functions
 5-5 bounded loops
