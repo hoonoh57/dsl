@@ -15,7 +15,7 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-08-31 KST**
 ```text
 CURRENT_STEP = 4
 CURRENT_STEP_NAME = AXIS 1 경계별 이식 + parity
-CURRENT_BOUNDARY = 2 Function Registry
+CURRENT_BOUNDARY = 3 Assignment Flow + Semantic
 BOUNDARY_STATUS = REMOTE_UNVALIDATED
 ```
 
@@ -26,7 +26,7 @@ STEP 1 COMPLETE = 기존 DSL 남은 기능 exact audit
 STEP 2 COMPLETE = AXIS 1 migration manifest + 9개 boundary 순서
 STEP 3 COMPLETE = Frozen Core 보호 gate user-local PASS
 STEP 4 / BOUNDARY 1 COMPLETE = Parser / AST user-local parity PASS
-  -> STEP4_BOUNDARY1_PARSER_PARITY_CHECKPOINT_2026-08-31.md
+STEP 4 / BOUNDARY 2 COMPLETE = Function Registry user-local parity PASS
 ```
 
 현재 경계를 완료할 때마다:
@@ -86,26 +86,29 @@ User-local guard PASS 확인. 기존 `core/`는 영구 immutable reference다.
 
 ```text
 Boundary 1 Parser / AST = USER-LOCAL PASS
+Boundary 2 Function Registry = USER-LOCAL PASS
 ```
 
 현재:
 
 ```text
-Boundary 2 = Function Registry
-source = core/function_registry.py
-target = axes/axis1_dsl/core/function_registry.py
-mode = behavior-preserving migration
-status = source exact copy written / focused test written / waiting user-local PASS
+Boundary 3 = Assignment Flow + Semantic
+source = core/assignment_flow.py + core/dsl_semantic.py
+target = axes/axis1_dsl/core/assignment_flow.py + axes/axis1_dsl/core/dsl_semantic.py
+mode = behavior-preserving migration with internal import rewrite
+status = source written / focused parity test written / waiting user-local PASS
 ```
 
-Boundary 2 완료 조건:
+Boundary 3 완료 조건:
 
 ```text
-기존 함수 이름 전부 보존
-인수 최소/최대 개수 동일
-반환형/서명/category 동일
-category/manifest 기존 순서 보존
-new registry에 frozen-core runtime import 없음
+assignment before/after on_bar partition 동일
+valid DSL semantic result 동일
+invalid DSL fail-closed 동일
+value type 판정 동일
+function arity/type error 동일
+error line/column/code 동일
+new semantic boundary에 frozen-core runtime import 없음
 frozen core guard PASS
 focused user-local parity PASS
 ```
@@ -119,7 +122,7 @@ legacy core 수정
 parity 차이를 compatibility exception으로 숨기기
 ```
 
-Boundary 2 PASS + checkpoint 전 Boundary 3 시작 금지.
+Boundary 3 PASS + checkpoint 전 Boundary 4 시작 금지.
 
 ---
 
