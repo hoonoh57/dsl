@@ -15,7 +15,7 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-08-31 KST**
 ```text
 CURRENT_STEP = 4
 CURRENT_STEP_NAME = AXIS 1 경계별 이식 + parity
-CURRENT_BOUNDARY = 5 State + Bar Runtime
+CURRENT_BOUNDARY = 6 MTF + Read-Only Context Binding
 BOUNDARY_STATUS = REMOTE_UNVALIDATED
 ```
 
@@ -29,7 +29,8 @@ STEP 4 / BOUNDARY 1 COMPLETE = Parser / AST user-local PASS
 STEP 4 / BOUNDARY 2 COMPLETE = Function Registry user-local PASS
 STEP 4 / BOUNDARY 3 COMPLETE = Assignment Flow + Semantic user-local PASS
 STEP 4 / BOUNDARY 4 COMPLETE = Indicator Kernel user-local PASS
-  -> STEP4_BOUNDARY4_INDICATOR_PARITY_CHECKPOINT_2026-08-31.md
+STEP 4 / BOUNDARY 5 COMPLETE = State + Bar Runtime user-local PASS
+  -> STEP4_BOUNDARY5_STATE_BAR_RUNTIME_PARITY_CHECKPOINT_2026-08-31.md
 ```
 
 현재 경계를 완료할 때마다:
@@ -47,47 +48,58 @@ STEP 4 / BOUNDARY 4 COMPLETE = Indicator Kernel user-local PASS
 2 Function Registry                    COMPLETE / PASS
 3 Assignment Flow + Semantic           COMPLETE / PASS
 4 Indicator Kernel                     COMPLETE / PASS
-5 State + Bar Runtime                  CURRENT
-6 MTF + Read-Only Context Binding
+5 State + Bar Runtime                  COMPLETE / PASS
+6 MTF + Read-Only Context Binding      CURRENT
 7 DSL Runtime
 8 Broker
 9 Backtest + Projection Output
 ```
 
-현재 Boundary 5:
+현재 Boundary 6:
 
 ```text
 legacy:
-  core/state.py
-  core/bar_runtime.py
+  core/multitimeframe.py
+  core/dsl_context.py
 
 axis1:
-  axes/axis1_dsl/runtime/state.py
-  axes/axis1_dsl/runtime/bar_runtime.py
+  axes/axis1_dsl/runtime/multitimeframe.py
+  axes/axis1_dsl/runtime/dsl_context.py
 ```
 
 방식:
 
 ```text
-behavior-preserving migration
-bar runtime 내부 Parser import만 새 AXIS 1 경로로 변경
-신규 state/event 기능 추가 금지
+MTF = 기존 confirmed-bar 동작 보존 + indicator import만 새 AXIS 1 경로로 변경
+Context = provider/frame 계산 책임을 이식하지 않고 이미 준비된 typed exact-time binding만 소비
 ```
 
 완료 조건:
 
 ```text
-state primitive 결과 동일
-오류 동작 동일
-persistent on_bar state 결과 동일
-nested if/else 결과 동일
-context read 동작 동일
-new runtime에 frozen-core production import 없음
+confirmed higher-timeframe 값 동일
+MTF SMA 동일
+잘못된 timeframe/field fail-closed 동일
+context type/value/runtime projection 동일
+binding hash 동일
+compile 대상 시간과 exact 불일치 시 fail-closed
+new AXIS 1 production code가 legacy provider/frame을 import/call하지 않음
 frozen core guard PASS
 focused user-local parity PASS
 ```
 
-Boundary 5 PASS + checkpoint 전 Boundary 6 시작 금지.
+금지:
+
+```text
+parent provider 계산을 AXIS 1로 이식
+nearest-time / fill-forward / default 추가
+전체 core 일괄복사
+migration 중 신규 DSL 기능 추가
+legacy core 수정
+parity 차이를 compatibility exception으로 숨기기
+```
+
+Boundary 6 PASS + checkpoint 전 Boundary 7 시작 금지.
 
 ---
 
@@ -107,18 +119,6 @@ Boundary 5 PASS + checkpoint 전 Boundary 6 시작 금지.
 13. 지속개선 분석도구
 14. 최종 자연어 E2E 검증
 15. Legacy 문서 정리 + repo-wide compliance audit
-```
-
----
-
-## 절대 금지
-
-```text
-frozen core 수정
-전체 core 일괄복사
-migration 중 신규기능 추가
-parity 차이를 compatibility exception으로 숨기기
-현재 번호/경계 건너뛰기
 ```
 
 중요 방침/로직/순서 변경은 그 턴에 관련 authority + 이 문서 + `SESSION_HANDOFF.md`에 반영한다.
