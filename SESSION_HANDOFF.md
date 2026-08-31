@@ -1,6 +1,6 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 5-1 / 2026-08-31 KST**
+Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 5-2 / 2026-08-31 KST**
 
 이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + user-local PASS + 현재 `dsl-live-studio` 상태가 stale 문서보다 우선한다.
 
@@ -16,7 +16,7 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT
 
 ```text
 CURRENT_STEP = 5
-CURRENT_SUBSTEP = 5-1 tuple / multi-output typed return + destructuring
+CURRENT_SUBSTEP = 5-2 tuple-aware generic projection
 STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
@@ -27,72 +27,52 @@ Step 1 기존 DSL 남은 기능 점검 = COMPLETE
 Step 2 AXIS 1 migration 설계/순서 = COMPLETE
 Step 3 Frozen Core 보호 gate = COMPLETE / USER-LOCAL PASS
 Step 4 AXIS 1 9개 migration boundary = COMPLETE / USER-LOCAL PASS
+Step 5-1 multi-output + destructuring = COMPLETE / USER-LOCAL PASS
 ```
 
-Step 4 최종 checkpoint:
+최근 checkpoint:
 
 ```text
-STEP4_BOUNDARY9_BACKTEST_PROJECTION_PARITY_CHECKPOINT_2026-08-31.md
+STEP5_1_MULTI_OUTPUT_CHECKPOINT_2026-08-31.md
 ```
 
-Boundary 9 재검증 과정의 2개 오류는 TEST_DEFECT였다. Legacy에서도 금지된 `order.close_long(type = "MARKET")` fixture를 `order.close_long()`으로 수정했고, product/core/assertion을 바꾸지 않은 상태에서 최종 user-local OK를 확인했다.
+5-1 user-local evidence:
+
+```text
+tests/test_axis1_multi_output.py = OK
+tests/test_frozen_legacy_core_guard.py = OK
+```
 
 ---
 
-## 현재 5-1 구현
+## 현재 5-2 방향
 
-신규 문법은 migrated Parser/Semantic/Runtime을 직접 확장하는 대신 먼저 안전하게 낮춘다.
+목표:
 
 ```text
-신규 DSL 문법
- -> typed multi-output lowering
- -> 기존 migrated DSL
- -> 기존 migrated runtime/backtest
+여러 결과를 특정 지표별 예외처리 없이 공통 차트 projection contract로 노출
 ```
 
-파일:
+중요 원칙:
 
 ```text
-axes/axis1_dsl/core/multi_output.py
-axes/axis1_dsl/runtime/axis1_runtime.py
+Chart는 indicator/condition 값을 재계산하지 않는다.
+기존 Backtest indicator output과 5-1 binding metadata만 사용한다.
+사용자 target 이름 + 원래 function/component/type identity를 보존한다.
+overlay/pane 및 direction-color는 기존 output을 그대로 재사용한다.
+값이 없는 component를 0/default/fill-forward로 만들지 않는다.
+특정 지표 이름을 renderer logic에 하드코딩하지 않는다.
+```
+
+예정 파일:
+
+```text
+axes/axis1_dsl/execution/generic_projection.py
 axes/axis1_dsl/execution/axis1_backtest.py
-tests/test_axis1_multi_output.py
+tests/test_axis1_generic_projection.py
 ```
 
-지원 v1:
-
-```text
-line, direction = ta.supertrend([period, multiplier])
-upper, middle, lower = ta.bbands(series[, period, multiplier])
-macd, signal, hist, strength = user.macd_normalized_all(series[, short, long, signal, method])
-```
-
-특징:
-
-```text
-component 이름/형식을 등록
-반환 개수와 대상 변수 개수 exact 일치
-strategy top-level만 허용
-중복/예약 이름 fail-closed
-등록되지 않은 multi-output 함수 fail-closed
-v1은 위치 인수만 허용
-lowering 뒤 기존 semantic/runtime 검증 재사용
-오류 line은 원래 DSL line으로 remap
-```
-
-Runtime facade:
-
-```text
-Axis1DSLRuntime
-```
-
-Backtest facade:
-
-```text
-Axis1BacktestEngine
-```
-
-Backtest diagnostics에는 multi-output binding metadata를 보존한다. 다음 5-2 generic projection은 이 metadata를 사용하되 5-1 PASS 전 시작하지 않는다.
+5-2는 projection metadata/facade 층만 추가하며 migrated execution core와 frozen core를 수정하지 않는다.
 
 ---
 
@@ -111,6 +91,7 @@ core/ 수정 / 이동 / 삭제 / 신규 파일 추가
 expected frozen hash 변경으로 위반 수용
 새 feature를 frozen core에 역이식
 신규기능 때문에 migrated core를 불필요하게 대수술
+Chart 재계산 / default 합성
 검증완화
 ```
 
@@ -119,8 +100,7 @@ expected frozen hash 변경으로 위반 수용
 ## 다음 순서
 
 ```text
-5-1 multi-output + destructuring          CURRENT
-5-2 tuple-aware generic projection
+5-2 tuple-aware generic projection          CURRENT
 5-3 capability metadata
 5-4 user-defined functions
 5-5 bounded loops
@@ -156,13 +136,14 @@ expected frozen hash 변경으로 위반 수용
 
 ## 다음 exact action
 
-사용자 local에서 최신 branch pull 후:
+5-2 구현 후 사용자 local에서:
 
 ```text
+python -m unittest discover -s tests -p "test_axis1_generic_projection.py" -v
 python -m unittest discover -s tests -p "test_axis1_multi_output.py" -v
 python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py" -v
 ```
 
-둘 다 PASS하면 5-1 checkpoint 후 5-2 tuple-aware generic projection으로 이동한다.
+모두 PASS하면 5-2 checkpoint 후 5-3 capability/function metadata completeness로 이동한다.
 
 실패 시 test defect / feature defect / authority drift / environment issue / unknown으로 먼저 분류하고 원칙/assertion을 약화하지 않는다.
