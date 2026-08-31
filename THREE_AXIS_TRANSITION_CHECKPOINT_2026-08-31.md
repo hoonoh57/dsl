@@ -11,6 +11,7 @@ DSL_FROZEN_CORE_MIGRATION_POLICY.md
 DSL_AXIS1_PRE_MIGRATION_CAPABILITY_AUDIT.md
 DSL_AXIS2_PRECOMPUTED_SELECTION_POLICY.md
 DSL_EXTERNAL_LLM_STRATEGY_AUTHORING_POLICY.md
+DSL_AUTHORING_CONTINUOUS_IMPROVEMENT_POLICY.md
 skills/external_llm_strategy_authoring/SKILL.md
 DSL_THREE_AXIS_MODULE_BOUNDARY.md
 DSL_THREE_AXIS_FINAL_TARGET.md
@@ -205,7 +206,85 @@ needs_capability
 
 Correction loop는 exact validator error를 다시 외부 LLM에 전달하며, 오류를 숨기거나 assertion을 완화하지 않는다.
 
-## 6. Immediate next micro-tranches
+## 6. Authoring failure evidence becomes a continuous improvement loop
+
+시스템 완성 후에도 Prompt/Skill/Validator/DSL은 증거를 기반으로 지속 보완한다.
+
+```text
+사용자 요청
+ -> LLM draft
+ -> deterministic validation
+ -> PASS/FAIL/BLOCKED event 기록
+ -> correction lineage 기록
+ -> 일정 기간/충분한 표본 누적
+ -> 실패 패턴 집계
+ -> root cause 분류
+ -> 가장 좁은 경계 개선
+ -> regression
+ -> 개선 전후 재발률 비교
+```
+
+Machine-readable event contract:
+
+```text
+authoring/contracts/authoring_validation_event.v1.schema.json
+schema_version = authoring_validation_event/v1
+```
+
+최소 root cause 분류:
+
+```text
+PROMPT_DEFECT
+SKILL_GAP
+LLM_DRAFT_DEFECT
+SCHEMA_DEFECT
+VALIDATOR_DEFECT
+DSL_PARSER_GAP
+DSL_SEMANTIC_GAP
+DSL_CAPABILITY_GAP
+DATA_CONTRACT_GAP
+AXIS_CONTRACT_GAP
+USER_INTENT_AMBIGUITY
+TEST_DEFECT
+ENVIRONMENT_ISSUE
+UNKNOWN
+```
+
+같은 error code가 반복된다는 이유만으로 Parser/Semantic을 느슨하게 만들지 않는다.
+
+개선 우선순위는 기본적으로 다음처럼 좁은 경계부터 본다.
+
+```text
+Prompt
+ -> Skill
+ -> Correction Prompt
+ -> Diagnostics
+ -> Schema/Validator
+ -> Generic DSL Parser/Semantic
+ -> Generic DSL Capability
+```
+
+DSL 보완으로 승격하려면 특정 전략 한 건이 아니라 여러 서로 다른 intent에서 동일한 generic 표현력 gap이 반복되고, Prompt/Skill 보완으로 해결되지 않으며, 결정론적 계약/테스트가 가능해야 한다.
+
+운영 metric 후보:
+
+```text
+first_pass_acceptance_rate
+mean_correction_iterations
+schema_failure_rate
+capability_block_rate
+parser_failure_rate
+semantic_failure_rate
+unknown_feature_rate
+ambiguous_intent_rate
+repeat_error_rate_after_fix
+```
+
+정기 review 또는 충분한 failure event 누적 시 Prompt/Skill/DSL remediation tranche를 결정한다.
+
+Frozen legacy `core/`는 이 개선 루프의 수정 대상이 아니다. 신규 DSL 개선은 새 `axes/axis1_dsl/`에서만 수행한다.
+
+## 7. Immediate next micro-tranches
 
 대규모 migration을 하지 않는다. 다음 track은 병행 가능하지만 각 track 내부는 micro-tranche로 진행한다.
 
@@ -233,20 +312,23 @@ Track C — AXIS 3
 Track D — External LLM Authoring
 1. SKILL.md v1 [DONE]
 2. external_strategy_draft/v1 schema [DONE]
-3. Prompt Builder
-4. response ingest/schema validator
-5. capability/data-source validator
-6. DSL Parser/Semantic adapter
-7. Correction Prompt Builder
-8. human-mediated iteration workflow
-9. generated skill/prompt from machine registries
+3. authoring_validation_event/v1 schema [DONE]
+4. Prompt Builder
+5. response ingest/schema validator
+6. capability/data-source validator
+7. DSL Parser/Semantic adapter
+8. Correction Prompt Builder
+9. human-mediated iteration workflow
+10. structured validation-event logger
+11. periodic aggregation/review report
+12. generated skill/prompt from machine registries
 ```
 
 첫 migration boundary가 무엇인지 audit로 결정하기 전에는 전체 `core/`를 무작정 복사하지 않는다.
 
 Track D는 AXIS 1/2/3 구현 완료를 기다리지 않고 개발할 수 있지만, 외부 draft를 실제 Strategy/Condition으로 승격할 때는 당시의 machine capability/data-source contract를 다시 검증한다.
 
-## 7. Current compliance wording
+## 8. Current compliance wording
 
 ```text
 frozen-core transition documents/roots: established
@@ -258,7 +340,9 @@ Bridge v1 schema: DESIGN PENDING
 External LLM authoring policy: ESTABLISHED
 External LLM authoring skill v1: ADDED
 external_strategy_draft/v1 JSON schema: ADDED
-Prompt Builder / ingest validator / correction loop: NOT IMPLEMENTED
+authoring continuous-improvement policy: ESTABLISHED
+authoring_validation_event/v1 JSON schema: ADDED
+Prompt Builder / ingest validator / correction loop / event logger: NOT IMPLEMENTED
 repository-wide compliance: REMEDIATION_REQUIRED
 ```
 
