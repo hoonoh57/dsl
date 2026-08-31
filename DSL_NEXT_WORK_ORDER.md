@@ -15,7 +15,7 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-08-31 KST**
 ```text
 CURRENT_STEP = 4
 CURRENT_STEP_NAME = AXIS 1 경계별 이식 + parity
-CURRENT_BOUNDARY = 3 Assignment Flow + Semantic
+CURRENT_BOUNDARY = 4 Indicator Kernel
 BOUNDARY_STATUS = REMOTE_UNVALIDATED
 ```
 
@@ -27,6 +27,8 @@ STEP 2 COMPLETE = AXIS 1 migration manifest + 9개 boundary 순서
 STEP 3 COMPLETE = Frozen Core 보호 gate user-local PASS
 STEP 4 / BOUNDARY 1 COMPLETE = Parser / AST user-local parity PASS
 STEP 4 / BOUNDARY 2 COMPLETE = Function Registry user-local parity PASS
+STEP 4 / BOUNDARY 3 COMPLETE = Assignment Flow + Semantic user-local parity PASS
+  -> STEP4_BOUNDARY3_SEMANTIC_PARITY_CHECKPOINT_2026-08-31.md
 ```
 
 현재 경계를 완료할 때마다:
@@ -44,8 +46,6 @@ JMA 접근, projection, Strategy CRUD 경계를 실제 코드/테스트로 확�
 ---
 
 ## 2. 새 DSL 이식 설계도 + 경계 순서 — COMPLETE
-
-9개 boundary:
 
 ```text
 1 Parser / AST
@@ -87,28 +87,29 @@ User-local guard PASS 확인. 기존 `core/`는 영구 immutable reference다.
 ```text
 Boundary 1 Parser / AST = USER-LOCAL PASS
 Boundary 2 Function Registry = USER-LOCAL PASS
+Boundary 3 Assignment Flow + Semantic = USER-LOCAL PASS
 ```
 
 현재:
 
 ```text
-Boundary 3 = Assignment Flow + Semantic
-source = core/assignment_flow.py + core/dsl_semantic.py
-target = axes/axis1_dsl/core/assignment_flow.py + axes/axis1_dsl/core/dsl_semantic.py
-mode = behavior-preserving migration with internal import rewrite
+Boundary 4 = Indicator Kernel
+source = core/indicators.py + core/user_indicators.py
+target = axes/axis1_dsl/indicators/indicators.py + axes/axis1_dsl/indicators/user_indicators.py
+mode = behavior-preserving migration with internal import rewrite only
 status = source written / focused parity test written / waiting user-local PASS
 ```
 
-Boundary 3 완료 조건:
+Boundary 4 완료 조건:
 
 ```text
-assignment before/after on_bar partition 동일
-valid DSL semantic result 동일
-invalid DSL fail-closed 동일
-value type 판정 동일
-function arity/type error 동일
-error line/column/code 동일
-new semantic boundary에 frozen-core runtime import 없음
+기존 indicator numeric output 동일
+NaN 위치 동일
+JMA 값 + trend metadata 동일
+Supertrend tuple/direction 내부 Python 결과 동일
+normalized MACD 모든 component 동일
+invalid component error 동일
+new indicator boundary에 frozen-core runtime import 없음
 frozen core guard PASS
 focused user-local parity PASS
 ```
@@ -118,11 +119,13 @@ focused user-local parity PASS
 ```text
 전체 core/ 일괄복사
 migration 중 신규기능 추가
+JMA normalized slope 신규추가
+tuple DSL 지원 신규추가
 legacy core 수정
 parity 차이를 compatibility exception으로 숨기기
 ```
 
-Boundary 3 PASS + checkpoint 전 Boundary 4 시작 금지.
+Boundary 4 PASS + checkpoint 전 Boundary 5 시작 금지.
 
 ---
 
