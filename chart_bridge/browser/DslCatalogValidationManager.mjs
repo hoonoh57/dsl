@@ -1,5 +1,10 @@
 import { chartBarsToDslMarket } from './DslChartMarketAdapter.mjs';
-import { assertDslChartTimeframeCompatible } from './DslChartTimeframeGuard.mjs';
+import {
+  applyDslTimeframe,
+  assertDslChartTimeframeCompatible,
+  dslTimeframeFromChart,
+  dslTimeframeFromSource,
+} from './DslChartTimeframeGuard.mjs';
 
 export const DSL_VALIDATION_MANAGER_ID = 'strategy.dsl-validation-manager';
 export const DSL_STRATEGY_ADDON_ID = 'strategy.dsl';
@@ -16,12 +21,12 @@ function flattenCatalog(payload) {
   );
 }
 
-function strategyOf(feature, timeframe) {
+function strategyOf(feature, timeframe, dslCode) {
   return {
     schemaVersion: 1,
     id: `catalog-${String(feature.feature_id ?? feature.id ?? '').replace(/[^a-zA-Z0-9_.-]/g, '-')}`,
     name: String(feature.feature_id ?? feature.id ?? feature.title ?? 'DSL Strategy'),
-    dsl_code: String(feature.dsl_code ?? ''),
+    dsl_code: String(dslCode ?? feature.dsl_code ?? ''),
     settings: cloneJson(feature.settings ?? {}),
     ...(timeframe ? { timeframe: String(timeframe) } : {}),
   };
@@ -60,6 +65,7 @@ async function evaluateDsl(strategy, bars) {
       dsl_code: strategy.dsl_code,
       settings: strategy.settings ?? {},
       market: chartBarsToDslMarket(bars),
+      data_timeframe: strategy.timeframe,
       bars_count: bars.length,
     }),
   });
@@ -130,8 +136,13 @@ export async function createDslCatalogValidationEditor({ instanceId, host, repor
       </div>
       <div data-list style="overflow:auto;display:grid;align-content:start;gap:5px"></div>
     </section>
-    <section style="min-width:0;display:grid;grid-template-rows:auto minmax(300px,1fr) auto;gap:8px">
+    <section style="min-width:0;display:grid;grid-template-rows:auto auto minmax(270px,1fr) auto;gap:8px">
       <div><input data-name readonly placeholder="DSL을 선택하세요" style="width:100%;background:#172635;color:#dbe7f2;border:1px solid #36506a;border-radius:4px;padding:7px"/></div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <label for="dsl-catalog-timeframe" style="font-size:11px;color:#b8c7d8">실행 timeframe</label>
+        <select id="dsl-catalog-timeframe" data-timeframe disabled style="background:#172635;color:#dbe7f2;border:1px solid #36506a;border-radius:4px;padding:6px 9px"></select>
+        <span data-chart-timeframe style="font-size:10px;color:#91a2b8"></span>
+      </div>
       <textarea data-dsl readonly spellcheck="false" placeholder="좌측 등록 DSL을 선택하세요." style="width:100%;resize:none;background:#070b11;color:#dce8f7;border:1px solid #36506a;border-radius:4px;padding:10px;font:12px/1.5 Consolas,monospace"></textarea>
       <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
         <button data-validate type="button" disabled style="padding:7px 10px;background:#214a6b;color:#fff;border:1px solid #36506a;border-radius:4px">문법 검증</button>
@@ -143,24 +154,56 @@ export async function createDslCatalogValidationEditor({ instanceId, host, repor
   const list = host.querySelector('[data-list]');
   const count = host.querySelector('[data-count]');
   const name = host.querySelector('[data-name]');
+  const timeframe = host.querySelector('[data-timeframe]');
+  const chartTimeframe = host.querySelector('[data-chart-timeframe]');
   const dsl = host.querySelector('[data-dsl]');
   const validateButton = host.querySelector('[data-validate]');
   const insertButton = host.querySelector('[data-insert]');
   const status = host.querySelector('[data-status]');
   let selected;
+  let sourceDslCode = '';
   let validatedCode;
   let validatedTimeframe;
 
-  const setSelected = feature => {
-    selected = feature;
-    const strategy = strategyOf(feature);
-    name.value = strategy.name;
-    dsl.value = strategy.dsl_code;
+  const invalidateValidation = message => {
     validatedCode = undefined;
     validatedTimeframe = undefined;
-    validateButton.disabled = false;
     insertButton.disabled = true;
-    status.textContent = '선택됨 · 문법 검증을 실행하세요.';
+    if (message) status.textContent = message;
+  };
+
+  const configureTimeframe = source => {
+    const current = dslTimeframeFromChart(manager.getWorkspaceContext());
+    const declared = dslTimeframeFromSource(source);
+    const choices = [...new Set([current, declared])];
+    timeframe.replaceChildren(...choices.map(value => {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = value === current ? `${value} · 현재 차트` : `${value} · 등록 기본값`;
+      return option;
+    }));
+    timeframe.value = current;
+    timeframe.disabled = false;
+    chartTimeframe.textContent = `현재 차트 ${current}`;
+  };
+
+  const applySelectedTimeframe = () => {
+    if (!sourceDslCode || !timeframe.value) return;
+    dsl.value = applyDslTimeframe(sourceDslCode, timeframe.value);
+    invalidateValidation(`${timeframe.value} 기준 · 문법 검증을 실행하세요.`);
+  };
+
+  timeframe.onchange = applySelectedTimeframe;
+
+  const setSelected = feature => {
+    selected = feature;
+    sourceDslCode = String(feature.dsl_code ?? '');
+    const strategy = strategyOf(feature);
+    name.value = strategy.name;
+    configureTimeframe(sourceDslCode);
+    dsl.value = applyDslTimeframe(sourceDslCode, timeframe.value);
+    validateButton.disabled = false;
+    invalidateValidation(`${timeframe.value} 기준 · 문법 검증을 실행하세요.`);
     for (const button of list.querySelectorAll('[data-feature-id]')) {
       button.style.background = button.dataset.featureId === String(feature.feature_id) ? '#214a6b' : '#172635';
     }
@@ -203,14 +246,15 @@ export async function createDslCatalogValidationEditor({ instanceId, host, repor
       if (!result?.ok) throw new Error(result?.message ?? 'DSL validation failed.');
       validatedCode = dsl.value;
       validatedTimeframe = String(result.timeframe ?? '').trim();
+      if (validatedTimeframe !== timeframe.value) {
+        throw new Error(`선택 timeframe ${timeframe.value}과 Parser 결과 ${validatedTimeframe}이 일치하지 않습니다.`);
+      }
       assertDslChartTimeframeCompatible(validatedTimeframe, manager.getWorkspaceContext());
       insertButton.disabled = false;
       status.textContent = `문법 PASS · ${result.strategy} · ${validatedTimeframe} · 현재 차트 호환`;
       reportStatus?.(`DSL 문법 PASS · ${selected.feature_id} · ${validatedTimeframe}`);
     } catch (error) {
-      validatedCode = undefined;
-      validatedTimeframe = undefined;
-      status.textContent = `검증 FAIL · ${String(error?.message ?? error)}`;
+      invalidateValidation(`검증 FAIL · ${String(error?.message ?? error)}`);
       reportStatus?.(status.textContent);
     }
   };
@@ -221,7 +265,7 @@ export async function createDslCatalogValidationEditor({ instanceId, host, repor
     status.textContent = '현재 차트 실데이터로 Core 실행 중...';
     try {
       assertDslChartTimeframeCompatible(validatedTimeframe, manager.getWorkspaceContext());
-      const strategy = strategyOf(selected, validatedTimeframe);
+      const strategy = strategyOf(selected, validatedTimeframe, validatedCode);
       const bars = manager.getBars();
       const result = await evaluateDsl(strategy, bars);
       const validated = {
@@ -242,8 +286,8 @@ export async function createDslCatalogValidationEditor({ instanceId, host, repor
         visible: true,
         state: { strategy: cloneJson(validated) },
       });
-      status.textContent = `차트 삽입 PASS · trades ${validated.validation.trade_count} · return ${validated.validation.total_return_pct.toFixed(2)}%`;
-      reportStatus?.(`DSL 차트 삽입 PASS · ${selected.feature_id}`);
+      status.textContent = `차트 삽입 PASS · ${validatedTimeframe} · trades ${validated.validation.trade_count} · return ${validated.validation.total_return_pct.toFixed(2)}%`;
+      reportStatus?.(`DSL 차트 삽입 PASS · ${selected.feature_id} · ${validatedTimeframe}`);
     } catch (error) {
       status.textContent = `차트 삽입 FAIL · ${String(error?.message ?? error)}`;
       reportStatus?.(status.textContent);
