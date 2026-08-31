@@ -13,7 +13,7 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-09-01 KST**
 ```text
 CURRENT_STEP = 5
 CURRENT_STEP_NAME = AXIS 1 신규 DSL 기능 개발
-CURRENT_SUBSTEP = 5-7 partial fills / partial exits
+CURRENT_SUBSTEP = 5-8 pyramiding / multi-position accounting
 SUBSTEP_STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
@@ -36,96 +36,108 @@ STEP 5-5 COMPLETE = bounded loops user-local PASS
   -> STEP5_5_BOUNDED_LOOPS_CHECKPOINT_2026-09-01.md
 STEP 5-6 COMPLETE = on_tick/on_fill commit/rollback user-local PASS
   -> STEP5_6_INTRABAR_LIFECYCLE_CHECKPOINT_2026-09-01.md
+STEP 5-7 COMPLETE = partial fills / partial exits user-local PASS
+  -> STEP5_7_PARTIAL_EXECUTION_CHECKPOINT_2026-09-01.md
 ```
 
-5-6 user-local evidence:
+5-7 user-local evidence:
 
 ```text
+test_axis1_partial_execution.py = OK
 test_axis1_intrabar_lifecycle.py = OK
-test_axis1_bounded_loops.py = OK
-test_axis1_user_functions.py = OK
-test_axis1_multi_output.py = OK
-test_axis1_generic_projection.py = OK
+test_axis1_broker_parity.py = OK
 test_frozen_legacy_core_guard.py = OK
 ```
 
 ---
 
-## 5-7 현재 — partial fills / partial exits
+## 5-8 현재 — pyramiding / multi-position accounting
 
 목표:
 
 ```text
-하나의 주문이 여러 체결로 나뉘어도 누적체결/잔량/평균체결가를 권위 있게 보존하고
-하나의 보유 포지션을 여러 차례 부분청산해도 수량/비용/PnL이 정확히 이어지도록 함
+같은 방향의 여러 entry order를 독립 lot으로 보존하면서
+aggregate position quantity / weighted average entry / fee / realized PnL을 결정적으로 관리
 ```
 
 구현:
 
 ```text
-axes/axis1_dsl/execution/partial_execution.py
-tests/test_axis1_partial_execution.py
+axes/axis1_dsl/execution/pyramiding_execution.py
+tests/test_axis1_pyramiding_execution.py
 ```
 
 구조:
 
 ```text
-PartialFillBroker
-  order requested quantity
-  -> fill slice 1 ... N
-  -> PARTIALLY_FILLED | FILLED
-  -> cumulative quantity / remaining quantity / weighted average fill / fill ledger
+PartialFillBroker (Step 5-7 재사용)
+  -> entry order별 partial fill fact
 
-SinglePositionLedger
-  one original entry order may complete through multiple fill slices
-  -> weighted average entry price
-  -> partial exit slices
-  -> proportional entry-fee allocation
-  -> realized PnL per exit slice
-  -> remaining position quantity
+PyramidingLedger
+  -> entry order 1개 = position lot 1개
+  -> 같은 order의 여러 fill은 동일 lot weighted cost로 합산
+  -> 같은 방향 새 entry order는 새 lot 생성
+  -> aggregate quantity / weighted average / remaining entry fee 계산
 
-PartialExecutionSession
-  broker fill fact + single-position accounting coordination
+Exit allocation
+  -> 기본 FIFO lot allocation
+  -> lot_id를 명시하면 해당 lot만 부분청산
+  -> 각 allocation마다 realized PnL / fee 기록
+
+PyramidingExecutionSession
+  -> broker fill fact + multi-lot accounting coordination
 ```
 
-5-7 contract:
+5-8 contract:
 
 ```text
-PARTIALLY_FILLED 상태를 명시적으로 보유
-requested / cumulative filled / remaining quantity를 별도 보존
-fill quantity는 remaining을 초과할 수 없음
-각 fill은 별도 immutable fill record
-weighted average fill price 유지
-부분체결 후 cancel은 이미 체결된 수량을 되돌리지 않고 잔량만 취소
-부분청산은 현재 position quantity 이하만 허용
-entry fee는 partial exit quantity 비율로 배분
-exit fill마다 gross/net realized PnL 기록
-position quantity가 0이 될 때만 position 완전 종료
+same-direction pyramiding만 허용
+기본 max_lots = 4, 호출자가 명시적으로 조정 가능
+entry order별 deterministic lot identity
+같은 entry order의 partial fills는 같은 lot에 누적
+새 entry order는 새 lot 생성
+aggregate average entry = active lot 수량가중 평균
+aggregate quantity = active lot quantity 합
 ```
 
-Step 5-8 경계 보호:
+Exit contract:
 
 ```text
-새 entry order로 기존 position에 추가 진입 금지
-같은 원 original entry order의 잔여 partial fill만 계속 허용
-동시에 여러 active exit order 금지
-pyramiding / multi-position / lot selection은 Step 5-8 전까지 금지
+기본 exit은 FIFO(entry sequence)로 lot을 소비
+lot_id 지정 시 target lot만 소비
+한 exit fill이 여러 lot을 가로지르면 lot별 realized slice를 별도 기록
+entry fee는 각 lot의 실제 청산수량 비율로 배분
+exit fee와 gross/net PnL도 lot별 계산
+aggregate quantity가 0이 될 때 position cycle 1회 종료
 ```
 
-Step 5-6 연동:
+Fail-closed boundary:
 
 ```text
-각 partial fill slice는 on_fill event payload로 변환 가능
-strategy intrabar state rollback은 실제 broker/accounting fill fact를 되돌리지 않음
-exchange execution fact와 provisional strategy state의 authority를 분리
+long exposure 중 SELL_SHORT 추가진입 금지
+short exposure 중 BUY 추가진입 금지
+동시 long/short hedge 금지
+max_lots 초과 금지
+lot quantity 초과 targeted exit 금지
+aggregate quantity 초과 exit 금지
+Step 5-8에서는 active exit order를 동시에 여러 개 두지 않음
 ```
 
-Batch policy:
+5-7 호환성:
 
 ```text
-migrated BacktestEngine의 기존 whole-fill 동작은 Step 5-7에서 변경하지 않음
-partial-fill event tape 기반 batch/stream 동일성은 Step 5-10에서 검증
-기존 백테스트 결과를 임의 partial-fill로 바꾸지 않음
+기존 PartialExecutionSession은 계속 single-position + pyramiding fail-closed
+새 pyramiding 권한은 PyramidingExecutionSession에만 존재
+기존 PartialFillBroker lifecycle/partial-fill semantics 재사용
+각 pyramiding fill slice는 기존 on_fill provisional state payload로 전달 가능
+```
+
+Batch boundary:
+
+```text
+migrated BacktestEngine의 기존 single-position whole-fill 실행은 Step 5-8에서 변경하지 않음
+DSL order syntax에 pyramiding quantity/lot selection을 아직 혼입하지 않음
+multi-lot event tape와 batch/stream 동일성은 Step 5-10에서 검증
 ```
 
 중요 원칙:
@@ -133,38 +145,39 @@ partial-fill event tape 기반 batch/stream 동일성은 Step 5-10에서 검증
 ```text
 frozen core 수정 없음
 migrated BrokerEmulator/BacktestEngine 직접 수정 없음
-기존 whole-fill lifecycle은 full-quantity 한 번 체결 시 동일 status shape 유지
+hedging/netting을 묵시적으로 허용하지 않음
+lot allocation 규칙을 시장상황에 따라 임의 변경하지 않음
+5-9 reference differential을 선행 구현하지 않음
 검증완화 금지
-5-8 선행 구현 금지
 ```
 
-5-7 완료 조건:
+5-8 완료 조건:
 
 ```text
-full fill 기존 lifecycle status shape 유지
-partial fill cumulative/remaining/weighted average 정확
-partial cancel executed quantity 보존
-order overfill atomic fail-closed
-partial entry 여러 fill 후 weighted position 정확
-partial exit 여러 fill/order 후 remaining quantity/PnL 정확
-entry fee proportional allocation 정확
-position over-exit atomic fail-closed
-pyramiding fail-closed
-각 partial fill -> 기존 on_fill provisional state 연동 가능
-new module frozen-core import 없음
-5-1~5-6 회귀검사 PASS
+같은 order partial fills -> 동일 lot weighted average 정확
+같은 방향 여러 entry order -> 독립 lot + aggregate weighted average 정확
+FIFO partial exit가 lot 경계를 결정적으로 소비
+explicit target lot exit가 다른 lot을 건드리지 않음
+lot별 entry fee / exit fee / realized PnL 정확
+flatten 후 반대 방향 새 cycle 진입 가능
+exposure 중 opposite entry fail-closed
+max_lots 초과가 broker mutation 전 fail-closed
+target lot over-exit가 broker/accounting mutation 전 fail-closed
+각 fill -> 기존 on_fill provisional state 연동 가능
+Step 5-7 single-position session의 pyramiding 금지 contract 유지
+new module frozen-core/backtest import 없음
+5-1~5-7 회귀검사 PASS
 frozen core guard PASS
-focused user-local partial-execution test PASS
+focused user-local pyramiding test PASS
 ```
 
-5-7 PASS + checkpoint 전 5-8 시작 금지.
+5-8 PASS + checkpoint 전 5-9 시작 금지.
 
 ---
 
 ## 이후 고정 순서
 
 ```text
-5-8 pyramiding / multi-position accounting
 5-9 full reference differential fixtures
 5-10 full-engine batch/streaming parity
 6 AXIS 1 machine-readable capability/diagnostic registry
