@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "bridge.axis1_execution_request/v1",
+  "title": "AXIS 1 Execution Request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "meta", "instrument", "strategy", "market", "settings"],
+  "properties": {
+    "schema": {"const": "bridge.axis1_execution_request/v1"},
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_id", "source_axis", "target_axis", "operation", "contract_version"],
+      "properties": {
+        "request_id": {"type": "string", "minLength": 1},
+        "source_axis": {"enum": ["AXIS2", "AXIS3", "EXTERNAL"]},
+        "target_axis": {"const": "AXIS1"},
+        "operation": {"const": "BACKTEST"},
+        "contract_version": {"const": "v1"}
+      }
+    },
+    "instrument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["symbol", "timeframe"],
+      "properties": {
+        "symbol": {"type": "string", "minLength": 1},
+        "timeframe": {"type": "string", "minLength": 1}
+      }
+    },
+    "strategy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy_id", "strategy_version", "dsl_code"],
+      "properties": {
+        "strategy_id": {"type": "string", "minLength": 1},
+        "strategy_version": {"type": "string", "minLength": 1},
+        "dsl_code": {"type": "string", "minLength": 1}
+      }
+    },
+    "market": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["time", "open", "high", "low", "close", "volume"],
+      "properties": {
+        "time": {"type": "array", "minItems": 2, "items": {"type": "string", "minLength": 1}},
+        "open": {"type": "array", "minItems": 2, "items": {"type": "number"}},
+        "high": {"type": "array", "minItems": 2, "items": {"type": "number"}},
+        "low": {"type": "array", "minItems": 2, "items": {"type": "number"}},
+        "close": {"type": "array", "minItems": 2, "items": {"type": "number"}},
+        "volume": {"type": "array", "minItems": 2, "items": {"type": "number"}},
+        "meta": {"type": "object"}
+      }
+    },
+    "settings": {"type": "object"},
+    "entry_gate": {"type": ["array", "null"], "items": {"type": "boolean"}},
+    "parent_context": {
+      "type": ["object", "null"],
+      "required": ["schema", "target_symbol", "target_times", "frame_hash", "registry_hash", "feature_types", "feature_values"],
+      "properties": {
+        "schema": {"const": "dsl_parent_context_series/v1"},
+        "target_symbol": {"type": "string", "minLength": 1},
+        "target_times": {"type": "array", "items": {"type": "string"}},
+        "frame_hash": {"type": "string", "minLength": 1},
+        "registry_hash": {"type": "string", "minLength": 1},
+        "feature_types": {"type": "object"},
+        "feature_values": {"type": "object"},
+        "binding_policy": {"type": "string"},
+        "binding_hash": {"type": "string"}
+      }
+    }
+  }
+}
