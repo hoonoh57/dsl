@@ -1,0 +1,14 @@
+{
+  "$id": "bridge.three_axis_e2e_response/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "meta", "request_hash", "trace", "error", "response_hash"],
+  "properties": {
+    "schema": {"const": "bridge.three_axis_e2e_response/v1"},
+    "meta": {"type": "object"},
+    "request_hash": {"type": "string", "minLength": 1},
+    "trace": {"type": ["object", "null"]},
+    "error": {"type": ["object", "null"]},
+    "response_hash": {"type": "string", "minLength": 1}
+  }
+}
