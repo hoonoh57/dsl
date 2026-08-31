@@ -13,7 +13,7 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-09-01 KST**
 ```text
 CURRENT_STEP = 5
 CURRENT_STEP_NAME = AXIS 1 신규 DSL 기능 개발
-CURRENT_SUBSTEP = 5-8 pyramiding / multi-position accounting
+CURRENT_SUBSTEP = 5-9 full reference differential fixtures
 SUBSTEP_STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
@@ -38,11 +38,14 @@ STEP 5-6 COMPLETE = on_tick/on_fill commit/rollback user-local PASS
   -> STEP5_6_INTRABAR_LIFECYCLE_CHECKPOINT_2026-09-01.md
 STEP 5-7 COMPLETE = partial fills / partial exits user-local PASS
   -> STEP5_7_PARTIAL_EXECUTION_CHECKPOINT_2026-09-01.md
+STEP 5-8 COMPLETE = pyramiding / multi-position accounting user-local PASS
+  -> STEP5_8_PYRAMIDING_EXECUTION_CHECKPOINT_2026-09-01.md
 ```
 
-5-7 user-local evidence:
+5-8 user-local evidence:
 
 ```text
+test_axis1_pyramiding_execution.py = OK
 test_axis1_partial_execution.py = OK
 test_axis1_intrabar_lifecycle.py = OK
 test_axis1_broker_parity.py = OK
@@ -51,134 +54,101 @@ test_frozen_legacy_core_guard.py = OK
 
 ---
 
-## 5-8 현재 — pyramiding / multi-position accounting
+## 5-9 현재 — full reference differential fixtures
 
 목표:
 
 ```text
-같은 방향의 여러 entry order를 독립 lot으로 보존하면서
-aggregate position quantity / weighted average entry / fee / realized PnL을 결정적으로 관리
+AXIS 1 TA/user indicator 계산을 frozen core와의 단순 복제 비교가 아니라
+독립된 test-side NumPy 기준 구현과 대량 differential 비교하여
+수식/warmup/NaN/event-history/runtime mapping drift를 조기에 검출
 ```
 
 구현:
 
 ```text
-axes/axis1_dsl/execution/pyramiding_execution.py
-tests/test_axis1_pyramiding_execution.py
+tests/axis1_reference_indicators.py
+tests/test_axis1_reference_differential.py
 ```
 
-구조:
+Reference isolation:
 
 ```text
-PartialFillBroker (Step 5-7 재사용)
-  -> entry order별 partial fill fact
-
-PyramidingLedger
-  -> entry order 1개 = position lot 1개
-  -> 같은 order의 여러 fill은 동일 lot weighted cost로 합산
-  -> 같은 방향 새 entry order는 새 lot 생성
-  -> aggregate quantity / weighted average / remaining entry fee 계산
-
-Exit allocation
-  -> 기본 FIFO lot allocation
-  -> lot_id를 명시하면 해당 lot만 부분청산
-  -> 각 allocation마다 realized PnL / fee 기록
-
-PyramidingExecutionSession
-  -> broker fill fact + multi-lot accounting coordination
+reference fixture는 axes.axis1_dsl 또는 frozen core를 import하지 않음
+NumPy + 명시적 수식/상태전이만 사용
+production 구현을 호출해서 expected를 만들지 않음
 ```
 
-5-8 contract:
+검증 범위:
 
 ```text
-same-direction pyramiding만 허용
-기본 max_lots = 4, 호출자가 명시적으로 조정 가능
-entry order별 deterministic lot identity
-같은 entry order의 partial fills는 같은 lot에 누적
-새 entry order는 새 lot 생성
-aggregate average entry = active lot 수량가중 평균
-aggregate quantity = active lot quantity 합
+moving/rolling:
+  shift, sma, ema, rma, wma, ma, highest, lowest, rolling sum, stdev, roc
+
+recursive/trend:
+  true range, ATR, RSI, MACD, TRIX, CCI, ADX, JMA, Supertrend
+
+range/event history:
+  nrange, Williams %R, abs range, sum abs return, VHF
+  crossover/crossunder, bars_since, count_since, highest_since, lowest_since, value_when
+
+multi-output/user:
+  BBands upper/middle/lower
+  Supertrend line/direction
+  normalized MACD macd/signal/hist/hist_abs_pct
+
+runtime mapping:
+  등록된 모든 ta/user FUNCTION_SPECS가 explicit differential coverage set에 포함
+  DSL Runtime facade로 실제 함수 호출 결과도 reference와 비교
 ```
 
-Exit contract:
+Fixture matrix:
 
 ```text
-기본 exit은 FIFO(entry sequence)로 lot을 소비
-lot_id 지정 시 target lot만 소비
-한 exit fill이 여러 lot을 가로지르면 lot별 realized slice를 별도 기록
-entry fee는 각 lot의 실제 청산수량 비율로 배분
-exit fee와 gross/net PnL도 lot별 계산
-aggregate quantity가 0이 될 때 position cycle 1회 종료
-```
-
-Fail-closed boundary:
-
-```text
-long exposure 중 SELL_SHORT 추가진입 금지
-short exposure 중 BUY 추가진입 금지
-동시 long/short hedge 금지
-max_lots 초과 금지
-lot quantity 초과 targeted exit 금지
-aggregate quantity 초과 exit 금지
-Step 5-8에서는 active exit order를 동시에 여러 개 두지 않음
-```
-
-5-7 호환성:
-
-```text
-기존 PartialExecutionSession은 계속 single-position + pyramiding fail-closed
-새 pyramiding 권한은 PyramidingExecutionSession에만 존재
-기존 PartialFillBroker lifecycle/partial-fill semantics 재사용
-각 pyramiding fill slice는 기존 on_fill provisional state payload로 전달 가능
-```
-
-Batch boundary:
-
-```text
-migrated BacktestEngine의 기존 single-position whole-fill 실행은 Step 5-8에서 변경하지 않음
-DSL order syntax에 pyramiding quantity/lot selection을 아직 혼입하지 않음
-multi-lot event tape와 batch/stream 동일성은 Step 5-10에서 검증
+결정적 비선형 가격/고가/저가/거래량 series
+복수 period = 2/3/5/8/14/21
+NaN warmup + 중간 NaN fixture
+flat/zero-range edge fixture
+JMA phase/length/power 여러 조합
+Supertrend period/multiplier 여러 조합
+normalized MACD simple/exponential/weighted 조합
 ```
 
 중요 원칙:
 
 ```text
+Step 5-9는 검증 확장 단계이며 production indicator/runtime 로직을 임의 변경하지 않음
+차이가 발견되면 먼저 reference defect / product defect / authority drift로 분류
+expected/tolerance를 결과에 맞춰 완화하지 않음
+reference implementation이 production module을 import하면 FAIL
 frozen core 수정 없음
-migrated BrokerEmulator/BacktestEngine 직접 수정 없음
-hedging/netting을 묵시적으로 허용하지 않음
-lot allocation 규칙을 시장상황에 따라 임의 변경하지 않음
-5-9 reference differential을 선행 구현하지 않음
-검증완화 금지
+Step 5-10 batch/stream parity 선행 구현 금지
 ```
 
-5-8 완료 조건:
+5-9 완료 조건:
 
 ```text
-같은 order partial fills -> 동일 lot weighted average 정확
-같은 방향 여러 entry order -> 독립 lot + aggregate weighted average 정확
-FIFO partial exit가 lot 경계를 결정적으로 소비
-explicit target lot exit가 다른 lot을 건드리지 않음
-lot별 entry fee / exit fee / realized PnL 정확
-flatten 후 반대 방향 새 cycle 진입 가능
-exposure 중 opposite entry fail-closed
-max_lots 초과가 broker mutation 전 fail-closed
-target lot over-exit가 broker/accounting mutation 전 fail-closed
-각 fill -> 기존 on_fill provisional state 연동 가능
-Step 5-7 single-position session의 pyramiding 금지 contract 유지
-new module frozen-core/backtest import 없음
-5-1~5-7 회귀검사 PASS
+독립 reference import isolation PASS
+registered ta/user surface coverage completeness PASS
+core indicator family differential PASS
+복수 period matrix PASS
+NaN/flat edge fixture PASS
+JMA/Supertrend/BBands state/reference PASS
+normalized MACD component/method matrix PASS
+actual DSL runtime mapping differential PASS
+multi-output lowering differential PASS
+기존 5-1~5-8 핵심 회귀검사 PASS
 frozen core guard PASS
-focused user-local pyramiding test PASS
+focused user-local reference differential test PASS
 ```
 
-5-8 PASS + checkpoint 전 5-9 시작 금지.
+5-9 PASS + checkpoint 전 5-10 시작 금지.
 
 ---
 
 ## 이후 고정 순서
 
 ```text
-5-9 full reference differential fixtures
 5-10 full-engine batch/streaming parity
 6 AXIS 1 machine-readable capability/diagnostic registry
 7 Bridge common + AXIS 1 execution contract
