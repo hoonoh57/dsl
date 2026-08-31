@@ -7,6 +7,8 @@ through the Bridge.
 """
 from __future__ import annotations
 
+import math
+from numbers import Integral, Real
 from typing import Any, Mapping
 
 from bridges.contracts.common import BridgeResponseMeta, json_safe
@@ -14,6 +16,43 @@ from bridges.contracts.axis1_execution import Axis1ExecutionRequest, Axis1Execut
 from axes.axis1_dsl.core.capability_diagnostic_registry import registry_hash
 from axes.axis1_dsl.execution.axis1_backtest import Axis1BacktestEngine
 from axes.axis1_dsl.runtime.dsl_context import DSLContextSeriesBinding
+
+
+_NONFINITE_TAG = "$number"
+
+
+def _result_json_safe(value: Any, *, path: str = "$.result") -> Any:
+    """Serialize AXIS 1 output without losing explicit non-finite meaning.
+
+    Input contracts reject NaN/Infinity.  Execution output may legitimately
+    contain Infinity (for example profit factor with gains and no losses), so the
+    Bridge encodes non-finite output as a tagged JSON object instead of silently
+    defaulting it or rejecting an otherwise valid execution.
+    """
+    if value is None or isinstance(value, (str, bool)):
+        return value
+    if isinstance(value, Integral):
+        return int(value)
+    if isinstance(value, Real):
+        number = float(value)
+        if math.isnan(number):
+            return {_NONFINITE_TAG: "NaN"}
+        if math.isinf(number):
+            return {_NONFINITE_TAG: "Infinity" if number > 0 else "-Infinity"}
+        return number
+    if isinstance(value, Mapping):
+        result: dict[str, Any] = {}
+        for key, item in value.items():
+            if not isinstance(key, str) or not key:
+                raise ValueError(f"AXIS 1 result mapping key is invalid at {path}")
+            result[key] = _result_json_safe(item, path=f"{path}.{key}")
+        return result
+    if isinstance(value, (list, tuple)):
+        return [
+            _result_json_safe(item, path=f"{path}[{index}]")
+            for index, item in enumerate(value)
+        ]
+    raise ValueError(f"AXIS 1 returned an opaque value at {path}: {type(value).__name__}")
 
 
 class Axis1ExecutionBridge:
@@ -81,7 +120,7 @@ class Axis1ExecutionBridge:
                 entry_gate=None if request.entry_gate is None else list(request.entry_gate),
                 parent_context_binding=cls._context_binding(request),
             )
-            safe_result = json_safe(
+            safe_result = _result_json_safe(
                 {
                     "strategy_ref": {
                         "strategy_id": request.strategy_id,
@@ -92,8 +131,7 @@ class Axis1ExecutionBridge:
                         "timeframe": request.timeframe,
                     },
                     "execution": result,
-                },
-                path="$.result",
+                }
             )
             response = Axis1ExecutionResponse(
                 meta=response_meta("OK"),
