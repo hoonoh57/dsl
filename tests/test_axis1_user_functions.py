@@ -121,7 +121,7 @@ class Axis1UserFunctionTests(unittest.TestCase):
         diagnostics = result["diagnostics"]["user_functions"]
         self.assertTrue(diagnostics["supplied"])
         self.assertEqual(diagnostics["definitions"][0]["name"], "above_average")
-        self.assertTrue(result["strategy"]["name"], "FunctionBacktest")
+        self.assertEqual(result["strategy"]["name"], "FunctionBacktest")
 
     def test_fail_closed_for_invalid_function_contracts(self):
         cases = (
