@@ -1,27 +1,42 @@
 # AXIS 3 — Strategy Monetization
 
-Status: **NEW IMPLEMENTATION ROOT / NOT YET MIGRATED**
+Status: **ACTIVE IMPLEMENTATION ROOT / VERSIONED ARTIFACTS**
 
-This directory owns Strategy CRUD, lineage, comparison, validation and promotion/rejection workflows.
+This directory owns product-level Condition/Strategy artifact CRUD, lineage, comparison, promotion/rejection/archive state, and deterministic strategy-run orchestration.
 
-Rules:
+Boundary clarification:
 
-- Do not implement DSL Parser/Runtime here.
-- Do not implement cross-sectional selection here.
-- Do not calculate chart-native values here.
-- Consume AXIS 2 `CandidateSetResponse` and invoke AXIS 1 only through versioned bridge contracts.
-- Preserve immutable strategy baselines and separate Strategy CRUD from Feature Catalog and Condition CRUD.
+- AXIS 2 still owns Condition **selection semantics**: immutable snapshot consumption, filter/rank/top-N, and CandidateSet production.
+- AXIS 3 owns Condition **artifact lifecycle**: immutable versioned copies of approved/research `axis2_selection_spec/v1` data, lineage and promotion state.
+- AXIS 3 owns Strategy CRUD and strategy version lineage.
+- AXIS 3 does not parse/execute DSL and does not re-run AXIS 2 selection logic.
+- Cross-axis execution is performed only through versioned Bridge contracts; Step 10 creates execution intents only, while Step 11 owns the actual E2E Bridge routing.
+- Feature Catalog remains separate and immutable.
 
-Planned internal layout:
+Current layout:
 
 ```text
-strategies/
 crud/
-evaluation/
-tests/
+  versioned_store.py
+  condition_version.v1.schema.json
+  strategy_version.v1.schema.json
+orchestration/
+  run_plan.py
+  strategy_run_plan.v1.schema.json
 ```
+
+Storage policy:
+
+```text
+content update = new immutable version
+lifecycle state = separate audited state
+hard delete = not used for product lineage; archive preserves history
+```
+
+Do not import AXIS 1/2 internal modules or frozen repository-root `core/` from this package.
 
 See:
 
+- `DSL_THREE_AXIS_FINAL_TARGET.md`
 - `DSL_THREE_AXIS_MODULE_BOUNDARY.md`
 - `DSL_FROZEN_CORE_MIGRATION_POLICY.md`
