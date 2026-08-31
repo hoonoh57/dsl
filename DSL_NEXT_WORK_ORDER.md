@@ -4,7 +4,7 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-08-31 KST**
 
 이 문서는 현재 프로젝트의 작업 순서 SSOT다.
 
-> 방침은 즉시 기록하되, 현재 번호가 검증되기 전 다음 번호로 넘어가지 않는다.
+> 현재 번호가 user-local 검증과 checkpoint를 통과하기 전 다음 번호로 넘어가지 않는다.
 
 ---
 
@@ -13,7 +13,7 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-08-31 KST**
 ```text
 CURRENT_STEP = 5
 CURRENT_STEP_NAME = AXIS 1 신규 DSL 기능 개발
-CURRENT_SUBSTEP = 5-4 user-defined functions
+CURRENT_SUBSTEP = 5-5 bounded loops
 SUBSTEP_STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
@@ -30,63 +30,68 @@ STEP 5-2 COMPLETE = tuple-aware generic projection user-local PASS
   -> STEP5_2_GENERIC_PROJECTION_CHECKPOINT_2026-08-31.md
 STEP 5-3 COMPLETE = capability/function metadata completeness user-local PASS
   -> STEP5_3_CAPABILITY_METADATA_CHECKPOINT_2026-08-31.md
+STEP 5-4 COMPLETE = user-defined functions user-local PASS
+  -> STEP5_4_USER_FUNCTIONS_CHECKPOINT_2026-08-31.md
 ```
 
 ---
 
-## 5-4 현재 — user-defined functions
+## 5-5 현재 — bounded loops
 
 목표:
 
 ```text
-전략 안에서 반복되는 계산식을 이름 있는 순수 함수로 선언하고
-인수/local scope/return을 fail-closed로 검증한 뒤 기존 DSL 표현식으로 안전하게 inline
+반복 횟수가 compile 전에 확정되는 순수 반복 계산만 허용하고
+runtime에 동적 loop 권한이나 무한반복 가능성을 추가하지 않음
 ```
 
 구조:
 
 ```text
 사용자 DSL
+ -> bounded-loop compile-time lowering
  -> user-function lowering
- -> 기존 multi-output lowering
+ -> multi-output lowering
  -> 검증된 migrated Parser/Semantic/Runtime/Backtest
 ```
 
 구현:
 
 ```text
-axes/axis1_dsl/core/user_functions.py
+axes/axis1_dsl/core/bounded_loops.py
 axes/axis1_dsl/runtime/axis1_runtime.py
 axes/axis1_dsl/execution/axis1_backtest.py
-tests/test_axis1_user_functions.py
+tests/test_axis1_bounded_loops.py
 ```
 
-v1 문법:
+v1 문법 예:
 
 ```text
-function centered(source, period) {
-    basis = ta.sma(source, period)
-    return source - basis
+function mean3(source) {
+    total = 0
+    for i in range(0, 3) {
+        total = total + source[i]
+    }
+    return total / 3
 }
-
-value = centered(close, 20)
 ```
 
 v1 contract:
 
 ```text
-strategy top-level function 선언만 허용
-함수는 순수 계산만 수행
-인수는 위치 인수만 허용
-ordered local assignment + 마지막 return expression 허용
-local은 parameter 또는 앞서 선언된 local만 참조
-시장값/ctx 등 외부값은 반드시 함수 인수로 명시해서 전달
-등록 builtin 함수와 다른 user function 호출 허용
-함수 간 합성 허용
-직접/간접 재귀 금지
-함수 내부 if/loop/state/order/on_bar 등 mutation/control block 금지
-호출 결과 type은 inline 후 기존 Semantic이 동일 규칙으로 검증
-함수 선언 블록은 동일 line 수의 blank line으로 낮춰 downstream 오류 line 보존
+bounded loop는 user-defined function 내부에서만 허용
+range 인수는 compile-time 정수 상수만 허용
+Python range와 같은 start/stop/step 의미
+최대 반복 횟수 = 64
+step=0 금지
+loop index는 read-only
+loop target은 앞에서 선언된 function local accumulator만 허용
+parameter mutation 금지
+nested loop / if / return / state / order 등 loop 내부 control/mutation 확장 금지
+loop는 compile-time expression으로 완전히 소거
+runtime loop 없음
+source line 수를 보존하여 downstream 오류 line 유지
+전개식이 과도하게 커지면 fail-closed
 ```
 
 중요 원칙:
@@ -94,35 +99,34 @@ local은 parameter 또는 앞서 선언된 local만 참조
 ```text
 migrated parser/semantic/runtime/backtest core 직접 확장 없음
 frozen core 수정 없음
-user function runtime registry/eval 권한 추가 없음
-함수는 실행 전에 deterministic expression으로 완전히 소거
-5-5 bounded loop를 5-4에서 선행 구현하지 않음
+동적 bound / data-dependent bound 금지
+실행 중 break/continue/while 금지
+5-6 tick/fill lifecycle을 선행 구현하지 않음
+검증완화 금지
 ```
 
-5-4 완료 조건:
+5-5 완료 조건:
 
 ```text
-parameter/local/return scope 정상 동작
-builtin을 사용하는 user function 결과가 직접 계산과 동일
-user function -> user function 합성 정상
-user function 결과를 multi-output 입력으로 사용 가능
-Backtest facade가 함수 정의 diagnostics 보존
-중복 parameter/local, free variable, bad arity, keyword call, recursion, nested block fail-closed
-downstream runtime 오류 line이 원래 DSL line 유지
-new feature layer frozen-core import 없음
-5-1/5-2/5-3 회귀검사 PASS
+고정 range accumulator 결과가 수동 history expression과 동일
+step range와 복수 accumulator 결정적 동작
+bounded-loop function 결과를 기존 multi-output 입력으로 사용 가능
+Backtest diagnostics에 loop contract 보존
+내부 helper가 실행 output/projection에 노출되지 않음
+dynamic bound / 초과 반복 / zero step / scope 위반 / parameter mutation / nested block fail-closed
+source line count와 downstream 오류 line 보존
+5-1~5-4 회귀검사 PASS
 frozen core guard PASS
-focused user-local user-function test PASS
+focused user-local bounded-loop test PASS
 ```
 
-5-4 PASS + checkpoint 전 5-5 시작 금지.
+5-5 PASS + checkpoint 전 5-6 시작 금지.
 
 ---
 
 ## 이후 고정 순서
 
 ```text
-5-5 bounded loops
 5-6 on_tick / on_fill commit/rollback
 5-7 partial fills / partial exits
 5-8 pyramiding / multi-position accounting
