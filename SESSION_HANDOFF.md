@@ -1,6 +1,6 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 4 BOUNDARY 9 / 2026-08-31 KST**
+Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 4 BOUNDARY 9 / RETEST REQUIRED / 2026-08-31 KST**
 
 이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + exact user-local PASS + 현재 `dsl-live-studio` 상태가 stale 문서보다 우선한다.
 
@@ -17,7 +17,7 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT
 ```text
 CURRENT_STEP = 4
 CURRENT_BOUNDARY = 9 Backtest + Projection Output
-BOUNDARY_STATUS = REMOTE_UNVALIDATED
+BOUNDARY_STATUS = REMOTE_RETEST_REQUIRED
 ```
 
 완료:
@@ -71,9 +71,25 @@ axis1:
 백테스트 엔진 이식 완료
 새 AXIS 1 Runtime/Broker만 사용
 기존 candles/markers/trades/closed-trades/metrics/equity/indicator projection 보존
-focused parity test 추가:
+focused parity test:
   tests/test_axis1_backtest_projection_parity.py
 ```
+
+최근 user-local 결과:
+
+```text
+Ran 5 tests / errors=2
+원인 분류 = TEST_DEFECT
+두 오류 모두 legacy parser에서 동일하게 발생
+잘못된 test fixture:
+  order.close_long(type = "MARKET")
+기존 DSL 문법상 close 계열은 현재 인수를 받지 않음
+수정:
+  order.close_long()
+product/core/assertion 완화 없음
+```
+
+따라서 현재 실패는 AXIS 1 backtest migration defect로 판정하지 않는다. 수정된 fixture의 user-local 재검증 전에는 Boundary 9를 PASS/TRUSTED 처리하지 않는다.
 
 Context boundary:
 
@@ -133,7 +149,7 @@ expected frozen hash 변경으로 위반 수용
 6 MTF + Read-Only Context Binding      PASS
 7 DSL Runtime                          PASS
 8 Broker                               PASS
-9 Backtest + Projection Output         CURRENT / REMOTE_UNVALIDATED
+9 Backtest + Projection Output         CURRENT / RETEST REQUIRED
 ```
 
 Boundary 9 PASS 후에만 Step 4 전체 migration parity를 COMPLETE 처리한다.
@@ -191,4 +207,4 @@ python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py" -v
 
 둘 다 PASS하면 Boundary 9 checkpoint 후 Step 4 전체 migration parity를 COMPLETE 처리하고, 순서대로 Step 5-1 tuple / multi-output로 이동한다.
 
-실패 시 test defect / migration defect / authority drift / environment issue / unknown 순으로 원인분류하고 assertion이나 원칙을 약화하지 않는다.
+실패 시 새 오류를 test defect / migration defect / authority drift / environment issue / unknown으로 다시 분류하며 assertion이나 원칙을 약화하지 않는다.
