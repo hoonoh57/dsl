@@ -13,7 +13,7 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-08-31 KST**
 ```text
 CURRENT_STEP = 5
 CURRENT_STEP_NAME = AXIS 1 신규 DSL 기능 개발
-CURRENT_SUBSTEP = 5-3 capability/function metadata completeness
+CURRENT_SUBSTEP = 5-4 user-defined functions
 SUBSTEP_STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
@@ -28,69 +28,100 @@ STEP 5-1 COMPLETE = tuple / multi-output + destructuring user-local PASS
   -> STEP5_1_MULTI_OUTPUT_CHECKPOINT_2026-08-31.md
 STEP 5-2 COMPLETE = tuple-aware generic projection user-local PASS
   -> STEP5_2_GENERIC_PROJECTION_CHECKPOINT_2026-08-31.md
+STEP 5-3 COMPLETE = capability/function metadata completeness user-local PASS
+  -> STEP5_3_CAPABILITY_METADATA_CHECKPOINT_2026-08-31.md
 ```
 
 ---
 
-## 5-3 현재 — capability/function metadata completeness
+## 5-4 현재 — user-defined functions
 
 목표:
 
 ```text
-등록된 모든 AXIS 1 함수와 multi-output 기능에 대해
-기계가 읽을 수 있는 실행/출력/인과성 정보를 빠짐없이 제공
+전략 안에서 반복되는 계산식을 이름 있는 순수 함수로 선언하고
+인수/local scope/return을 fail-closed로 검증한 뒤 기존 DSL 표현식으로 안전하게 inline
 ```
 
-현재 구현:
+구조:
 
 ```text
-axes/axis1_dsl/core/capability_metadata.py
-tests/test_axis1_capability_metadata.py
+사용자 DSL
+ -> user-function lowering
+ -> 기존 multi-output lowering
+ -> 검증된 migrated Parser/Semantic/Runtime/Backtest
 ```
 
-Metadata contract:
+구현:
 
 ```text
-name / mode / category / signature
-output_names / output_types
-lookback / warmup / nan_policy
-incremental_identity / reference_source / causality
+axes/axis1_dsl/core/user_functions.py
+axes/axis1_dsl/runtime/axis1_runtime.py
+axes/axis1_dsl/execution/axis1_backtest.py
+tests/test_axis1_user_functions.py
+```
+
+v1 문법:
+
+```text
+function centered(source, period) {
+    basis = ta.sma(source, period)
+    return source - basis
+}
+
+value = centered(close, 20)
+```
+
+v1 contract:
+
+```text
+strategy top-level function 선언만 허용
+함수는 순수 계산만 수행
+인수는 위치 인수만 허용
+ordered local assignment + 마지막 return expression 허용
+local은 parameter 또는 앞서 선언된 local만 참조
+시장값/ctx 등 외부값은 반드시 함수 인수로 명시해서 전달
+등록 builtin 함수와 다른 user function 호출 허용
+함수 간 합성 허용
+직접/간접 재귀 금지
+함수 내부 if/loop/state/order/on_bar 등 mutation/control block 금지
+호출 결과 type은 inline 후 기존 Semantic이 동일 규칙으로 검증
+함수 선언 블록은 동일 line 수의 blank line으로 낮춰 downstream 오류 line 보존
 ```
 
 중요 원칙:
 
 ```text
-기존 migrated parser/runtime/backtest 동작 변경 없음
+migrated parser/semantic/runtime/backtest core 직접 확장 없음
 frozen core 수정 없음
-새 등록 함수가 metadata policy 없이 추가되면 fail-closed
-확인되지 않은 incremental identity를 PASS로 과장하지 않음
-현재 full-engine streaming identity 미검증 상태는 명시적으로 NOT_YET_CERTIFIED 기록
-MTF는 confirmed parent only + nearest/fill-forward/default 금지 명시
-multi-output는 component 이름/type을 기존 typed contract와 exact 일치
+user function runtime registry/eval 권한 추가 없음
+함수는 실행 전에 deterministic expression으로 완전히 소거
+5-5 bounded loop를 5-4에서 선행 구현하지 않음
 ```
 
-5-3 완료 조건:
+5-4 완료 조건:
 
 ```text
-FUNCTION_SPECS 모든 항목 metadata coverage 100%
-MULTI_OUTPUT_SPECS 모든 항목 metadata coverage 100%
-output type/name contract registry와 exact 일치
-lookback/warmup/NaN/reference/causality 필드 공백 없음
-single-output와 multi-output 동일 함수명은 mode로 구분
-manifest deterministic
-new metadata module frozen-core import 없음
+parameter/local/return scope 정상 동작
+builtin을 사용하는 user function 결과가 직접 계산과 동일
+user function -> user function 합성 정상
+user function 결과를 multi-output 입력으로 사용 가능
+Backtest facade가 함수 정의 diagnostics 보존
+중복 parameter/local, free variable, bad arity, keyword call, recursion, nested block fail-closed
+downstream runtime 오류 line이 원래 DSL line 유지
+new feature layer frozen-core import 없음
+5-1/5-2/5-3 회귀검사 PASS
 frozen core guard PASS
-user-local focused test PASS
+focused user-local user-function test PASS
 ```
 
-5-3 PASS + checkpoint 전 5-4 시작 금지.
+5-4 PASS + checkpoint 전 5-5 시작 금지.
 
 ---
 
 ## 이후 고정 순서
 
 ```text
-5-4 user-defined functions
 5-5 bounded loops
 5-6 on_tick / on_fill commit/rollback
 5-7 partial fills / partial exits
