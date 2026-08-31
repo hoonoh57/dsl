@@ -125,6 +125,16 @@ class ExpressionEvaluator(ast.NodeVisitor):
                 out[i] = previous
             return out
 
+        def session_day_return_pct():
+            day_open = session_current("open", "open")
+            close = np.asarray(values["close"], float)
+            return np.divide(
+                close - day_open,
+                day_open,
+                out=np.full(size, np.nan),
+                where=day_open != 0,
+            ) * 100.0
+
         def offset(fn, name):
             def apply(series, period, bars=0):
                 safe_period = _positive_period(period, f"{name} period")
@@ -293,6 +303,7 @@ class ExpressionEvaluator(ast.NodeVisitor):
             "session.day_open": lambda: session_current("open", "open"),
             "session.day_high": lambda: session_current("high", "high"),
             "session.day_low": lambda: session_current("low", "low"),
+            "session.day_return_pct": session_day_return_pct,
             "session.prev_open": lambda: session_previous("open", "open"),
             "session.prev_high": lambda: session_previous("high", "high"),
             "session.prev_low": lambda: session_previous("low", "low"),

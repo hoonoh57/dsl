@@ -86,6 +86,7 @@ def _call_expression(name: str) -> str:
         "session.day_open": "session.day_open()",
         "session.day_high": "session.day_high()",
         "session.day_low": "session.day_low()",
+        "session.day_return_pct": "session.day_return_pct()",
         "session.prev_open": "session.prev_open()",
         "session.prev_high": "session.prev_high()",
         "session.prev_low": "session.prev_low()",
