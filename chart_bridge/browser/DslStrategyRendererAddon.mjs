@@ -1,4 +1,8 @@
 import { chartBarsToDslMarket } from './DslChartMarketAdapter.mjs';
+import {
+  assertDslChartTimeframeCompatible,
+  dslTimeframeFromSource,
+} from './DslChartTimeframeGuard.mjs';
 
 const DSL_STRATEGY_ADDON_ID = 'strategy.dsl';
 
@@ -12,11 +16,13 @@ function normalizeStrategy(value = {}) {
   const dslCode = String(strategy.dsl_code ?? '').trim();
   if (!name) throw new Error('DSL strategy name is required.');
   if (!dslCode) throw new Error('DSL strategy code is required.');
+  const timeframe = String(strategy.timeframe ?? '').trim() || dslTimeframeFromSource(dslCode);
   return {
     schemaVersion: 1,
     id: String(strategy.id ?? '').trim() || 'dsl-strategy',
     name,
     dsl_code: dslCode,
+    timeframe,
     settings: strategy.settings && typeof strategy.settings === 'object' && !Array.isArray(strategy.settings)
       ? cloneJson(strategy.settings)
       : {},
@@ -31,6 +37,7 @@ async function evaluateDsl(strategy, bars) {
       dsl_code: strategy.dsl_code,
       settings: strategy.settings ?? {},
       market: chartBarsToDslMarket(bars),
+      data_timeframe: strategy.timeframe,
       bars_count: bars.length,
     }),
   });
@@ -100,6 +107,10 @@ class DslStrategyRendererAddon {
       return;
     }
     try {
+      assertDslChartTimeframeCompatible(
+        this.#strategy.timeframe,
+        this.#context.getWorkspaceContext?.() ?? {},
+      );
       const result = await evaluateDsl(this.#strategy, bars);
       if (sequence !== this.#sequence) return;
       this.#markers = Array.isArray(result.markers) ? result.markers.map(item => ({ ...item })) : [];
