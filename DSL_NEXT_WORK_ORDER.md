@@ -1,6 +1,6 @@
 # DSL Strict Sequential Next-Work Order
 
-Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-08-31 KST**
+Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-09-01 KST**
 
 이 문서는 현재 프로젝트의 작업 순서 SSOT다.
 
@@ -13,8 +13,8 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-08-31 KST**
 ```text
 CURRENT_STEP = 5
 CURRENT_STEP_NAME = AXIS 1 신규 DSL 기능 개발
-CURRENT_SUBSTEP = 5-5 bounded loops
-SUBSTEP_STATUS = REMOTE_RETEST_REQUIRED
+CURRENT_SUBSTEP = 5-6 on_tick / on_fill commit/rollback
+SUBSTEP_STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
 완료:
@@ -32,103 +32,137 @@ STEP 5-3 COMPLETE = capability/function metadata completeness user-local PASS
   -> STEP5_3_CAPABILITY_METADATA_CHECKPOINT_2026-08-31.md
 STEP 5-4 COMPLETE = user-defined functions user-local PASS
   -> STEP5_4_USER_FUNCTIONS_CHECKPOINT_2026-08-31.md
+STEP 5-5 COMPLETE = bounded loops user-local PASS
+  -> STEP5_5_BOUNDED_LOOPS_CHECKPOINT_2026-09-01.md
+```
+
+5-5 final user-local evidence:
+
+```text
+test_axis1_bounded_loops.py = Ran 7 / OK
+test_axis1_multi_output.py = Ran 8 / OK
+test_frozen_legacy_core_guard.py = Ran 1 / OK
 ```
 
 ---
 
-## 5-5 현재 — bounded loops
+## 5-6 현재 — on_tick / on_fill commit/rollback
 
 목표:
 
 ```text
-반복 횟수가 compile 전에 확정되는 순수 반복 계산만 허용하고
-runtime에 동적 loop 권한이나 무한반복 가능성을 추가하지 않음
+실시간 bar가 확정되기 전 tick/fill event로 바뀌는 state를 provisional 영역에만 보관하고
+bar 확정 시 commit, 취소/재구성 시 rollback하여 마지막 확정 state를 정확히 보존
 ```
 
 구조:
 
 ```text
 사용자 DSL
- -> bounded-loop compile-time lowering
- -> user-function lowering
- -> multi-output lowering
- -> 검증된 migrated Parser/Semantic/Runtime/Backtest
+ -> on_tick/on_fill handler extraction
+ -> bounded loops
+ -> user functions
+ -> multi-output
+ -> migrated Parser/Semantic/Runtime
+
+live continuation:
+committed state
+ -> begin_bar
+ -> ordered on_tick/on_fill provisional mutations
+ -> commit_bar OR rollback_bar
+```
+
+구현:
+
+```text
+axes/axis1_dsl/runtime/intrabar_lifecycle.py
+axes/axis1_dsl/runtime/axis1_runtime.py
+axes/axis1_dsl/execution/axis1_backtest.py
+tests/test_axis1_intrabar_lifecycle.py
+```
+
+v1 DSL 예:
+
+```text
+state peak = 0
+state fill_count = 0
+
+on_tick {
+    if (tick.price > peak) {
+        set peak = tick.price
+    }
+}
+
+on_fill {
+    set fill_count = fill_count + 1
+}
 ```
 
 v1 contract:
 
 ```text
-bounded loop는 user-defined function 내부에서만 허용
-range 인수는 compile-time 정수 상수만 허용
-Python range와 같은 start/stop/step 의미
-최대 반복 횟수 = 64
-step=0 금지
-loop index는 read-only
-loop target은 앞에서 선언된 function local accumulator만 허용
-parameter mutation 금지
-nested loop / if / return / state / order 등 loop 내부 control/mutation 확장 금지
-loop는 compile-time expression으로 완전히 소거
-runtime loop 없음
-source line 수를 보존하여 downstream 오류 line 유지
-전개식이 과도하게 커지면 fail-closed
+on_tick/on_fill은 strategy top-level 각각 최대 1개
+handler는 선언된 state만 변경
+on_tick event fields = tick.price / tick.volume / tick.time
+on_fill event fields = fill.price / fill.quantity / fill.side / fill.order_id / fill.time
+handler 내부 = set + if/else + scalar arithmetic/comparison/boolean only
+indicator/function call, order placement, provider/context access, loop 금지
+state type 변경 금지
+begin_bar 이후 event만 허용
+모든 event mutation은 provisional
+한 event 실행 실패 시 그 event 직전 provisional snapshot으로 atomic rollback
+rollback_bar = 현재 bar의 모든 provisional mutation 폐기
+commit_bar = provisional snapshot을 새 committed state로 승격
+commit revision은 commit에서만 증가
+on_fill은 같은 bar에서 앞선 on_tick provisional state를 순서대로 관찰
+source line 수 보존
 ```
 
-최근 user-local 재검증:
+Batch policy:
 
 ```text
-test_axis1_bounded_loops.py = Ran 7 / 1 failure
-test_axis1_multi_output.py = Ran 8 / 1 failure
-나머지 이전 회귀검사 = OK
+Step 5-6 batch backtest는 intrabar event tape를 아직 소비하지 않음
+따라서 on_tick/on_fill 전략을 event tape 없이 batch backtest하면 fail-closed
+침묵 무시/임의 bar-close 치환 금지
+full batch/stream event parity는 Step 5-10 authority
 ```
 
-원인 분류:
+중요 원칙:
 
 ```text
-FEATURE_DEFECT — 5-1 ta.bbands multi-output lowering의 component별 NaN semantics 불일치
+migrated Parser/Semantic/Runtime/Broker 직접 변경 없음
+frozen core 수정 없음
+실시간 indicator 재계산 권한 추가 없음
+provisional state를 committed처럼 외부 노출하지 않음
+5-7 partial fill을 선행 구현하지 않음
+5-8 pyramiding을 선행 구현하지 않음
+검증완화 금지
 ```
 
-정확한 근거:
+5-6 완료 조건:
 
 ```text
-CoreTALib.bbands의 middle은 CoreTALib.sma를 사용하므로 rolling window의 NaN을 0으로 취급하는 기존 SMA semantics를 그대로 따른다.
-반면 upper/lower의 deviation은 직접 np.std(window)를 사용하므로 window 안에 NaN이 하나라도 있으면 deviation이 NaN이다.
-따라서 middle과 upper/lower는 warmup/NaN semantics가 서로 다르다.
-첫 보정은 이 차이를 놓치고 세 component를 같은 finite-window mask로 묶어 middle을 과도하게 NaN 처리했다.
-```
-
-현재 조치:
-
-```text
-middle = 기존 ta.sma 결과 그대로 유지
-upper/lower deviation만 period 연속 유효값 전까지 NaN으로 유지
-기존 DSL primitive만 사용
-migrated core/frozen core/assertion 변경 없음
-기존 direct CoreTALib.bbands exact 비교 유지
-```
-
-5-5 완료 조건:
-
-```text
-고정 range accumulator 결과가 수동 history expression과 동일
-step range와 복수 accumulator 결정적 동작
-bounded-loop function 결과를 기존 multi-output 입력으로 사용 가능
-Backtest diagnostics에 loop contract 보존
-내부 helper가 실행 output/projection에 노출되지 않음
-dynamic bound / 초과 반복 / zero step / scope 위반 / parameter mutation / nested block fail-closed
-source line count와 downstream 오류 line 보존
-5-1~5-4 회귀검사 PASS
+tick/fill ordered provisional mutation 정상
+committed state는 commit 전 불변
+rollback 후 exact committed snapshot 복원
+commit 후 새 snapshot과 revision 확정
+failed event atomic rollback
+state coverage/type mismatch fail-closed
+wrong event field/free variable/call/undeclared target fail-closed
+bar lifecycle 순서 위반 fail-closed
+batch backtest no-event-tape fail-closed
+기존 5-1~5-5 facade 회귀검사 PASS
 frozen core guard PASS
-focused user-local bounded-loop test PASS
+focused user-local intrabar lifecycle test PASS
 ```
 
-5-5 PASS + checkpoint 전 5-6 시작 금지.
+5-6 PASS + checkpoint 전 5-7 시작 금지.
 
 ---
 
 ## 이후 고정 순서
 
 ```text
-5-6 on_tick / on_fill commit/rollback
 5-7 partial fills / partial exits
 5-8 pyramiding / multi-position accounting
 5-9 full reference differential fixtures
