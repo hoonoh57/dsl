@@ -13,7 +13,7 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-08-31 KST**
 ```text
 CURRENT_STEP = 5
 CURRENT_STEP_NAME = AXIS 1 신규 DSL 기능 개발
-CURRENT_SUBSTEP = 5-2 tuple-aware generic projection
+CURRENT_SUBSTEP = 5-3 capability/function metadata completeness
 SUBSTEP_STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
@@ -24,82 +24,72 @@ STEP 1 COMPLETE = 기존 DSL 남은 기능 exact audit
 STEP 2 COMPLETE = AXIS 1 migration manifest + 9개 boundary 순서
 STEP 3 COMPLETE = Frozen Core 보호 gate user-local PASS
 STEP 4 COMPLETE = AXIS 1 9개 migration boundary 모두 user-local PASS
-  -> STEP4_BOUNDARY9_BACKTEST_PROJECTION_PARITY_CHECKPOINT_2026-08-31.md
-STEP 5-1 COMPLETE = tuple / multi-output typed return + destructuring user-local PASS
+STEP 5-1 COMPLETE = tuple / multi-output + destructuring user-local PASS
   -> STEP5_1_MULTI_OUTPUT_CHECKPOINT_2026-08-31.md
-```
-
-Step 4 최종 상태:
-
-```text
-1 Parser / AST                         PASS
-2 Function Registry                    PASS
-3 Assignment Flow + Semantic           PASS
-4 Indicator Kernel                     PASS
-5 State + Bar Runtime                  PASS
-6 MTF + Read-Only Context Binding      PASS
-7 DSL Runtime                          PASS
-8 Broker                               PASS
-9 Backtest + Projection Output         PASS
+STEP 5-2 COMPLETE = tuple-aware generic projection user-local PASS
+  -> STEP5_2_GENERIC_PROJECTION_CHECKPOINT_2026-08-31.md
 ```
 
 ---
 
-## 5-2 현재 — tuple-aware generic projection
+## 5-3 현재 — capability/function metadata completeness
 
-목표는 multi-output 결과를 특정 지표 이름별 예외처리 없이 공통 projection contract로 노출하는 것이다.
-
-원칙:
+목표:
 
 ```text
-지표/조건 값을 Chart에서 재계산하지 않음
-이미 실행된 Backtest indicator output + multi-output binding metadata만 소비
-사용자가 붙인 target 이름과 등록 component identity를 보존
-pane/overlay와 direction-color는 기존 실행 output을 그대로 재사용
-특정 ta.supertrend / ta.bbands / MACD 이름을 renderer logic에 하드코딩하지 않음
-projection이 없어도 거래/백테스트 실행 결과를 바꾸지 않음
+등록된 모든 AXIS 1 함수와 multi-output 기능에 대해
+기계가 읽을 수 있는 실행/출력/인과성 정보를 빠짐없이 제공
 ```
 
-구조:
+현재 구현:
 
 ```text
-Axis1BacktestEngine
- -> migrated BacktestEngine 결과
- -> generic projection manifest 부착
- -> 기존 indicators data는 재계산 없이 참조/주석만 추가
+axes/axis1_dsl/core/capability_metadata.py
+tests/test_axis1_capability_metadata.py
 ```
 
-5-2 완료 조건:
+Metadata contract:
 
 ```text
-single-output numeric series도 공통 projection manifest에 노출
-multi-output 각 target이 function/component/type identity를 보존
-기존 indicator data/overlay/direction-color를 그대로 사용
-값이 없는 warmup-only component를 임의 값으로 합성하지 않음
-projection module이 indicator kernel/runtime/provider/frozen core를 호출하지 않음
-기존 5-1 multi-output test PASS
+name / mode / category / signature
+output_names / output_types
+lookback / warmup / nan_policy
+incremental_identity / reference_source / causality
+```
+
+중요 원칙:
+
+```text
+기존 migrated parser/runtime/backtest 동작 변경 없음
+frozen core 수정 없음
+새 등록 함수가 metadata policy 없이 추가되면 fail-closed
+확인되지 않은 incremental identity를 PASS로 과장하지 않음
+현재 full-engine streaming identity 미검증 상태는 명시적으로 NOT_YET_CERTIFIED 기록
+MTF는 confirmed parent only + nearest/fill-forward/default 금지 명시
+multi-output는 component 이름/type을 기존 typed contract와 exact 일치
+```
+
+5-3 완료 조건:
+
+```text
+FUNCTION_SPECS 모든 항목 metadata coverage 100%
+MULTI_OUTPUT_SPECS 모든 항목 metadata coverage 100%
+output type/name contract registry와 exact 일치
+lookback/warmup/NaN/reference/causality 필드 공백 없음
+single-output와 multi-output 동일 함수명은 mode로 구분
+manifest deterministic
+new metadata module frozen-core import 없음
 frozen core guard PASS
-focused user-local projection test PASS
+user-local focused test PASS
 ```
 
-금지:
-
-```text
-Chart에서 indicator 재계산
-missing 값을 0/default/fill-forward로 생성
-특정 지표별 renderer 분기 확대
-5-3 capability metadata를 선행 구현
-migrated execution core 대수술
-```
-
-5-2 PASS + checkpoint 전 5-3 시작 금지.
+5-3 PASS + checkpoint 전 5-4 시작 금지.
 
 ---
 
 ## 이후 고정 순서
 
 ```text
-5-3 capability/function metadata completeness
 5-4 user-defined functions
 5-5 bounded loops
 5-6 on_tick / on_fill commit/rollback
