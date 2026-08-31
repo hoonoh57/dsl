@@ -1,16 +1,9 @@
-"""Deterministic AXIS 1 batch/streaming parity certification helpers.
+"""Correctness-first AXIS 1 batch/streaming parity certification helpers.
 
-This Step 5-10 layer is additive.  It does not replace the migrated runtime or
-backtest engine.  Instead it verifies causality by comparing one full batch run
-with repeated prefix runs (the same data arriving one bar at a time), and it
-provides one ordered event-tape session that can be consumed either all-at-once
-or event-by-event.
-
-The prefix method is intentionally correctness-first rather than performance-
-first: every prefix is independently recompiled/replayed from authoritative
-inputs.  That makes any future-data dependency, state drift, signal drift or
-order/accounting drift observable without introducing a second calculation
-kernel that could disagree for unrelated reasons.
+This Step 5-10 layer is additive. A full batch result is compared with repeated
+causal prefixes (the information available when each bar arrived). Intrabar and
+execution events are also exposed through one ordered tape that can be consumed
+as a batch or one event at a time. No frozen-core dependency is introduced.
 """
 from __future__ import annotations
 
@@ -37,14 +30,6 @@ class RuntimeParityReport:
     series_checked: tuple[str, ...]
     event_count: int
 
-    def public_dict(self) -> dict:
-        return {
-            "bars": self.bars,
-            "prefixes_checked": self.prefixes_checked,
-            "series_checked": self.series_checked,
-            "event_count": self.event_count,
-        }
-
 
 @dataclass(frozen=True)
 class BacktestParityReport:
@@ -54,19 +39,10 @@ class BacktestParityReport:
     closed_trade_count: int
     broker_history_count: int
 
-    def public_dict(self) -> dict:
-        return {
-            "bars": self.bars,
-            "prefixes_checked": self.prefixes_checked,
-            "trade_count": self.trade_count,
-            "closed_trade_count": self.closed_trade_count,
-            "broker_history_count": self.broker_history_count,
-        }
-
 
 def _slice_value(value, size: int):
     if isinstance(value, np.ndarray):
-        return value[:size].copy()
+        return np.asarray(value)[:size].copy()
     if isinstance(value, list):
         return list(value[:size])
     if isinstance(value, tuple):
@@ -77,7 +53,6 @@ def _slice_value(value, size: int):
 
 
 def slice_market(market: Mapping[str, object], size: int) -> dict:
-    """Return a prefix market without mutating the caller's fixture."""
     if not isinstance(size, int) or size <= 0:
         raise ValueError("size must be a positive integer")
     if "close" not in market:
@@ -88,9 +63,8 @@ def slice_market(market: Mapping[str, object], size: int) -> dict:
     return {key: _slice_value(value, size) for key, value in market.items()}
 
 
-def _numeric_array_equal(actual, expected) -> bool:
-    left = np.asarray(actual)
-    right = np.asarray(expected)
+def _arrays_equal(actual, expected) -> bool:
+    left, right = np.asarray(actual), np.asarray(expected)
     if left.shape != right.shape:
         return False
     if left.dtype == bool or right.dtype == bool:
@@ -101,31 +75,35 @@ def _numeric_array_equal(actual, expected) -> bool:
         return bool(np.array_equal(left, right))
 
 
-def _assert_array_equal(actual, expected, label: str) -> None:
-    if not _numeric_array_equal(actual, expected):
+def _assert_array_equal(actual, expected, label: str, *, expected_colors=None) -> None:
+    if not _arrays_equal(actual, expected):
         raise FullEngineParityError(f"array parity mismatch: {label}", "ARRAY_PARITY_MISMATCH")
 
     actual_colors = getattr(actual, "trend_colors", None)
-    expected_colors = getattr(expected, "trend_colors", None)
-    if actual_colors is not None or expected_colors is not None:
-        if actual_colors is None or expected_colors is None or not np.array_equal(actual_colors, expected_colors):
-            raise FullEngineParityError(f"trend metadata parity mismatch: {label}", "TREND_METADATA_PARITY_MISMATCH")
+    if expected_colors is None:
+        expected_colors = getattr(expected, "trend_colors", None)
+    if actual_colors is None and expected_colors is None:
+        return
+    if actual_colors is None or expected_colors is None:
+        raise FullEngineParityError(f"trend metadata missing: {label}", "TREND_METADATA_PARITY_MISMATCH")
+    count = len(np.asarray(actual))
+    if not np.array_equal(np.asarray(actual_colors)[:count], np.asarray(expected_colors)[:count]):
+        raise FullEngineParityError(f"trend metadata parity mismatch: {label}", "TREND_METADATA_PARITY_MISMATCH")
 
 
 def _assert_value_equal(actual, expected, label: str) -> None:
-    if isinstance(expected, np.ndarray) or isinstance(actual, np.ndarray):
+    if isinstance(actual, np.ndarray) or isinstance(expected, np.ndarray):
         _assert_array_equal(actual, expected, label)
         return
-    if isinstance(expected, np.generic):
-        expected = expected.item()
     if isinstance(actual, np.generic):
         actual = actual.item()
-    if isinstance(expected, float) or isinstance(actual, float):
-        try:
-            if np.isnan(expected) and np.isnan(actual):
-                return
-        except TypeError:
-            pass
+    if isinstance(expected, np.generic):
+        expected = expected.item()
+    try:
+        if np.isnan(actual) and np.isnan(expected):
+            return
+    except TypeError:
+        pass
     if actual != expected:
         raise FullEngineParityError(
             f"value parity mismatch: {label}: {actual!r} != {expected!r}",
@@ -134,35 +112,31 @@ def _assert_value_equal(actual, expected, label: str) -> None:
 
 
 def verify_runtime_prefix_parity(code: str, market: Mapping[str, object]) -> RuntimeParityReport:
-    """Verify that full batch runtime output is identical at every causal prefix.
-
-    A prefix compile represents the exact information that would have been
-    available when that bar arrived.  Therefore comparing every prefix against
-    the corresponding full-batch prefix detects future leakage as well as state,
-    MTF, multi-output and event-condition drift.
-    """
+    """Compare every streamed prefix with the corresponding full-batch prefix."""
     total = len(market["close"])
     if total <= 0:
         raise ValueError("runtime parity requires at least one bar")
-
-    full_market = {key: _slice_value(value, total) for key, value in market.items()}
-    full = Axis1DSLRuntime.compile(code, full_market)
-    series_names = tuple(
-        sorted(
-            name
-            for name, value in full.values.items()
-            if isinstance(value, np.ndarray) and len(value) == total
-        )
-    )
+    full = Axis1DSLRuntime.compile(code, slice_market(market, total))
+    series_names = tuple(sorted(
+        name for name, value in full.values.items()
+        if isinstance(value, np.ndarray) and len(value) == total
+    ))
 
     for size in range(1, total + 1):
         prefix = Axis1DSLRuntime.compile(code, slice_market(market, size))
         for name in series_names:
             if name not in prefix.values:
                 raise FullEngineParityError(f"stream prefix missing series: {name}", "STREAM_SERIES_MISSING")
-            expected = full.values[name][:size]
-            actual = prefix.values[name]
-            _assert_array_equal(actual, expected, f"runtime:{name}:prefix={size}")
+            full_value = full.values[name]
+            expected = np.asarray(full_value)[:size]
+            expected_colors = getattr(full_value, "trend_colors", None)
+            if expected_colors is not None:
+                expected_colors = np.asarray(expected_colors)[:size]
+            _assert_array_equal(
+                prefix.values[name], expected,
+                f"runtime:{name}:prefix={size}",
+                expected_colors=expected_colors,
+            )
 
         for name, expected in full.values.items():
             if isinstance(expected, np.ndarray):
@@ -171,14 +145,11 @@ def verify_runtime_prefix_parity(code: str, market: Mapping[str, object]) -> Run
                 _assert_value_equal(prefix.values[name], expected, f"runtime-scalar:{name}:prefix={size}")
 
         if len(prefix.events) != len(full.events):
-            raise FullEngineParityError(
-                f"event count drift at prefix {size}: {len(prefix.events)} != {len(full.events)}",
-                "EVENT_COUNT_PARITY_MISMATCH",
-            )
+            raise FullEngineParityError(f"event count drift at prefix {size}", "EVENT_COUNT_PARITY_MISMATCH")
         for event_index, (actual_event, expected_event) in enumerate(zip(prefix.events, full.events)):
             _assert_array_equal(
                 actual_event.condition,
-                expected_event.condition[:size],
+                np.asarray(expected_event.condition)[:size],
                 f"event[{event_index}].condition:prefix={size}",
             )
             if actual_event.commands != expected_event.commands:
@@ -188,43 +159,27 @@ def verify_runtime_prefix_parity(code: str, market: Mapping[str, object]) -> Run
                 )
             for order_index, (actual_order, expected_order) in enumerate(zip(actual_event.orders, expected_event.orders)):
                 if set(actual_order.arguments) != set(expected_order.arguments):
-                    raise FullEngineParityError(
-                        f"order argument keys drift at prefix {size}, event {event_index}, order {order_index}",
-                        "ORDER_ARGUMENT_PARITY_MISMATCH",
-                    )
+                    raise FullEngineParityError("order argument key drift", "ORDER_ARGUMENT_PARITY_MISMATCH")
                 for key, expected_value in expected_order.arguments.items():
-                    actual_value = actual_order.arguments[key]
                     if isinstance(expected_value, np.ndarray):
-                        expected_value = expected_value[:size]
+                        expected_value = np.asarray(expected_value)[:size]
                     _assert_value_equal(
-                        actual_value,
-                        expected_value,
+                        actual_order.arguments[key], expected_value,
                         f"event[{event_index}].order[{order_index}].{key}:prefix={size}",
                     )
 
-    return RuntimeParityReport(
-        bars=total,
-        prefixes_checked=total,
-        series_checked=series_names,
-        event_count=len(full.events),
-    )
+    return RuntimeParityReport(total, total, series_names, len(full.events))
 
 
-def _filter_rows_by_time(rows: Sequence[Mapping[str, object]], key: str, allowed_times: set[str]) -> list[dict]:
-    result = []
-    for row in rows:
-        value = row.get(key)
-        if value is not None and str(value) in allowed_times:
-            result.append(dict(row))
-    return result
+def _filter_rows(rows: Sequence[Mapping[str, object]], key: str, allowed: set[str]) -> list[dict]:
+    return [dict(row) for row in rows if row.get(key) is not None and str(row.get(key)) in allowed]
 
 
-def _open_position_from_trades(trades: Sequence[Mapping[str, object]]) -> int:
+def _position_from_trades(trades: Sequence[Mapping[str, object]]) -> int:
     position = 0
     for row in trades:
         if row.get("kind") == "ENTRY":
-            side = str(row.get("side", "")).upper()
-            position = 1 if side == "BUY" else -1
+            position = 1 if str(row.get("side", "")).upper() == "BUY" else -1
         elif row.get("kind") == "EXIT":
             position = 0
     return position
@@ -237,64 +192,41 @@ def verify_backtest_prefix_parity(
     data_timeframe: str,
     settings: Mapping[str, object] | None = None,
 ) -> BacktestParityReport:
-    """Compare batch backtest state with repeated one-more-bar prefix replay.
+    """Compare equity, executions, closed trades and broker lifecycle per prefix.
 
-    The test intentionally compares equity, execution records, closed trades and
-    broker lifecycle history.  Prefix fixtures should use GTC/market orders when
-    lifecycle equality across artificial prefix ends is required; DAY expiration
-    at an artificial prefix end is a different input condition by definition.
+    GTC/market fixtures are used for prefix certification because an artificial
+    prefix end is not an authoritative DAY-session boundary.
     """
     total = len(market["close"])
     if total < 2:
         raise ValueError("backtest parity requires at least two bars")
-
-    kwargs = {
-        "market": {key: _slice_value(value, total) for key, value in market.items()},
-        "data_timeframe": data_timeframe,
-        "settings": dict(settings or {}),
-    }
-    full = Axis1BacktestEngine.run(code, **kwargs)
+    config = dict(settings or {})
+    full = Axis1BacktestEngine.run(
+        code, market=slice_market(market, total), data_timeframe=data_timeframe, settings=config,
+    )
     full_equity = [float(item["value"]) for item in full["equity_curve"]]
-    all_times = [str(item) for item in market["time"]]
+    times = [str(item) for item in market["time"]]
 
     for size in range(2, total + 1):
-        prefix_market = slice_market(market, size)
         prefix = Axis1BacktestEngine.run(
-            code,
-            market=prefix_market,
-            data_timeframe=data_timeframe,
-            settings=dict(settings or {}),
+            code, market=slice_market(market, size), data_timeframe=data_timeframe, settings=config,
         )
-        prefix_equity = [float(item["value"]) for item in prefix["equity_curve"]]
-        if not np.allclose(prefix_equity, full_equity[:size], rtol=0.0, atol=0.0, equal_nan=True):
+        actual_equity = [float(item["value"]) for item in prefix["equity_curve"]]
+        if not np.allclose(actual_equity, full_equity[:size], rtol=0.0, atol=0.0, equal_nan=True):
             raise FullEngineParityError(f"equity parity mismatch at prefix {size}", "EQUITY_PARITY_MISMATCH")
 
-        allowed = set(all_times[:size])
-        expected_trades = _filter_rows_by_time(full["trades"], "time", allowed)
+        allowed = set(times[:size])
+        expected_trades = _filter_rows(full["trades"], "time", allowed)
+        expected_closed = _filter_rows(full["closed_trades"], "exit_time", allowed)
+        expected_history = _filter_rows(full["diagnostics"]["broker_history"], "event", allowed)
         if prefix["trades"] != expected_trades:
             raise FullEngineParityError(f"trade parity mismatch at prefix {size}", "TRADE_PARITY_MISMATCH")
-
-        expected_closed = _filter_rows_by_time(full["closed_trades"], "exit_time", allowed)
         if prefix["closed_trades"] != expected_closed:
-            raise FullEngineParityError(
-                f"closed-trade parity mismatch at prefix {size}",
-                "CLOSED_TRADE_PARITY_MISMATCH",
-            )
-
-        expected_history = _filter_rows_by_time(full["diagnostics"]["broker_history"], "event", allowed)
+            raise FullEngineParityError(f"closed-trade parity mismatch at prefix {size}", "CLOSED_TRADE_PARITY_MISMATCH")
         if prefix["diagnostics"]["broker_history"] != expected_history:
-            raise FullEngineParityError(
-                f"broker lifecycle parity mismatch at prefix {size}",
-                "BROKER_HISTORY_PARITY_MISMATCH",
-            )
-
-        expected_position = _open_position_from_trades(expected_trades)
-        actual_position = int(prefix["metrics_numeric"]["open_position"])
-        if actual_position != expected_position:
-            raise FullEngineParityError(
-                f"position parity mismatch at prefix {size}: {actual_position} != {expected_position}",
-                "POSITION_PARITY_MISMATCH",
-            )
+            raise FullEngineParityError(f"broker lifecycle parity mismatch at prefix {size}", "BROKER_HISTORY_PARITY_MISMATCH")
+        if int(prefix["metrics_numeric"]["open_position"]) != _position_from_trades(expected_trades):
+            raise FullEngineParityError(f"position parity mismatch at prefix {size}", "POSITION_PARITY_MISMATCH")
         if int(prefix["metrics_numeric"]["closed_trade_count"]) != len(expected_closed):
             raise FullEngineParityError(
                 f"closed trade count parity mismatch at prefix {size}",
@@ -302,21 +234,13 @@ def verify_backtest_prefix_parity(
             )
 
     return BacktestParityReport(
-        bars=total,
-        prefixes_checked=total - 1,
-        trade_count=len(full["trades"]),
-        closed_trade_count=len(full["closed_trades"]),
-        broker_history_count=len(full["diagnostics"]["broker_history"]),
+        total, total - 1, len(full["trades"]), len(full["closed_trades"]),
+        len(full["diagnostics"]["broker_history"]),
     )
 
 
 class Axis1EventTapeSession:
-    """One ordered event authority consumable in batch or streaming form.
-
-    Broker/accounting fills remain authoritative even when strategy intrabar
-    state is later rolled back.  This preserves the Step 5-6/5-7 authority split.
-    """
-
+    """Ordered intrabar + partial/pyramiding execution tape authority."""
     def __init__(
         self,
         compiled,
@@ -337,70 +261,55 @@ class Axis1EventTapeSession:
         self.results: list[dict] = []
 
     @staticmethod
-    def _optional_order_args(event: Mapping[str, object]) -> dict:
-        allowed = (
-            "type", "limit_price", "stop_price", "tif", "oco",
-            "origin", "signal_time", "client_order_id", "event",
-        )
-        return {name: event[name] for name in allowed if name in event}
+    def _order_kwargs(event: Mapping[str, object]) -> dict:
+        names = ("type", "limit_price", "stop_price", "tif", "oco", "origin", "signal_time", "client_order_id", "event")
+        return {name: event[name] for name in names if name in event}
 
     def apply(self, event: Mapping[str, object]) -> dict:
         if not isinstance(event, Mapping):
             raise TypeError("event tape item must be a mapping")
-        operation = str(event.get("op", "")).strip().upper()
-        if not operation:
+        op = str(event.get("op", "")).strip().upper()
+        if not op:
             raise ValueError("event tape item requires op")
 
-        if operation == "BEGIN_BAR":
-            value = self.intrabar.begin_bar(event["bar_id"])
-            result = {"op": operation, "state": value}
-        elif operation == "TICK":
-            value = self.intrabar.on_tick(
-                price=event["price"],
-                volume=event.get("volume", 0.0),
-                time=event.get("time"),
-            )
-            result = {"op": operation, "state": value}
-        elif operation == "SUBMIT_ENTRY":
+        if op == "BEGIN_BAR":
+            result = {"op": op, "state": self.intrabar.begin_bar(event["bar_id"])}
+        elif op == "TICK":
+            result = {"op": op, "state": self.intrabar.on_tick(
+                price=event["price"], volume=event.get("volume", 0.0), time=event.get("time"),
+            )}
+        elif op == "SUBMIT_ENTRY":
             order = self.execution.submit_entry(
-                event["order_id"],
-                event["side"],
-                event["quantity"],
-                **self._optional_order_args(event),
+                event["order_id"], event["side"], event["quantity"], **self._order_kwargs(event),
             )
-            result = {"op": operation, "order": order.public_dict()}
-        elif operation == "SUBMIT_EXIT":
-            kwargs = self._optional_order_args(event)
+            result = {"op": op, "order": order.public_dict()}
+        elif op == "SUBMIT_EXIT":
+            kwargs = self._order_kwargs(event)
             if "lot_id" in event:
                 kwargs["lot_id"] = event["lot_id"]
-            order = self.execution.submit_exit(
-                event["order_id"],
-                event.get("quantity"),
-                **kwargs,
-            )
-            result = {"op": operation, "order": order.public_dict()}
-        elif operation == "FILL":
+            order = self.execution.submit_exit(event["order_id"], event.get("quantity"), **kwargs)
+            result = {"op": op, "order": order.public_dict()}
+        elif op == "FILL":
             execution_result = self.execution.fill(
-                event["order_id"],
-                event["price"],
-                event["quantity"],
+                event["order_id"], event["price"], event["quantity"],
                 event=event.get("event", event.get("time")),
             )
+            # Exchange/accounting fact is authoritative. If the handler rejects,
+            # its provisional strategy state rolls back but the fill is retained.
             state = self.intrabar.on_fill(**self.execution.intrabar_fill_event(execution_result))
-            result = {"op": operation, "execution": execution_result, "state": state}
-        elif operation == "CANCEL":
+            result = {"op": op, "execution": execution_result, "state": state}
+        elif op == "CANCEL":
             order = self.execution.cancel(
-                event["order_id"],
-                reason=str(event.get("reason", "user canceled")),
+                event["order_id"], reason=str(event.get("reason", "user canceled")),
                 event=event.get("event", event.get("time")),
             )
-            result = {"op": operation, "order": order.public_dict()}
-        elif operation == "COMMIT_BAR":
-            result = {"op": operation, "state": self.intrabar.commit_bar()}
-        elif operation == "ROLLBACK_BAR":
-            result = {"op": operation, "state": self.intrabar.rollback_bar()}
+            result = {"op": op, "order": order.public_dict()}
+        elif op == "COMMIT_BAR":
+            result = {"op": op, "state": self.intrabar.commit_bar()}
+        elif op == "ROLLBACK_BAR":
+            result = {"op": op, "state": self.intrabar.rollback_bar()}
         else:
-            raise ValueError(f"unsupported event tape operation: {operation}")
+            raise ValueError(f"unsupported event tape operation: {op}")
 
         self.results.append(result)
         return result
@@ -411,13 +320,12 @@ class Axis1EventTapeSession:
         return self.snapshot()
 
     def snapshot(self) -> dict:
-        provisional = self.intrabar.provisional_state() if self.intrabar.bar_open else None
         return {
             "intrabar": {
                 "revision": self.intrabar.revision,
                 "bar_open": self.intrabar.bar_open,
                 "committed": self.intrabar.committed_state(),
-                "provisional": provisional,
+                "provisional": self.intrabar.provisional_state() if self.intrabar.bar_open else None,
                 "audit": tuple(dict(item) for item in self.intrabar.audit),
             },
             "execution": self.execution.snapshot(),
@@ -435,8 +343,7 @@ def verify_event_tape_batch_stream_parity(
     sell_tax_pct: float = 0.0,
     max_lots: int = 4,
 ) -> dict:
-    """Verify grouped tape replay and one-event-at-a-time replay are identical."""
-
+    """Compare grouped replay with one-event-at-a-time replay exactly."""
     def make_session():
         return Axis1EventTapeSession(
             compiled,
@@ -449,19 +356,12 @@ def verify_event_tape_batch_stream_parity(
 
     batch = make_session()
     batch_snapshot = batch.run(tape)
-
     stream = make_session()
-    stream_results = []
-    for event in tape:
-        stream_results.append(stream.apply(event))
+    stream_results = [stream.apply(event) for event in tape]
     stream_snapshot = stream.snapshot()
 
     if batch.results != stream_results:
         raise FullEngineParityError("event result parity mismatch", "EVENT_RESULT_PARITY_MISMATCH")
     if batch_snapshot != stream_snapshot:
         raise FullEngineParityError("event tape final snapshot parity mismatch", "EVENT_TAPE_PARITY_MISMATCH")
-
-    return {
-        "events": len(tape),
-        "final": batch_snapshot,
-    }
+    return {"events": len(tape), "final": batch_snapshot}
