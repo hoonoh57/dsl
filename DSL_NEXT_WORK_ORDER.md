@@ -13,7 +13,7 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-09-01 KST**
 ```text
 CURRENT_STEP = 5
 CURRENT_STEP_NAME = AXIS 1 신규 DSL 기능 개발
-CURRENT_SUBSTEP = 5-9 full reference differential fixtures
+CURRENT_SUBSTEP = 5-10 full-engine batch/streaming parity
 SUBSTEP_STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
@@ -25,131 +25,151 @@ STEP 2 COMPLETE = AXIS 1 migration manifest + 9개 boundary 순서
 STEP 3 COMPLETE = Frozen Core 보호 gate user-local PASS
 STEP 4 COMPLETE = AXIS 1 9개 migration boundary 모두 user-local PASS
 STEP 5-1 COMPLETE = tuple / multi-output + destructuring user-local PASS
-  -> STEP5_1_MULTI_OUTPUT_CHECKPOINT_2026-08-31.md
 STEP 5-2 COMPLETE = tuple-aware generic projection user-local PASS
-  -> STEP5_2_GENERIC_PROJECTION_CHECKPOINT_2026-08-31.md
 STEP 5-3 COMPLETE = capability/function metadata completeness user-local PASS
-  -> STEP5_3_CAPABILITY_METADATA_CHECKPOINT_2026-08-31.md
 STEP 5-4 COMPLETE = user-defined functions user-local PASS
-  -> STEP5_4_USER_FUNCTIONS_CHECKPOINT_2026-08-31.md
 STEP 5-5 COMPLETE = bounded loops user-local PASS
-  -> STEP5_5_BOUNDED_LOOPS_CHECKPOINT_2026-09-01.md
 STEP 5-6 COMPLETE = on_tick/on_fill commit/rollback user-local PASS
-  -> STEP5_6_INTRABAR_LIFECYCLE_CHECKPOINT_2026-09-01.md
 STEP 5-7 COMPLETE = partial fills / partial exits user-local PASS
-  -> STEP5_7_PARTIAL_EXECUTION_CHECKPOINT_2026-09-01.md
 STEP 5-8 COMPLETE = pyramiding / multi-position accounting user-local PASS
-  -> STEP5_8_PYRAMIDING_EXECUTION_CHECKPOINT_2026-09-01.md
+STEP 5-9 COMPLETE = full reference differential fixtures user-local PASS
+  -> STEP5_9_REFERENCE_DIFFERENTIAL_CHECKPOINT_2026-09-01.md
 ```
 
-5-8 user-local evidence:
+5-9 user-local evidence:
 
 ```text
+test_axis1_reference_differential.py = OK
+test_axis1_indicator_parity.py = OK
 test_axis1_pyramiding_execution.py = OK
 test_axis1_partial_execution.py = OK
-test_axis1_intrabar_lifecycle.py = OK
-test_axis1_broker_parity.py = OK
 test_frozen_legacy_core_guard.py = OK
 ```
 
 ---
 
-## 5-9 현재 — full reference differential fixtures
+## 5-10 현재 — full-engine batch/streaming parity
 
 목표:
 
 ```text
-AXIS 1 TA/user indicator 계산을 frozen core와의 단순 복제 비교가 아니라
-독립된 test-side NumPy 기준 구현과 대량 differential 비교하여
-수식/warmup/NaN/event-history/runtime mapping drift를 조기에 검출
+같은 causal market 입력과 같은 ordered event tape에 대해
+batch 계산과 bar/event 순차 입력 결과가 상태/신호/체결/손익 수준에서 동일함을 한 검증 계약으로 묶는다.
 ```
 
 구현:
 
 ```text
-tests/axis1_reference_indicators.py
-tests/test_axis1_reference_differential.py
+axes/axis1_dsl/execution/full_engine_parity.py
+tests/test_axis1_full_engine_parity.py
 ```
 
-Reference isolation:
+### A. Runtime causal-prefix parity
 
 ```text
-reference fixture는 axes.axis1_dsl 또는 frozen core를 import하지 않음
-NumPy + 명시적 수식/상태전이만 사용
-production 구현을 호출해서 expected를 만들지 않음
+full market 1회 batch compile
+vs
+1 bar -> 2 bars -> ... -> N bars prefix compile
 ```
 
-검증 범위:
+매 prefix마다 다음을 exact 비교한다.
 
 ```text
-moving/rolling:
-  shift, sma, ema, rma, wma, ma, highest, lowest, rolling sum, stdev, roc
-
-recursive/trend:
-  true range, ATR, RSI, MACD, TRIX, CCI, ADX, JMA, Supertrend
-
-range/event history:
-  nrange, Williams %R, abs range, sum abs return, VHF
-  crossover/crossunder, bars_since, count_since, highest_since, lowest_since, value_when
-
-multi-output/user:
-  BBands upper/middle/lower
-  Supertrend line/direction
-  normalized MACD macd/signal/hist/hist_abs_pct
-
-runtime mapping:
-  등록된 모든 ta/user FUNCTION_SPECS가 explicit differential coverage set에 포함
-  DSL Runtime facade로 실제 함수 호출 결과도 reference와 비교
+모든 ndarray runtime value
+NaN/warmup 위치
+JMA 등 trend metadata
+on_bar state output
+MTF confirmed output
+multi-output result
+이벤트 condition
+주문 argument series/scalar
 ```
 
-Fixture matrix:
+이 방식은 성능 최적화용 incremental kernel이 아니라 **correctness oracle**이다. 미래 bar가 과거 값을 바꾸는지 직접 검출한다.
+
+### B. Backtest prefix parity
 
 ```text
-결정적 비선형 가격/고가/저가/거래량 series
-복수 period = 2/3/5/8/14/21
-NaN warmup + 중간 NaN fixture
-flat/zero-range edge fixture
-JMA phase/length/power 여러 조합
-Supertrend period/multiplier 여러 조합
-normalized MACD simple/exponential/weighted 조합
+full batch backtest
+vs
+동일 데이터를 2..N bar prefix로 반복 replay
 ```
 
-중요 원칙:
+비교:
 
 ```text
-Step 5-9는 검증 확장 단계이며 production indicator/runtime 로직을 임의 변경하지 않음
-차이가 발견되면 먼저 reference defect / product defect / authority drift로 분류
-expected/tolerance를 결과에 맞춰 완화하지 않음
-reference implementation이 production module을 import하면 FAIL
-frozen core 수정 없음
-Step 5-10 batch/stream parity 선행 구현 금지
+equity curve
+execution/trade records
+closed trades
+broker lifecycle history
+open-position state
+closed-trade count
 ```
 
-5-9 완료 조건:
+prefix 끝을 인위적 세션 종료로 오인하지 않도록 이 parity fixture는 market/GTC lifecycle을 사용한다.
+
+### C. Ordered intrabar/execution event-tape parity
+
+기존 Step 5-6/5-7/5-8 session을 하나의 ordered tape consumer로 묶는다.
 
 ```text
-독립 reference import isolation PASS
-registered ta/user surface coverage completeness PASS
-core indicator family differential PASS
-복수 period matrix PASS
-NaN/flat edge fixture PASS
-JMA/Supertrend/BBands state/reference PASS
-normalized MACD component/method matrix PASS
-actual DSL runtime mapping differential PASS
-multi-output lowering differential PASS
-기존 5-1~5-8 핵심 회귀검사 PASS
+BEGIN_BAR
+TICK
+SUBMIT_ENTRY / SUBMIT_EXIT
+FILL
+CANCEL
+COMMIT_BAR / ROLLBACK_BAR
+```
+
+동일 tape를:
+
+```text
+전체 sequence replay
+vs
+event 1개씩 streaming apply
+```
+
+하여 exact final snapshot과 event result를 비교한다.
+
+권위 분리:
+
+```text
+실제 broker/accounting fill fact는 authoritative
+strategy intrabar provisional state rollback은 fill fact를 되돌리지 않음
+```
+
+### 경계
+
+```text
+migrated runtime/backtest/broker core 직접 수정 없음
+frozen legacy core 수정 없음
+prefix replay 검증을 성능 좋은 실시간 incremental engine이라고 과장하지 않음
+Axis1BacktestEngine에 intrabar tape를 침묵 삽입하지 않음
+batch/stream parity는 동일 입력/동일 event ordering에서만 주장
+```
+
+5-10 완료 조건:
+
+```text
+runtime 모든 causal prefix exact parity PASS
+state + MTF + multi-output + event condition parity PASS
+batch backtest equity/trade/broker lifecycle prefix parity PASS
+intrabar + partial fill + pyramiding ordered tape batch/stream parity PASS
+rollback 후 strategy state와 execution fact authority separation PASS
+new parity layer frozen-core import 없음
+5-9 reference differential 회귀 PASS
+5-8/5-7 execution 회귀 PASS
 frozen core guard PASS
-focused user-local reference differential test PASS
+focused user-local full-engine parity test PASS
 ```
 
-5-9 PASS + checkpoint 전 5-10 시작 금지.
+5-10 PASS + checkpoint 전 Step 6 시작 금지.
 
 ---
 
 ## 이후 고정 순서
 
 ```text
-5-10 full-engine batch/streaming parity
 6 AXIS 1 machine-readable capability/diagnostic registry
 7 Bridge common + AXIS 1 execution contract
 8 AXIS 2 exact-as-of snapshot contract
