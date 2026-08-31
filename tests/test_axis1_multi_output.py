@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from pathlib import Path
 import unittest
 
@@ -33,7 +34,8 @@ def market_fixture(size=48):
 
 def backtest_market(size=48):
     values = market_fixture(size)
-    times = [f"20260831{90000 + i * 500:06d}" for i in range(size)]
+    base = datetime(2026, 8, 31, 9, 0, 0)
+    times = [(base + timedelta(minutes=5 * i)).strftime("%Y%m%d%H%M%S") for i in range(size)]
     return {
         "time": times,
         "open": values["open"],
