@@ -15,7 +15,7 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-08-31 KST**
 ```text
 CURRENT_STEP = 4
 CURRENT_STEP_NAME = AXIS 1 경계별 이식 + parity
-CURRENT_BOUNDARY = 6 MTF + Read-Only Context Binding
+CURRENT_BOUNDARY = 7 DSL Runtime
 BOUNDARY_STATUS = REMOTE_UNVALIDATED
 ```
 
@@ -30,7 +30,8 @@ STEP 4 / BOUNDARY 2 COMPLETE = Function Registry user-local PASS
 STEP 4 / BOUNDARY 3 COMPLETE = Assignment Flow + Semantic user-local PASS
 STEP 4 / BOUNDARY 4 COMPLETE = Indicator Kernel user-local PASS
 STEP 4 / BOUNDARY 5 COMPLETE = State + Bar Runtime user-local PASS
-  -> STEP4_BOUNDARY5_STATE_BAR_RUNTIME_PARITY_CHECKPOINT_2026-08-31.md
+STEP 4 / BOUNDARY 6 COMPLETE = MTF + Read-Only Context Binding user-local PASS
+  -> STEP4_BOUNDARY6_MTF_CONTEXT_PARITY_CHECKPOINT_2026-08-31.md
 ```
 
 현재 경계를 완료할 때마다:
@@ -49,41 +50,39 @@ STEP 4 / BOUNDARY 5 COMPLETE = State + Bar Runtime user-local PASS
 3 Assignment Flow + Semantic           COMPLETE / PASS
 4 Indicator Kernel                     COMPLETE / PASS
 5 State + Bar Runtime                  COMPLETE / PASS
-6 MTF + Read-Only Context Binding      CURRENT
-7 DSL Runtime
+6 MTF + Read-Only Context Binding      COMPLETE / PASS
+7 DSL Runtime                          CURRENT
 8 Broker
 9 Backtest + Projection Output
 ```
 
-현재 Boundary 6:
+현재 Boundary 7:
 
 ```text
 legacy:
-  core/multitimeframe.py
-  core/dsl_context.py
+  core/dsl_runtime.py
 
 axis1:
-  axes/axis1_dsl/runtime/multitimeframe.py
-  axes/axis1_dsl/runtime/dsl_context.py
+  axes/axis1_dsl/runtime/dsl_runtime.py
 ```
 
 방식:
 
 ```text
-MTF = 기존 confirmed-bar 동작 보존 + indicator import만 새 AXIS 1 경로로 변경
-Context = provider/frame 계산 책임을 이식하지 않고 이미 준비된 typed exact-time binding만 소비
+기존 DSL 실행 동작 보존
+내부 의존성은 Boundary 1~6의 새 AXIS 1 모듈만 사용
+신규 DSL 문법/기능 추가 없음
 ```
 
 완료 조건:
 
 ```text
-confirmed higher-timeframe 값 동일
-MTF SMA 동일
-잘못된 timeframe/field fail-closed 동일
-context type/value/runtime projection 동일
-binding hash 동일
-compile 대상 시간과 exact 불일치 시 fail-closed
-new AXIS 1 production code가 legacy provider/frame을 import/call하지 않음
+전략 이름/timeframe 동일
+assignment/indicator/session/MTF/state 계산값 동일
+이벤트 조건/주문 인자 동일
+prepared exact-time context 사용 결과 동일
+runtime fail-closed 오류 동일
+new runtime에 frozen core production import 없음
 frozen core guard PASS
 focused user-local parity PASS
 ```
@@ -91,15 +90,13 @@ focused user-local parity PASS
 금지:
 
 ```text
-parent provider 계산을 AXIS 1로 이식
-nearest-time / fill-forward / default 추가
-전체 core 일괄복사
+legacy core runtime import
 migration 중 신규 DSL 기능 추가
-legacy core 수정
+provider 계산 책임 유입
 parity 차이를 compatibility exception으로 숨기기
 ```
 
-Boundary 6 PASS + checkpoint 전 Boundary 7 시작 금지.
+Boundary 7 PASS + checkpoint 전 Boundary 8 Broker 시작 금지.
 
 ---
 
