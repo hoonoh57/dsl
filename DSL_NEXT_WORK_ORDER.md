@@ -14,7 +14,7 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-08-31 KST**
 CURRENT_STEP = 4
 CURRENT_STEP_NAME = AXIS 1 경계별 이식 + parity
 CURRENT_BOUNDARY = 9 Backtest + Projection Output
-BOUNDARY_STATUS = REMOTE_UNVALIDATED
+BOUNDARY_STATUS = REMOTE_RETEST_REQUIRED
 ```
 
 완료:
@@ -53,7 +53,7 @@ STEP 4 / BOUNDARY 8 COMPLETE = Broker user-local PASS
 6 MTF + Read-Only Context Binding      COMPLETE / PASS
 7 DSL Runtime                          COMPLETE / PASS
 8 Broker                               COMPLETE / PASS
-9 Backtest + Projection Output         CURRENT
+9 Backtest + Projection Output         CURRENT / RETEST REQUIRED
 ```
 
 현재 Boundary 9:
@@ -74,6 +74,17 @@ axis1:
 백테스트/거래/지표 projection 동작은 기존 behavior 보존
 내부 실행기는 새 AXIS 1 Runtime/Broker만 사용
 parent context는 legacy provider/frame을 받지 않고 이미 준비된 exact-time read-only binding만 소비
+```
+
+최근 user-local 검증:
+
+```text
+focused parity: Ran 5 tests / 2 errors
+root cause classification: TEST_DEFECT
+원인: parity fixture가 기존 DSL에서도 금지된 order.close_long(type = "MARKET") 문법을 사용
+증거: 오류가 legacy parser에서 먼저 발생
+조치: product/core/assertion 변경 없이 fixture를 유효 문법 order.close_long()으로 수정
+현재: user-local 재검증 대기
 ```
 
 완료 조건:
