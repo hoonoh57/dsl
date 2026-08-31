@@ -1,14 +1,14 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 5-6 / 2026-09-01 KST**
+Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 5-7 / 2026-09-01 KST**
 
-이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + user-local PASS + 현재 `dsl-live-studio` 상태가 stale 문서보다 우선한다.
+이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + user-local PASS + 현재 dsl-live-studio 상태가 stale 문서보다 우선한다.
 
 핵심 운영 원칙:
 
-> 사용자 진행보고는 기본적으로 `한 일 / 할 일`만 사람이 이해하는 용어로 짧게 한다.
+> 사용자 진행보고는 기본적으로 한 일 / 할 일만 사람이 이해하는 용어로 짧게 한다.
 
-> 검증된 migrated core는 안정된 실행 장비처럼 유지한다. 신규 DSL 기능은 가능한 한 명시적 contract + 얇은 compile-time lowering/facade 또는 별도 runtime session으로 격리한다.
+> 검증된 migrated core는 안정된 실행 장비처럼 유지한다. 신규 기능은 가능한 한 별도 lowering/facade/session으로 격리한다.
 
 ---
 
@@ -16,7 +16,7 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT
 
 ```text
 CURRENT_STEP = 5
-CURRENT_SUBSTEP = 5-6 on_tick / on_fill commit/rollback
+CURRENT_SUBSTEP = 5-7 partial fills / partial exits
 STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
@@ -32,98 +32,116 @@ Step 5-2 tuple-aware generic projection = COMPLETE / USER-LOCAL PASS
 Step 5-3 capability/function metadata = COMPLETE / USER-LOCAL PASS
 Step 5-4 user-defined functions = COMPLETE / USER-LOCAL PASS
 Step 5-5 bounded loops = COMPLETE / USER-LOCAL PASS
+Step 5-6 on_tick/on_fill commit/rollback = COMPLETE / USER-LOCAL PASS
 ```
 
 최근 checkpoint:
 
 ```text
-STEP5_5_BOUNDED_LOOPS_CHECKPOINT_2026-09-01.md
+STEP5_6_INTRABAR_LIFECYCLE_CHECKPOINT_2026-09-01.md
 ```
 
-5-5 final evidence:
+5-6 user-local evidence:
 
 ```text
-test_axis1_bounded_loops.py = Ran 7 / OK
-test_axis1_multi_output.py = Ran 8 / OK
-test_frozen_legacy_core_guard.py = Ran 1 / OK
+test_axis1_intrabar_lifecycle.py = OK
+test_axis1_bounded_loops.py = OK
+test_axis1_user_functions.py = OK
+test_axis1_multi_output.py = OK
+test_axis1_generic_projection.py = OK
+test_frozen_legacy_core_guard.py = OK
 ```
-
-5-5 검증 중 발견된 BBands multi-output NaN component semantics 결함도 direct CoreTALib.bbands 비교를 유지한 채 수정되어 최종 PASS했다.
 
 ---
 
-## 현재 5-6 구현
+## 현재 5-7 구현
 
 목표:
 
 ```text
-open bar에서 발생하는 tick/fill 기반 state 변경을 provisional transaction으로 격리하고
-bar 확정 전에는 committed state를 바꾸지 않음
+한 주문의 여러 partial fill과 한 position의 여러 partial exit를
+누적수량/잔량/평균체결가/비용/PnL 기준으로 결정적으로 관리
 ```
 
 구현 파일:
 
 ```text
-axes/axis1_dsl/runtime/intrabar_lifecycle.py
-axes/axis1_dsl/runtime/axis1_runtime.py
-axes/axis1_dsl/execution/axis1_backtest.py
-tests/test_axis1_intrabar_lifecycle.py
+axes/axis1_dsl/execution/partial_execution.py
+tests/test_axis1_partial_execution.py
 ```
 
-Lowering/실행 경계:
+주요 객체:
 
 ```text
-on_tick/on_fill handler extraction
- -> bounded loops
- -> user functions
- -> multi-output
- -> migrated Parser/Semantic/Runtime
-
-compiled history의 마지막 state
- -> Axis1DSLRuntime.open_intrabar_session
- -> begin_bar
- -> on_tick / on_fill ...
- -> commit_bar | rollback_bar
+PartialFillBroker
+PartialFillOrder
+PartialFillRecord
+SinglePositionLedger
+PartialExecutionSession
 ```
 
-v1 handler contract:
+Order contract:
 
 ```text
-on_tick/on_fill 각각 최대 하나
-선언된 strategy state만 set 가능
-if/else 허용
-함수 호출/indicator/order/context/provider/loop 금지
-state type 변경 금지
+status = CREATED / ACCEPTED / TRIGGERED / PARTIALLY_FILLED / FILLED / CANCELED / REJECTED / EXPIRED
+quantity = original requested quantity
+filled_quantity = cumulative executed quantity
+remaining_quantity = unexecuted quantity
+average_fill_price = cumulative weighted average
+fills = immutable fill-slice records
 ```
 
-Event fields:
+Partial fill rules:
 
 ```text
-on_tick: tick.price, tick.volume, tick.time
-on_fill: fill.price, fill.quantity, fill.side, fill.order_id, fill.time
+remaining 초과 fill 금지
+부분체결 상태는 active order로 유지
+부분체결 후 cancel/expire는 체결분을 취소하지 않음
+full quantity를 한 번에 fill하면 기존 whole-fill CREATED->ACCEPTED->FILLED status shape 유지
+OCO sibling은 한쪽이 실제 execution을 시작하면 다른 active sibling의 잔량을 취소
 ```
 
-Transaction semantics:
+Single-position accounting:
 
 ```text
-begin_bar에서 committed -> provisional 복사
-on_tick/on_fill은 provisional만 순서대로 변경
-각 event는 atomic: 실행 실패 시 그 event 직전 provisional로 복구
-rollback_bar는 현재 bar 전체 provisional 변경 폐기
-commit_bar는 provisional을 committed로 승격하고 revision +1
-rollback은 revision을 증가시키지 않음
-commit/rollback 후 다음 begin_bar 전 event 실행 금지
+같은 original entry order의 잔여 fill은 허용
+다른 entry order로 position 추가는 Step 5-8 전까지 금지
+entry fill 여러 건은 weighted average entry price로 합산
+partial exit는 현재 position quantity 이내만 허용
+entry fee remaining을 exit quantity 비율로 배분
+exit slice마다 realized gross/net PnL 기록
+position quantity=0일 때만 완전 종료
 ```
 
-중요 정책:
+5-6 intrabar 연동:
 
 ```text
-batch backtest는 Step 5-6에서 intrabar event tape를 아직 소비하지 않는다.
-on_tick/on_fill 전략을 batch backtest가 조용히 무시하면 잘못된 결과가 되므로 event tape 없이 호출 시 fail-closed한다.
-full batch/stream event parity는 Step 5-10에서 검증한다.
+각 partial fill result는 기존 IntrabarStateSession.on_fill payload로 변환 가능
+strategy provisional state가 rollback되어도 실제 execution/accounting fill은 rollback하지 않음
 ```
 
-기존 migrated parser/semantic/runtime/broker와 frozen legacy core는 직접 수정하지 않았다.
+Batch boundary:
+
+```text
+기존 migrated BacktestEngine은 계속 whole-fill authoritative
+Step 5-7에서 기존 batch 결과를 partial-fill로 임의 변경하지 않음
+partial event tape batch/stream parity는 Step 5-10에서 검증
+```
+
+검증 예정:
+
+```text
+whole-fill status compatibility
+cumulative/remaining/weighted fill accounting
+partial cancel
+atomic order-overfill rejection
+partial entry + sequential partial exits
+fee allocation and realized PnL
+position over-exit atomic rejection
+pyramiding fail-closed
+partial fill -> on_fill provisional state integration
+frozen-core import isolation
+```
 
 ---
 
@@ -140,11 +158,9 @@ core tree: 8b3f081de926f5c9f69e9cdbc158b81b2275176c
 ```text
 core/ 수정 / 이동 / 삭제 / 신규 파일 추가
 expected frozen hash 변경으로 위반 수용
-새 feature를 frozen core에 역이식
-intrabar handler에서 order placement/indicator recomputation/provider access 추가
-provisional state를 committed state처럼 취급
-5-7 partial fills 선행 구현
-5-8 pyramiding 선행 구현
+migrated BrokerEmulator/BacktestEngine을 partial-fill 때문에 직접 대수술
+position occupied 상태에서 새 entry를 추가하는 pyramiding 선행 구현
+multi-position/lot selection 선행 구현
 검증완화
 ```
 
@@ -153,8 +169,7 @@ provisional state를 committed state처럼 취급
 ## 다음 순서
 
 ```text
-5-6 on_tick / on_fill commit/rollback       CURRENT
-5-7 partial fills / partial exits
+5-7 partial fills / partial exits            CURRENT
 5-8 pyramiding / multi-position
 5-9 reference differential fixtures
 5-10 full-engine batch/streaming parity
@@ -188,14 +203,12 @@ provisional state를 committed state처럼 취급
 사용자 local에서 최신 branch pull 후:
 
 ```text
+python -m unittest discover -s tests -p "test_axis1_partial_execution.py" -v
 python -m unittest discover -s tests -p "test_axis1_intrabar_lifecycle.py" -v
-python -m unittest discover -s tests -p "test_axis1_bounded_loops.py" -v
-python -m unittest discover -s tests -p "test_axis1_user_functions.py" -v
-python -m unittest discover -s tests -p "test_axis1_multi_output.py" -v
-python -m unittest discover -s tests -p "test_axis1_generic_projection.py" -v
+python -m unittest discover -s tests -p "test_axis1_broker_parity.py" -v
 python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py" -v
 ```
 
-모두 PASS하면 5-6 checkpoint 후 5-7 partial fills / partial exits로 이동한다.
+모두 PASS하면 5-7 checkpoint 후 5-8 pyramiding / multi-position accounting으로 이동한다.
 
 실패 시 test defect / feature defect / authority drift / environment issue / unknown으로 먼저 분류하고 assertion/contract를 약화하지 않는다.
