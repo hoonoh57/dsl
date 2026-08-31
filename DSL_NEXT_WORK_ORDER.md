@@ -11,9 +11,9 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-09-01 KST**
 ## 현재 포인터
 
 ```text
-CURRENT_STEP = 9
-CURRENT_STEP_NAME = AXIS 2 selection engine / core selectors
-CURRENT_SUBSTEP = 9-1 deterministic snapshot filter / rank / top-N + CandidateSet v1
+CURRENT_STEP = 10
+CURRENT_STEP_NAME = AXIS 3 Condition / Strategy CRUD + orchestration
+CURRENT_SUBSTEP = 10-1 versioned artifact store + deterministic strategy run plan
 SUBSTEP_STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
@@ -23,17 +23,19 @@ SUBSTEP_STATUS = WRITTEN / REMOTE_UNVALIDATED
 STEP 1 COMPLETE = 기존 DSL 남은 기능 exact audit
 STEP 2 COMPLETE = AXIS 1 migration manifest + 9개 boundary 순서
 STEP 3 COMPLETE = Frozen Core 보호 gate user-local PASS
-STEP 4 COMPLETE = AXIS 1 9개 migration boundary 모두 user-local PASS
-STEP 5 COMPLETE = AXIS 1 신규 DSL 기능 개발 + 검증 전체 user-local PASS
-STEP 6 COMPLETE = AXIS 1 machine-readable capability/diagnostic registry user-local PASS
+STEP 4 COMPLETE = AXIS 1 migration user-local PASS
+STEP 5 COMPLETE = AXIS 1 신규 DSL 기능/검증 user-local PASS
+STEP 6 COMPLETE = capability/diagnostic registry user-local PASS
 STEP 7 COMPLETE = Bridge common + AXIS 1 execution contract user-local PASS
-STEP 8 COMPLETE = AXIS 2 exact-as-of immutable snapshot contract user-local PASS
-  -> STEP8_AXIS2_EXACT_ASOF_SNAPSHOT_CHECKPOINT_2026-09-01.md
+STEP 8 COMPLETE = AXIS 2 exact-as-of snapshot contract user-local PASS
+STEP 9 COMPLETE = AXIS 2 deterministic selection engine user-local PASS
+  -> STEP9_AXIS2_SELECTION_ENGINE_CHECKPOINT_2026-09-01.md
 ```
 
-Step 8 user-local evidence:
+Step 9 user-local evidence:
 
 ```text
+test_axis2_selection_engine.py = OK
 test_axis2_exact_asof_snapshot.py = OK
 test_axis1_execution_bridge_contract.py = OK
 test_frozen_legacy_core_guard.py = OK
@@ -41,176 +43,183 @@ test_frozen_legacy_core_guard.py = OK
 
 ---
 
-## Step 9 현재 — AXIS 2 deterministic selection engine
+## Step 10 현재 — AXIS 3 versioned CRUD + orchestration
 
 목표:
 
 ```text
-동일 immutable snapshot + 동일 selection spec
--> 언제 실행해도 동일 CandidateSet
+Condition/Strategy 연구 결과를 Feature Catalog와 분리된 AXIS 3 저장소에서
+immutable version + lineage + lifecycle로 관리하고,
+promoted exact artifacts + CandidateSet data만으로 deterministic strategy run plan을 만든다.
 ```
 
-구현:
+### 권한 정리
+
+Condition 책임은 의미와 lifecycle을 분리한다.
 
 ```text
-axes/axis2_selection/engine/__init__.py
-axes/axis2_selection/engine/selection.py
-axes/axis2_selection/engine/selection_spec.v1.schema.json
-axes/axis2_selection/engine/candidate_set.v1.schema.json
-tests/test_axis2_selection_engine.py
+AXIS 2 = Condition selection semantics / snapshot filter-rank-topN / CandidateSet authority
+AXIS 3 = Condition artifact CRUD/version/lineage/promotion state
 ```
 
-### SelectionSpec v1
+AXIS 3는 `axis2_selection_spec/v1` 데이터를 immutable product artifact로 보존하지만
+AXIS 2 filter/rank/top-N을 재구현하거나 실행하지 않는다.
+
+Strategy 책임:
 
 ```text
-schema = axis2_selection_spec/v1
-selection_id
-condition_version
-snapshot_id + snapshot_hash
-exact as_of + knowledge_cutoff
-filters[]
-optional sort
-optional top_n
-optional exact symbol_scope
+AXIS 3 = Strategy CRUD / immutable version / lineage / compare / promotion-rejection-archive
+AXIS 1 = DSL parse/compile/execute authority
 ```
 
-SelectionSpec는 snapshot identity에 강하게 바인딩된다.
+### 구현
 
 ```text
-snapshot_id mismatch -> FAIL
-snapshot_hash mismatch -> FAIL
-as_of mismatch -> FAIL
-knowledge_cutoff mismatch -> FAIL
+axes/axis3_monetization/__init__.py
+axes/axis3_monetization/crud/__init__.py
+axes/axis3_monetization/crud/versioned_store.py
+axes/axis3_monetization/crud/condition_version.v1.schema.json
+axes/axis3_monetization/crud/strategy_version.v1.schema.json
+axes/axis3_monetization/orchestration/__init__.py
+axes/axis3_monetization/orchestration/run_plan.py
+axes/axis3_monetization/orchestration/strategy_run_plan.v1.schema.json
+tests/test_axis3_crud_orchestration.py
 ```
 
-nearest-time / previous snapshot / fill-forward mode는 없다.
+### VersionedArtifactStore
 
-### Generic filter
-
-지원 metric:
+독립 SQLite 저장소를 사용한다.
 
 ```text
-VALUE
-RANK
-PERCENTILE
-```
-
-지원 operator:
-
-```text
-EQ / NE / GT / GTE / LT / LTE / IN / NOT_IN
+Condition content table
+Condition lifecycle state table
+Strategy content table
+Strategy lifecycle state table
+append-only lifecycle event audit
 ```
 
 규칙:
 
 ```text
-모든 filter는 AND
-NUMBER ordered comparison만 허용
-BOOLEAN/STRING은 exact typed comparison
-operand type mismatch는 fail-closed
-rank/percentile metric은 snapshot에 동결된 RankingEvidence만 사용
-동일 feature가 여러 peer group에 있으면 peer_group_id 생략 시 ambiguous FAIL
+content update = 새 version 생성
+기존 version overwrite 금지
+첫 version parent 없음
+후속 version parent lineage 보존
+Strategy condition_ref는 존재하는 exact Condition version만 허용
+artifact content hash deterministic
+NaN/Infinity/opaque payload 금지
 ```
 
-### Missing / invalid evidence
+CRUD의 delete 의미는 hard delete가 아니라 archive다. 연구/검증 계보를 삭제하지 않는다.
+
+### Lifecycle
 
 ```text
-row 없음      -> 해당 symbol 명시적 제외 / ROW_NOT_FOUND
-MISSING       -> 해당 symbol 명시적 제외 / ROW_MISSING
-INVALID       -> 해당 symbol 명시적 제외 / ROW_INVALID
+DRAFT -> PROMOTED | REJECTED | ARCHIVED
+PROMOTED -> ARCHIVED
+REJECTED -> ARCHIVED
+ARCHIVED -> terminal
 ```
 
-0 / false / neutral default 합성은 하지 않는다.
+content hash와 lifecycle state는 분리한다. promote/reject/archive가 immutable baseline content를 변경하지 않는다.
 
-### Ordering / top-N
+### Strategy comparison
 
-두 방식만 허용한다.
+동일 strategy_id의 두 version에 대해 다음 차이를 명시적으로 비교한다.
 
 ```text
-1. 이미 동결된 RANK/PERCENTILE evidence 정렬
-2. 이미 동결된 numeric VALUE 정렬
+name
+timeframe
+dsl_code
+settings
+condition_refs
+artifact hash
 ```
 
-VALUE 정렬은 selection ordering일 뿐 snapshot ranking evidence를 새로 만들거나 수정하지 않는다.
+### Deterministic orchestration plan
 
-Tie-break:
+`build_strategy_run_plan()`은 다음 exact data만 사용한다.
 
 ```text
-동일 sort value -> symbol ASC
+PROMOTED Strategy version
+PROMOTED Condition version
+Strategy가 실제로 참조하는 exact Condition version
+axis2_candidate_set/v1 data snapshot
 ```
 
-`top_n`은 explicit sort가 있을 때만 허용한다.
-
-### CandidateSet v1
+CandidateSet에 대해 다음을 확인한다.
 
 ```text
-schema = axis2_candidate_set/v1
-selection identity/hash
-snapshot identity/hash
-as_of/cutoff/universe
-source symbol count
-eligible count before top-N
-selected candidates + deterministic ordinal
-candidate별 실제 사용 evidence/provenance
-명시적 exclusions/reason
-ordering contract
-candidate_set_hash
+candidate_set_hash exact
+selection_hash exact
+condition_version label exact
+snapshot_hash exact
+as_of exact
+knowledge_cutoff exact
+candidate ordinal 1..N deterministic
 ```
 
-### 대표 가능한 selection
-
-generic feature id를 사용하므로 다음을 hardcoded 계산 없이 표현 가능하다.
+출력 `axis3_strategy_run_plan/v1`은 후보별 execution intent를 만든다.
 
 ```text
-high-beta boolean/percentile filter
-normalized Histogram threshold / rank / percentile / top-N
-sector membership string filter
-sector 내부 frozen rank (peer_group_id exact)
-relative strength / turnover / capital-flow numeric threshold/order
-EMA120 position 등 provider-precomputed deterministic feature filter
+symbol
+candidate ordinal
+strategy id/version/hash
+DSL source + timeframe + settings
+condition id/version/hash
+candidate_set hash
+evidence
 ```
 
-시장레짐/섹터강도/feature 자체의 계산은 이 엔진이 하지 않는다.
-
-### Step 9 경계
+중요:
 
 ```text
-immutable Step 8 snapshot만 입력
-provider/network/DB 호출 없음
-AXIS 1 DSL/runtime 호출 없음
-AXIS 3 CRUD/import 없음
-frozen core import/수정 없음
-Broker/Chart 권한 없음
+Step 10에서는 market/provider를 조회하지 않음
+AXIS 1 실행을 호출하지 않음
+AXIS 2 selection을 호출하지 않음
+execution intent를 Bridge request로 변환하는 실제 E2E routing은 Step 11
 ```
 
-Step 9 완료 조건:
+### Step 10 경계
 
 ```text
-exact snapshot id/hash/as_of/cutoff binding PASS
-numeric/boolean/string typed filter PASS
-VALUE sort + top-N + symbol tie-break deterministic PASS
-frozen RANK/PERCENTILE filter/order PASS
-peer-group ambiguity fail-closed PASS
-missing/invalid/absent explicit exclusion + no-default PASS
-selection spec unknown/nonfinite/type mismatch fail-closed PASS
-symbol_scope exact subset only PASS
-CandidateSet canonical hash repeatability PASS
-schema contracts PASS
-AXIS1/AXIS3/provider/frozen-core import isolation PASS
+AXIS 1/AXIS 2 내부 모듈 direct import 금지
+frozen core import/수정 금지
+Feature Catalog 수정 금지
+DSL compile validation을 AXIS 3에서 재구현 금지
+CandidateSet 재계산/순위 재계산 금지
+lifecycle 변경으로 artifact content overwrite 금지
+```
+
+Step 10 완료 조건:
+
+```text
+Condition create/read/version-list + lineage persistence PASS
+Strategy create/read/version-list + exact Condition ref validation PASS
+content update가 overwrite가 아닌 새 immutable version 생성 PASS
+SQLite reopen 후 동일 artifact/hash 복구 PASS
+promote/reject/archive transition + audit PASS
+invalid lifecycle transition fail-closed PASS
+strategy version comparison PASS
+nonfinite/opaque artifact input reject PASS
+orchestration은 promoted exact artifacts만 허용 PASS
+CandidateSet tamper/hash/selection/snapshot/as_of/cutoff drift fail-closed PASS
+동일 inputs -> 동일 strategy run plan hash PASS
+candidate ordinal/order 보존 PASS
+AXIS1/AXIS2/frozen-core import isolation PASS
+Step 9 selection regression PASS
 Step 8 snapshot regression PASS
-Step 7 Bridge regression PASS
 frozen core guard PASS
-focused user-local AXIS2 selection engine test PASS
+focused user-local AXIS3 CRUD/orchestration test PASS
 ```
 
-Step 9 PASS + checkpoint 전 Step 10 시작 금지.
+Step 10 PASS + checkpoint 전 Step 11 시작 금지.
 
 ---
 
 ## 이후 고정 순서
 
 ```text
-10 AXIS 3 Condition / Strategy CRUD + orchestration
 11 AXIS 2 -> AXIS 3 -> AXIS 1 versioned E2E Bridge
 12 External LLM Authoring Lane implementation
 13 Continuous Improvement analysis tooling
@@ -224,9 +233,10 @@ Step 9 PASS + checkpoint 전 Step 10 시작 금지.
 
 ```text
 frozen legacy core 수정 금지
-AXIS 1은 single-instrument deterministic execution 권한만 유지
-AXIS 2는 immutable point-in-time evidence만 사용
-축간 연결은 versioned Request -> Response로만 수행
+AXIS 1 = single-instrument deterministic execution
+AXIS 2 = immutable PIT selection semantics
+AXIS 3 = versioned Condition/Strategy product lifecycle + orchestration
+축간 연결 = versioned Request -> Response only
 future value / nearest-time / fill-forward / default synthesis 금지
 다른 축 내부 객체/state direct import 금지
 fail-closed 유지
@@ -234,4 +244,4 @@ fail-closed 유지
 현재 순서 건너뛰기 금지
 ```
 
-중요 방침/로직/순서 변경은 그 턴에 이 문서와 SESSION_HANDOFF.md에 함께 반영한다.
+중요 방침/로직/순서 변경은 그 턴에 이 문서와 `SESSION_HANDOFF.md`에 함께 반영한다.
