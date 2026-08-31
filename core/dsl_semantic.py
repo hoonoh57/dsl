@@ -153,6 +153,13 @@ class ExpressionTypeChecker(ast.NodeVisitor):
             if len(args) >= 2: self._require(_scalar_number(args[1]), "ta.macd short는 scalar number여야 합니다.", node)
             if len(args) >= 3: self._require(_scalar_number(args[2]), "ta.macd long은 scalar number여야 합니다.", node)
             if len(args) == 4: self._require(args[3] == ValueType.STRING, "ta.macd method는 string이어야 합니다.", node)
+        elif name == "user.macd_normalized":
+            self._require(_number(args[0]), "user.macd_normalized 첫 인수는 숫자형 series여야 합니다.", node)
+            self._require(args[1] == ValueType.STRING, "user.macd_normalized component는 string이어야 합니다.", node)
+            if len(args) >= 3: self._require(_scalar_number(args[2]), "user.macd_normalized short는 scalar number여야 합니다.", node)
+            if len(args) >= 4: self._require(_scalar_number(args[3]), "user.macd_normalized long은 scalar number여야 합니다.", node)
+            if len(args) >= 5: self._require(_scalar_number(args[4]), "user.macd_normalized signal은 scalar number여야 합니다.", node)
+            if len(args) == 6: self._require(args[5] == ValueType.STRING, "user.macd_normalized method는 string이어야 합니다.", node)
         elif name in {"ta.atr", "ta.adx", "ta.trix", "ta.cci", "ta.nrange", "ta.williams_r", "ta.abs_range", "ta.sum_abs_r", "ta.vhf"}:
             self._require(all(_scalar_number(v) for v in args), f"{name} period는 scalar number여야 합니다.", node)
         elif name == "ta.shift":
