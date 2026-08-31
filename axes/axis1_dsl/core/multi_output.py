@@ -34,7 +34,6 @@ class MultiOutputSpec:
     components: tuple[str, ...]
     component_types: tuple[str, ...]
     signature: str
-    category: str
     lowerer: Callable[[tuple[str, ...]], tuple[str, ...]]
 
     def validate(self) -> None:
@@ -94,14 +93,12 @@ def _bbands(args: tuple[str, ...]) -> tuple[str, ...]:
     period = args[1] if len(args) >= 2 else "20"
     mult = args[2] if len(args) >= 3 else "2.0"
 
-    # CoreTALib.bbands uses np.std, so any NaN inside the rolling window keeps
-    # all three bands undefined.  ta.sma/ta.stdev intentionally have their own
-    # NaN policies, therefore a plain composition would materialize values too
-    # early when the input itself has a warmup/undefined segment.  Build a
-    # generic validity poison from existing DSL primitives: count consecutive
-    # finite samples and select a naturally-undefined value until a complete
-    # period is available.  This works with scalar period expressions and does
-    # not synthesize 0/fill-forward values.
+    # CoreTALib.bbands keeps the whole rolling window undefined when any input
+    # value in that window is NaN. ta.sma/ta.stdev have independent NaN policies,
+    # so a plain composition can materialize values too early for an indicator
+    # input that itself has a warmup segment. Gate the composed values with
+    # existing DSL primitives until there are `period` consecutive finite input
+    # values. No 0/fill-forward replacement is synthesized.
     invalid = f"(({series}) != ({series}))"
     finite = f"(({series}) == ({series}))"
     consecutive = f"ta.count_since({invalid}, {finite})"
@@ -140,7 +137,6 @@ MULTI_OUTPUT_SPECS = {
             components=("line", "direction"),
             component_types=("series<number>", "series<number>"),
             signature="line, direction = ta.supertrend([period, multiplier])",
-            category="ta",
             lowerer=_supertrend,
         ),
         MultiOutputSpec(
@@ -150,7 +146,6 @@ MULTI_OUTPUT_SPECS = {
             components=("upper", "middle", "lower"),
             component_types=("series<number>", "series<number>", "series<number>"),
             signature="upper, middle, lower = ta.bbands(series[, period, multiplier])",
-            category="ta",
             lowerer=_bbands,
         ),
         MultiOutputSpec(
@@ -160,7 +155,6 @@ MULTI_OUTPUT_SPECS = {
             components=("macd", "signal", "hist", "hist_abs_pct"),
             component_types=("series<number>",) * 4,
             signature="macd, signal, hist, strength = user.macd_normalized_all(series[, short, long, signal, method])",
-            category="user",
             lowerer=_normalized_macd_all,
         ),
     )
@@ -335,7 +329,6 @@ def multi_output_manifest() -> tuple[dict, ...]:
             "components": spec.components,
             "component_types": spec.component_types,
             "signature": spec.signature,
-            "category": spec.category,
         }
         for spec in MULTI_OUTPUT_SPECS.values()
     )
