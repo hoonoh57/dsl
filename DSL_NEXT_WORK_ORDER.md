@@ -6,8 +6,6 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-08-31 KST**
 
 > 방침은 즉시 기록하되, 구현은 현재 번호/경계가 끝나기 전 다음으로 넘어가지 않는다.
 
-새 아이디어는 PARKING LOT에 기록하고 현재 작업을 계속한다.
-
 ---
 
 ## 현재 포인터
@@ -15,7 +13,7 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-08-31 KST**
 ```text
 CURRENT_STEP = 4
 CURRENT_STEP_NAME = AXIS 1 경계별 이식 + parity
-CURRENT_BOUNDARY = 8 Broker
+CURRENT_BOUNDARY = 9 Backtest + Projection Output
 BOUNDARY_STATUS = REMOTE_UNVALIDATED
 ```
 
@@ -32,13 +30,14 @@ STEP 4 / BOUNDARY 4 COMPLETE = Indicator Kernel user-local PASS
 STEP 4 / BOUNDARY 5 COMPLETE = State + Bar Runtime user-local PASS
 STEP 4 / BOUNDARY 6 COMPLETE = MTF + Read-Only Context Binding user-local PASS
 STEP 4 / BOUNDARY 7 COMPLETE = DSL Runtime user-local PASS
-  -> STEP4_BOUNDARY7_DSL_RUNTIME_PARITY_CHECKPOINT_2026-08-31.md
+STEP 4 / BOUNDARY 8 COMPLETE = Broker user-local PASS
+  -> STEP4_BOUNDARY8_BROKER_PARITY_CHECKPOINT_2026-08-31.md
 ```
 
-현재 경계를 완료할 때마다:
+각 경계는 반드시:
 
 ```text
-결과 기록 -> PASS/FAIL 원인분류 -> checkpoint/handoff 갱신 -> 다음 경계
+이식 -> focused parity -> frozen guard -> user-local PASS -> checkpoint -> 다음 경계
 ```
 
 ---
@@ -53,36 +52,43 @@ STEP 4 / BOUNDARY 7 COMPLETE = DSL Runtime user-local PASS
 5 State + Bar Runtime                  COMPLETE / PASS
 6 MTF + Read-Only Context Binding      COMPLETE / PASS
 7 DSL Runtime                          COMPLETE / PASS
-8 Broker                               CURRENT
-9 Backtest + Projection Output
+8 Broker                               COMPLETE / PASS
+9 Backtest + Projection Output         CURRENT
 ```
 
-현재 Boundary 8:
+현재 Boundary 9:
 
 ```text
 legacy:
-  core/broker.py
+  core/backtest.py
+  core/backtest_parent_context.py
 
 axis1:
-  axes/axis1_dsl/execution/broker.py
+  axes/axis1_dsl/execution/backtest.py
+  axes/axis1_dsl/execution/backtest_parent_context.py
 ```
 
 방식:
 
 ```text
-order lifecycle behavior-preserving copy
-신규 execution 기능 추가 없음
+백테스트/거래/지표 projection 동작은 기존 behavior 보존
+내부 실행기는 새 AXIS 1 Runtime/Broker만 사용
+parent context는 legacy provider/frame을 받지 않고 이미 준비된 exact-time read-only binding만 소비
 ```
 
 완료 조건:
 
 ```text
-MARKET/LIMIT/STOP/STOP_LIMIT 동일
-GTC/DAY/OCO/cancel 동일
-fill price/quantity/history 동일
-reject/expire/fail-closed 동일
-fill resolver 결과 동일
-new broker에 frozen-core production import 없음
+trade sequence / fill price / quantity 동일
+metrics numeric 동일
+markers 동일
+numeric indicator projection 동일
+trend-color projection 동일
+candles/equity/closed trades 동일
+risk exit behavior 동일
+timeframe mismatch fail-closed 동일
+prepared context exact-time binding 검증
+new AXIS 1 backtest에 frozen-core/provider production import 없음
 frozen core guard PASS
 focused user-local parity PASS
 ```
@@ -90,13 +96,15 @@ focused user-local parity PASS
 금지:
 
 ```text
-부분체결/다중포지션 신규추가
 legacy core 수정
-migration 중 신규기능 추가
+legacy provider/frame을 AXIS 1 production API로 유입
+nearest-time / fill-forward / interpolation / default
+migration 중 generic projection 확장
+migration 중 partial fill / pyramiding 등 신규기능 추가
 parity 차이를 compatibility exception으로 숨기기
 ```
 
-Boundary 8 PASS + checkpoint 전 Boundary 9 시작 금지.
+Boundary 9 PASS + checkpoint 전 Step 5 시작 금지.
 
 ---
 
@@ -104,18 +112,28 @@ Boundary 8 PASS + checkpoint 전 Boundary 9 시작 금지.
 
 ```text
 5. AXIS 1 신규 DSL 기능 개발
-   tuple/multi-output -> generic projection -> metadata -> user functions -> loops
-   -> tick/fill lifecycle -> partial fills/exits -> pyramiding/multi-position
+   5-1 tuple / multi-output typed return + destructuring
+   5-2 tuple-aware generic projection
+   5-3 capability/function metadata completeness
+   5-4 user-defined functions
+   5-5 bounded loops
+   5-6 on_tick / on_fill commit/rollback
+   5-7 partial fills / partial exits
+   5-8 pyramiding / multi-position accounting
+   5-9 full reference differential fixtures
+   5-10 full-engine batch/streaming parity
 6. AXIS 1 machine-readable capability/diagnostic registry
-7. Bridge common + AXIS 1 실행계약
-8. AXIS 2 사전계산 snapshot 계약
-9. AXIS 2 종목선별 엔진/핵심 feature
-10. AXIS 3 Condition/Strategy CRUD
-11. 3축 E2E Bridge
-12. 외부 LLM 자연어 작성 workflow
-13. 지속개선 분석도구
-14. 최종 자연어 E2E 검증
-15. Legacy 문서 정리 + repo-wide compliance audit
+7. Bridge common + AXIS 1 execution contract
+8. AXIS 2 exact-as-of snapshot contract
+9. AXIS 2 selection engine / core selectors
+10. AXIS 3 Condition / Strategy CRUD + orchestration
+11. AXIS 2 -> AXIS 3 -> AXIS 1 versioned E2E Bridge
+12. External LLM Authoring Lane implementation
+13. Continuous Improvement analysis tooling
+14. Final natural-language E2E acceptance
+15. Legacy docs disposition + repo-wide compliance audit
 ```
+
+새 아이디어는 PARKING LOT에 기록만 하고 현재 순서를 계속한다. 긴급한 frozen-core/신뢰경계 위반만 예외적으로 현재 작업을 중단할 수 있다.
 
 중요 방침/로직/순서 변경은 그 턴에 관련 authority + 이 문서 + `SESSION_HANDOFF.md`에 반영한다.
