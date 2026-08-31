@@ -15,7 +15,7 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-08-31 KST**
 ```text
 CURRENT_STEP = 4
 CURRENT_STEP_NAME = AXIS 1 경계별 이식 + parity
-CURRENT_BOUNDARY = 7 DSL Runtime
+CURRENT_BOUNDARY = 8 Broker
 BOUNDARY_STATUS = REMOTE_UNVALIDATED
 ```
 
@@ -31,7 +31,8 @@ STEP 4 / BOUNDARY 3 COMPLETE = Assignment Flow + Semantic user-local PASS
 STEP 4 / BOUNDARY 4 COMPLETE = Indicator Kernel user-local PASS
 STEP 4 / BOUNDARY 5 COMPLETE = State + Bar Runtime user-local PASS
 STEP 4 / BOUNDARY 6 COMPLETE = MTF + Read-Only Context Binding user-local PASS
-  -> STEP4_BOUNDARY6_MTF_CONTEXT_PARITY_CHECKPOINT_2026-08-31.md
+STEP 4 / BOUNDARY 7 COMPLETE = DSL Runtime user-local PASS
+  -> STEP4_BOUNDARY7_DSL_RUNTIME_PARITY_CHECKPOINT_2026-08-31.md
 ```
 
 현재 경계를 완료할 때마다:
@@ -51,38 +52,37 @@ STEP 4 / BOUNDARY 6 COMPLETE = MTF + Read-Only Context Binding user-local PASS
 4 Indicator Kernel                     COMPLETE / PASS
 5 State + Bar Runtime                  COMPLETE / PASS
 6 MTF + Read-Only Context Binding      COMPLETE / PASS
-7 DSL Runtime                          CURRENT
-8 Broker
+7 DSL Runtime                          COMPLETE / PASS
+8 Broker                               CURRENT
 9 Backtest + Projection Output
 ```
 
-현재 Boundary 7:
+현재 Boundary 8:
 
 ```text
 legacy:
-  core/dsl_runtime.py
+  core/broker.py
 
 axis1:
-  axes/axis1_dsl/runtime/dsl_runtime.py
+  axes/axis1_dsl/execution/broker.py
 ```
 
 방식:
 
 ```text
-기존 DSL 실행 동작 보존
-내부 의존성은 Boundary 1~6의 새 AXIS 1 모듈만 사용
-신규 DSL 문법/기능 추가 없음
+order lifecycle behavior-preserving copy
+신규 execution 기능 추가 없음
 ```
 
 완료 조건:
 
 ```text
-전략 이름/timeframe 동일
-assignment/indicator/session/MTF/state 계산값 동일
-이벤트 조건/주문 인자 동일
-prepared exact-time context 사용 결과 동일
-runtime fail-closed 오류 동일
-new runtime에 frozen core production import 없음
+MARKET/LIMIT/STOP/STOP_LIMIT 동일
+GTC/DAY/OCO/cancel 동일
+fill price/quantity/history 동일
+reject/expire/fail-closed 동일
+fill resolver 결과 동일
+new broker에 frozen-core production import 없음
 frozen core guard PASS
 focused user-local parity PASS
 ```
@@ -90,13 +90,13 @@ focused user-local parity PASS
 금지:
 
 ```text
-legacy core runtime import
-migration 중 신규 DSL 기능 추가
-provider 계산 책임 유입
+부분체결/다중포지션 신규추가
+legacy core 수정
+migration 중 신규기능 추가
 parity 차이를 compatibility exception으로 숨기기
 ```
 
-Boundary 7 PASS + checkpoint 전 Boundary 8 Broker 시작 금지.
+Boundary 8 PASS + checkpoint 전 Boundary 9 시작 금지.
 
 ---
 
