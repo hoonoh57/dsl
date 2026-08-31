@@ -11,9 +11,9 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-09-01 KST**
 ## 현재 포인터
 
 ```text
-CURRENT_STEP = 7
-CURRENT_STEP_NAME = Bridge common + AXIS 1 execution contract
-CURRENT_SUBSTEP = 7-1 versioned common boundary + AXIS 1 BACKTEST Request/Response
+CURRENT_STEP = 8
+CURRENT_STEP_NAME = AXIS 2 exact-as-of snapshot contract
+CURRENT_SUBSTEP = 8-1 immutable point-in-time feature/rank snapshot v1
 SUBSTEP_STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
@@ -26,178 +26,154 @@ STEP 3 COMPLETE = Frozen Core 보호 gate user-local PASS
 STEP 4 COMPLETE = AXIS 1 9개 migration boundary 모두 user-local PASS
 STEP 5 COMPLETE = AXIS 1 신규 DSL 기능 개발 + 검증 전체 user-local PASS
 STEP 6 COMPLETE = AXIS 1 machine-readable capability/diagnostic registry user-local PASS
-  -> STEP6_CAPABILITY_DIAGNOSTIC_REGISTRY_CHECKPOINT_2026-09-01.md
+STEP 7 COMPLETE = Bridge common + AXIS 1 execution contract user-local PASS
+  -> STEP7_AXIS1_EXECUTION_BRIDGE_CHECKPOINT_2026-09-01.md
 ```
 
-Step 6 user-local evidence:
+Step 7 user-local evidence:
 
 ```text
-test_axis1_capability_diagnostic_registry.py = OK
-test_axis1_capability_metadata.py = OK
-test_axis1_full_engine_parity.py = OK
-test_frozen_legacy_core_guard.py = OK
+test_axis1_execution_bridge_contract.py = OK (7)
+test_axis1_capability_diagnostic_registry.py = OK (6)
+test_axis1_full_engine_parity.py = OK (5)
+test_frozen_legacy_core_guard.py = OK (1)
 ```
 
 ---
 
-## Step 7 현재 — Bridge common + AXIS 1 execution contract
+## Step 8 현재 — AXIS 2 exact-as-of snapshot contract
 
 목표:
 
 ```text
-AXIS 2/3/외부 호출자가 AXIS 1 내부 객체/상태를 직접 참조하지 않고
-versioned JSON-safe Request -> Response 계약으로만 AXIS 1 실행을 요청하도록 경계를 고정한다.
+provider/precompute 단계가 만든 cross-market/cross-symbol feature와 rank evidence를
+정확한 as_of + knowledge_cutoff 기준 immutable snapshot으로 동결하고,
+AXIS 2 selection은 이후 이 snapshot만 소비하도록 S0 계약을 고정한다.
 ```
 
 구현:
 
 ```text
-bridges/contracts/common.py
-bridges/contracts/axis1_execution.py
-bridges/contracts/axis1_execution_request.v1.schema.json
-bridges/contracts/axis1_execution_response.v1.schema.json
-bridges/axis1_execution_bridge.py
-tests/test_axis1_execution_bridge_contract.py
+axes/axis2_selection/__init__.py
+axes/axis2_selection/snapshots/__init__.py
+axes/axis2_selection/snapshots/exact_asof.py
+axes/axis2_selection/snapshots/point_in_time_snapshot.v1.schema.json
+tests/test_axis2_exact_asof_snapshot.py
 ```
 
-### Common Bridge contract
+### Snapshot v1 최소 계약
 
 ```text
-contract_version = v1
-request/response route = source_axis -> target_axis + operation
-unknown schema/version/field/route = fail-closed
-request payload는 JSON-safe scalar/list/mapping만 허용
-opaque Python runtime object 전달 금지
-request_hash / response_hash = deterministic canonical SHA-256
+schema_version = axis2_point_in_time_snapshot/v1
+snapshot_id
+as_of = YYYYMMDDHHMMSS exact
+knowledge_cutoff = YYYYMMDDHHMMSS exact
+universe_id
+feature_version
+source_refs[]
+rows[]
 ```
 
-Bridge contract module은 AXIS 1/2/3 구현을 import하지 않는 data-only 계층이다.
-
-### AXIS 1 execution Request v1
+각 row:
 
 ```text
-schema = bridge.axis1_execution_request/v1
-operation = BACKTEST
-target_axis = AXIS1
+symbol
+feature_id
+value_type = NUMBER | BOOLEAN | STRING
+value
+validity = VALID | MISSING | INVALID
+provenance
+  source_ref
+  observed_as_of
+  knowledge_cutoff
+  formula_version
+optional ranking
+  ranking_method
+  eligible_count
+  rank
+  percentile (0..100)
+  peer_group_id
 ```
 
-Request가 소유하는 데이터:
+### Point-in-time fail-closed 규칙
 
 ```text
-request identity / source axis
-instrument symbol + timeframe
-strategy_id + strategy_version + DSL source
-explicit OHLCV market bars
-execution settings
-optional exact-length boolean entry_gate
-optional prepared parent_context payload
+snapshot knowledge_cutoff > as_of 금지
+row observed_as_of > knowledge_cutoff 금지
+row별 knowledge_cutoff 혼합 금지
+row별 formula_version 혼합 금지
+snapshot에 선언되지 않은 source_ref 금지
+non-finite numeric value 금지
+opaque value 금지
+중복 row identity 금지
+동일 feature/peer group에서 ranking_method/eligible_count 혼합 금지
 ```
 
-Request에는 다음을 넣지 않는다.
+Missing/invalid 값은 다음처럼만 보존한다.
 
 ```text
-Axis2/Axis3 내부 객체
-provider/database/session 객체
-mutable runtime object
-nearest-time/fill-forward instruction
-AXIS 1 internal compiled/runtime/broker object
+validity != VALID -> value = None
+validity != VALID -> ranking 없음
+0/false/중립값 자동대체 금지
 ```
 
-### Parent context boundary
+### Exact lookup 규칙
+
+`PointInTimeSnapshot.require_exact()`은 exact `as_of`와 optional exact `knowledge_cutoff`만 허용한다.
 
 ```text
-schema = dsl_parent_context_series/v1
-target_symbol = request symbol exact 일치
-target_times = request market.time exact 일치
-feature type/value identity exact 일치
-binding_hash가 제공되면 AXIS 1 재구성 hash와 exact 일치
+nearest-time 없음
+previous-nearest 없음
+fill-forward 없음
+interpolation 없음
+현재값으로 과거 snapshot 재구성 없음
 ```
 
-AXIS 1 adapter가 `DSLContextSeriesBinding.from_prepared`로 자신의 immutable binding을 새로 만든다. 다른 축의 객체를 직접 전달받지 않는다.
-
-### AXIS 1 execution Response v1
+### Immutable / identity
 
 ```text
-schema = bridge.axis1_execution_response/v1
-source_axis = AXIS1
-status = OK | REJECTED | ERROR
-request_hash 포함
-현재 AXIS 1 capability_registry_hash 포함
-response_hash 포함
+frozen dataclass + tuple rows/source refs
+canonical JSON SHA-256 snapshot_hash
+supplied snapshot_hash 불일치 fail-closed
 ```
 
-정상 실행은 strategy/instrument reference와 AXIS 1 facade 결과를 JSON-safe snapshot으로 반환한다.
-
-AXIS 1 계산 결과에 `Infinity/NaN`이 의미있는 진단값으로 존재하면 임의 0/default로 바꾸지 않고 다음 tagged JSON 형태로 명시한다.
+### Step 8 경계
 
 ```text
-{"$number": "Infinity"}
-{"$number": "-Infinity"}
-{"$number": "NaN"}
+이 단계는 snapshot data contract만 구현
+provider/raw feature calculation 미구현
+selection filter/rank/top-N engine 미구현 (Step 9)
+AXIS 1 DSL/runtime 호출 없음
+AXIS 3 내부 import 없음
+frozen core import/수정 없음
 ```
 
-Request 입력에서는 NaN/Infinity를 계속 금지한다.
-
-### Adapter authority
+Step 8 완료 조건:
 
 ```text
-bridges.axis1_execution_bridge
-  contract validate
-  -> AXIS 1-owned market/context input 구성
-  -> Axis1BacktestEngine public facade 호출
-  -> JSON-safe versioned response
-```
-
-Adapter가 호출하는 AXIS 1 범위:
-
-```text
-Axis1BacktestEngine
-DSLContextSeriesBinding
-capability registry hash
-```
-
-AXIS 2/3 내부 구현 import 금지.
-
-### 중요 경계
-
-```text
-Bridge는 AXIS 1 계산식을 재구현하지 않음
-Bridge는 후보선정/랭킹/전략 CRUD를 수행하지 않음
-AXIS 1이 universe discovery를 하지 않음
-AXIS 2/3 내부 상태 direct import 금지
-frozen core 수정/import 없음
-Step 8 AXIS 2 snapshot 선행 구현 없음
-```
-
-Step 7 완료 조건:
-
-```text
-version/schema/route fail-closed PASS
-unknown field + opaque object reject PASS
-market bar count/time order/nonfinite validation PASS
-entry_gate exact length/type PASS
-prepared parent context symbol/time exact contract PASS
-request hash deterministic PASS
-valid request -> AXIS 1 facade -> versioned OK response PASS
-valid envelope + invalid AXIS 1 DSL -> structured REJECTED response PASS
-capability registry hash response 포함 PASS
-non-finite execution result tagged serialization PASS
-contract modules data-only import isolation PASS
-adapter Axis2/Axis3/frozen-core import isolation PASS
-Step 6 registry regression PASS
-Step 5-10 full-engine parity regression PASS
+schema/version/unknown field fail-closed PASS
+snapshot deterministic hash + roundtrip PASS
+immutable snapshot/row PASS
+future observation/future cutoff reject PASS
+mixed cutoff/formula version reject PASS
+missing/invalid no-default contract PASS
+rank range + peer ranking contract PASS
+exact as_of/cutoff lookup only PASS
+duplicate/nonfinite/opaque input reject PASS
+snapshot hash tamper detection PASS
+AXIS1/AXIS3/provider/frozen-core import isolation PASS
+Step 7 Bridge regression PASS
 frozen core guard PASS
-focused user-local Bridge contract test PASS
+focused user-local AXIS2 snapshot test PASS
 ```
 
-Step 7 PASS + checkpoint 전 Step 8 시작 금지.
+Step 8 PASS + checkpoint 전 Step 9 시작 금지.
 
 ---
 
 ## 이후 고정 순서
 
 ```text
-8 AXIS 2 exact-as-of snapshot contract
 9 AXIS 2 selection engine / core selectors
 10 AXIS 3 Condition / Strategy CRUD + orchestration
 11 AXIS 2 -> AXIS 3 -> AXIS 1 versioned E2E Bridge
@@ -213,8 +189,10 @@ Step 7 PASS + checkpoint 전 Step 8 시작 금지.
 
 ```text
 frozen legacy core 수정 금지
-검증된 migrated core를 신규기능 때문에 불필요하게 흔들지 않음
+AXIS 1은 single-instrument deterministic execution 권한만 유지
+AXIS 2는 immutable point-in-time evidence만 사용
 축간 연결은 versioned Request -> Response로만 수행
+future value / nearest-time / fill-forward / default synthesis 금지
 다른 축 내부 객체/state direct import 금지
 fail-closed 유지
 검증완화/compatibility exception 금지
