@@ -1,6 +1,6 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 4 BOUNDARY 1 / 2026-08-31 KST**
+Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 4 BOUNDARY 2 / 2026-08-31 KST**
 
 이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + exact user-local PASS + 현재 `dsl-live-studio` 상태가 stale 문서보다 우선한다.
 
@@ -18,17 +18,19 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT
 1. SESSION_HANDOFF.md
 2. DSL_NEXT_WORK_ORDER.md
 3. DSL_AXIS1_MIGRATION_MANIFEST.md
-4. STEP3_FROZEN_CORE_GUARD_CHECKPOINT_2026-08-31.md
-5. STEP2_AXIS1_MIGRATION_PLAN_CHECKPOINT_2026-08-31.md
-6. STEP1_AXIS1_CAPABILITY_AUDIT_CHECKPOINT_2026-08-31.md
-7. DSL_AXIS1_PRE_MIGRATION_CAPABILITY_AUDIT.md
-8. DSL_FROZEN_CORE_MIGRATION_POLICY.md
-9. DSL_AXIS2_PRECOMPUTED_SELECTION_POLICY.md
-10. DSL_THREE_AXIS_FINAL_TARGET.md
-11. DSL_THREE_AXIS_MODULE_BOUNDARY.md
-12. PARENT_CONTEXT_FEATURE_PROVIDER_POLICY.md
-13. CURRENT_STATE.md
-14. current dsl-live-studio HEAD
+4. STEP4_BOUNDARY1_PARSER_PARITY_CHECKPOINT_2026-08-31.md
+5. STEP3_FROZEN_CORE_GUARD_CHECKPOINT_2026-08-31.md
+6. STEP2_AXIS1_MIGRATION_PLAN_CHECKPOINT_2026-08-31.md
+7. STEP1_AXIS1_CAPABILITY_AUDIT_CHECKPOINT_2026-08-31.md
+8. DSL_AXIS1_PRE_MIGRATION_CAPABILITY_AUDIT.md
+9. DSL_FROZEN_CORE_MIGRATION_POLICY.md
+10. DSL_AXIS2_PRECOMPUTED_SELECTION_POLICY.md
+11. DSL_EXTERNAL_LLM_STRATEGY_AUTHORING_POLICY.md
+12. DSL_AUTHORING_CONTINUOUS_IMPROVEMENT_POLICY.md
+13. DSL_HUMAN_COMMUNICATION_OUTPUT_POLICY.md
+14. DSL_THREE_AXIS_FINAL_TARGET.md
+15. PARENT_CONTEXT_FEATURE_PROVIDER_POLICY.md
+16. current dsl-live-studio HEAD
 ```
 
 ---
@@ -38,7 +40,7 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT
 ```text
 CURRENT_STEP = 4
 CURRENT_STEP_NAME = AXIS 1 경계별 이식 + parity
-CURRENT_BOUNDARY = 1 Parser / AST
+CURRENT_BOUNDARY = 2 Function Registry
 BOUNDARY_STATUS = REMOTE_UNVALIDATED
 ```
 
@@ -48,20 +50,20 @@ BOUNDARY_STATUS = REMOTE_UNVALIDATED
 Step 1 = 기존 DSL 남은 기능 점검 COMPLETE
 Step 2 = AXIS 1 migration manifest + 9개 boundary 순서 COMPLETE
 Step 3 = Frozen Core 보호 gate COMPLETE / user-local PASS
+Step 4 Boundary 1 = Parser / AST COMPLETE / user-local PASS
 ```
 
-Step 3 user-local evidence:
+Boundary 1 user-local evidence:
 
 ```text
-python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py"
-Ran 1 test in 0.046s
-OK
+frozen guard: Ran 1 test / OK
+parser parity: Ran 4 tests / OK
 ```
 
 판정:
 
 ```text
-PASS / no defect detected / frozen legacy core unchanged
+PASS / Parser migration parity trusted / frozen legacy core unchanged
 ```
 
 ---
@@ -80,7 +82,7 @@ core tree: 8b3f081de926f5c9f69e9cdbc158b81b2275176c
 core/ 수정 / 이동 / 삭제 / 신규 파일 추가
 새 기능 역이식
 새 AXIS production code가 frozen core 내부 구현에 영구 의존
-expected frozen hash를 변경해 위반을 수용
+expected frozen hash 변경으로 위반 수용
 ```
 
 허용:
@@ -94,8 +96,8 @@ read / golden regression / migration parity comparison
 ## 4. Step 4 migration 순서
 
 ```text
-1 Parser / AST                         <- CURRENT
-2 Function Registry
+1 Parser / AST                         COMPLETE / PASS
+2 Function Registry                    CURRENT
 3 Assignment Flow + Semantic
 4 Indicator Kernel
 5 State + Bar Runtime
@@ -120,47 +122,32 @@ checkpoint
 
 ---
 
-## 5. Boundary 1 — Parser / AST 현재 상태
-
-Source:
+## 5. Boundary 2 — Function Registry 현재 상태
 
 ```text
-core/dsl_parser.py
-```
-
-New target:
-
-```text
-axes/axis1_dsl/core/dsl_parser.py
+legacy: core/function_registry.py
+axis1:  axes/axis1_dsl/core/function_registry.py
 ```
 
 현재 remote evidence:
 
 ```text
-legacy blob sha = 8f22472c01144dbb7bad8aef1f8989af81768805
-new blob sha    = 8f22472c01144dbb7bad8aef1f8989af81768805
+legacy/new source blob 동일
+focused parity test 추가
 ```
 
-즉 현재 이식 파일은 source content 기준 exact copy다.
-
-추가된 focused parity:
+검증 대상:
 
 ```text
-tests/test_axis1_parser_parity.py
+기존 함수 전체 보존
+인수 개수 규격 동일
+반환형/서명/category 동일
+category/manifest 순서 보존
+new registry에 legacy core runtime import 없음
 ```
 
-검증 범위:
-
-```text
-AST dataclass field contract
-successful parse result equality
-fail-closed diagnostic message/code/line/column equality
-new parser production source에 frozen core runtime import 없음
-```
-
-아직 user-local PASS가 없으므로 Boundary 1은 `REMOTE_UNVALIDATED`다.
-
-Boundary 1 PASS 전 Boundary 2 시작 금지.
+아직 user-local PASS가 없으므로 Boundary 2는 `REMOTE_UNVALIDATED`다.
+Boundary 2 PASS 전 Boundary 3 시작 금지.
 
 ---
 
@@ -179,15 +166,14 @@ full reference differential fixtures
 full-engine batch/streaming parity
 ```
 
-Step 1 추가 판정:
+Step 1 판정:
 
 ```text
-JMA 기본 값 direct strategy access = implemented
-JMA up/down = metadata/비공식 접근만 있어 partial
+JMA 기본 값 = implemented
+JMA up/down 공식 DSL access = partial
 JMA normalized slope strength = not implemented
 numeric intermediate projection = implemented
 threshold/permission generic projection = partial
-Feature Catalog vs mutable Strategy persistence = physically separate in legacy
 final AXIS 3 CRUD = not yet implemented
 ```
 
@@ -206,13 +192,46 @@ Chart  = 계산 없이 projection/evidence 표시
 
 ---
 
-## 8. 현재 상태
+## 8. External LLM + 지속개선
+
+```text
+사용자 자연어 -> Prompt Builder -> 사람 -> 외부 LLM -> 구조화 초안
+-> Local validation -> PASS 또는 Correction Prompt -> 반복
+```
+
+LLM은 proposal only다. 검증 오류는 누적해 Prompt/Skill/DSL/Data contract 개선 근거로 사용한다. 자동 self-modification과 검증완화는 금지한다.
+
+---
+
+## 9. 사용자 커뮤니케이션 / 콘솔
+
+사용자 진행보고 기본 형식:
+
+```text
+한 일
+할 일
+```
+
+내부 hash/schema/error code/class 이름은 기본 생략한다.
+
+콘솔:
+
+```text
+정상 = 가능하면 [PASS] 한 줄
+오류 = 디버깅에 필요한 최소 원인/위치만
+상세 trace/structured event = 내부 로그
+```
+
+---
+
+## 10. 현재 상태
 
 ```text
 Step 1: COMPLETE
 Step 2: COMPLETE
 Step 3: COMPLETE / USER-LOCAL PASS
-Step 4 Boundary 1 parser migration: WRITTEN / REMOTE_UNVALIDATED
+Step 4 Boundary 1: COMPLETE / USER-LOCAL PASS
+Step 4 Boundary 2: WRITTEN / REMOTE_UNVALIDATED
 AXIS 2 implementation: NOT STARTED
 AXIS 3 implementation: scaffold only
 repository-wide compliance: REMEDIATION_REQUIRED
@@ -222,20 +241,30 @@ repository-wide compliance: REMEDIATION_REQUIRED
 
 ---
 
-## 9. 다음 exact action
+## 11. 다음 exact action
 
 사용자 local에서 최신 branch pull 후:
 
 ```text
 python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py" -v
-python -m unittest discover -s tests -p "test_axis1_parser_parity.py" -v
+python -m unittest discover -s tests -p "test_axis1_function_registry_parity.py" -v
 ```
 
-둘 다 PASS하면:
-
-```text
-Boundary 1 checkpoint
-CURRENT_BOUNDARY -> 2 Function Registry
-```
+둘 다 PASS하면 Boundary 2 checkpoint 후 Boundary 3 Assignment Flow + Semantic으로 이동한다.
 
 실패 시 먼저 test defect / migration defect / authority drift / environment issue / unknown으로 분류하며 assertion을 약화하지 않는다.
+
+---
+
+## 12. 세션 복구 행동
+
+```text
+1. 복구 문서를 순서대로 읽는다.
+2. current HEAD와 CURRENT_STEP/BOUNDARY를 확인한다.
+3. frozen Core 무변경을 전제로 한다.
+4. 기존 결정을 다시 묻지 않는다.
+5. 사용자에게 `한 일 / 할 일`만 짧게 제시한다.
+6. CURRENT boundary 외 구현을 시작하지 않는다.
+7. 실패는 원인분류 후 수정하며 원칙/assertion을 약화하지 않는다.
+8. boundary 완료 시 checkpoint/handoff/current pointer를 함께 갱신한다.
+```
