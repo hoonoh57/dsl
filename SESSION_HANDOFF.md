@@ -1,6 +1,6 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 4 BOUNDARY 7 / 2026-08-31 KST**
+Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 4 BOUNDARY 8 / 2026-08-31 KST**
 
 이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + exact user-local PASS + 현재 `dsl-live-studio` 상태가 stale 문서보다 우선한다.
 
@@ -16,7 +16,7 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT
 
 ```text
 CURRENT_STEP = 4
-CURRENT_BOUNDARY = 7 DSL Runtime
+CURRENT_BOUNDARY = 8 Broker
 BOUNDARY_STATUS = REMOTE_UNVALIDATED
 ```
 
@@ -32,56 +32,56 @@ Boundary 3 Assignment Flow + Semantic = COMPLETE / USER-LOCAL PASS
 Boundary 4 Indicator Kernel = COMPLETE / USER-LOCAL PASS
 Boundary 5 State + Bar Runtime = COMPLETE / USER-LOCAL PASS
 Boundary 6 MTF + Read-Only Context Binding = COMPLETE / USER-LOCAL PASS
+Boundary 7 DSL Runtime = COMPLETE / USER-LOCAL PASS
 ```
 
-Boundary 6 user-local evidence:
+Boundary 7 user-local evidence:
 
 ```text
-MTF/context parity = OK
-frozen core guard = OK
+DSL runtime parity: Ran 5 tests in 0.172s / OK
+frozen core guard: Ran 1 test in 0.044s / OK
 ```
 
 Checkpoint:
 
 ```text
-STEP4_BOUNDARY6_MTF_CONTEXT_PARITY_CHECKPOINT_2026-08-31.md
+STEP4_BOUNDARY7_DSL_RUNTIME_PARITY_CHECKPOINT_2026-08-31.md
 ```
 
 ---
 
-## 현재 Boundary 7
+## 현재 Boundary 8
 
 이식 대상:
 
 ```text
 legacy:
-  core/dsl_runtime.py
+  core/broker.py
 
 axis1:
-  axes/axis1_dsl/runtime/dsl_runtime.py
+  axes/axis1_dsl/execution/broker.py
 ```
 
 현재 remote 상태:
 
 ```text
-DSL 실행기 본체 이식 완료
-내부 의존성은 새 AXIS 1 Parser/Semantic/Indicator/State/MTF/Context만 사용
+Broker 이식 완료
 focused parity test 추가:
-  tests/test_axis1_dsl_runtime_parity.py
+  tests/test_axis1_broker_parity.py
 ```
 
 검증 대상:
 
 ```text
-전략 이름/timeframe
-assignment/indicator/session/MTF/state 계산값
-이벤트 조건/주문 인자
-prepared exact-time context compile
-runtime fail-closed 오류
-new runtime의 frozen-core production import 부재
+MARKET/LIMIT/STOP/STOP_LIMIT
+GTC/DAY/OCO/cancel/client-order cancel
+fill price/quantity/history
+reject/expire/fail-closed
+fill-resolver behavior
+new broker의 frozen-core production import 부재
 ```
 
-Boundary 7은 user-local PASS 전 TRUSTED로 부르지 않는다. PASS 전 Boundary 8 Broker 시작 금지.
+Boundary 8은 user-local PASS 전 TRUSTED로 부르지 않는다. PASS 전 Boundary 9 Backtest + Projection Output 시작 금지.
 
 ---
 
@@ -107,8 +107,7 @@ expected frozen hash 변경으로 위반 수용
 ## Step 4 남은 순서
 
 ```text
-7 DSL Runtime                          CURRENT
-8 Broker
+8 Broker                               CURRENT
 9 Backtest + Projection Output
 ```
 
@@ -176,10 +175,10 @@ Chart = 계산 없이 projection/evidence 표시
 사용자 local에서 최신 branch pull 후:
 
 ```text
-python -m unittest discover -s tests -p "test_axis1_dsl_runtime_parity.py" -v
+python -m unittest discover -s tests -p "test_axis1_broker_parity.py" -v
 python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py" -v
 ```
 
-둘 다 PASS하면 Boundary 7 checkpoint 후 Boundary 8 Broker로 이동한다.
+둘 다 PASS하면 Boundary 8 checkpoint 후 Boundary 9 Backtest + Projection Output으로 이동한다.
 
 실패 시 test defect / migration defect / authority drift / environment issue / unknown 순으로 원인분류하고 assertion이나 원칙을 약화하지 않는다.
