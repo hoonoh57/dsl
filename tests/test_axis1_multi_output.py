@@ -90,6 +90,20 @@ class Axis1MultiOutputTests(unittest.TestCase):
             compiled.values["wide"], expected[0] - expected[2], equal_nan=True
         )
 
+    def test_bbands_destructuring_preserves_input_nan_windows(self):
+        code = '''strategy "BandsWarmup" {
+            timeframe = "5m"
+            input period = 4
+            source = ta.sma(close, 3)
+            upper, middle, lower = ta.bbands(source, period, 2)
+        }'''
+        market = market_fixture()
+        compiled = Axis1DSLRuntime.compile(code, {key: value.copy() for key, value in market.items()})
+        source = CoreTALib.sma(market["close"], 3)
+        expected = CoreTALib.bbands(source, 4, 2)
+        for name, values in zip(("upper", "middle", "lower"), expected):
+            np.testing.assert_allclose(compiled.values[name], values, equal_nan=True)
+
     def test_normalized_macd_multi_output_matches_registered_components(self):
         code = '''strategy "MacdTuple" {
             timeframe = "5m"
