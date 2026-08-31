@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "authoring_validation_event/v1",
+  "title": "DSL Authoring Validation Event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "request_id",
+    "draft_id",
+    "iteration",
+    "occurred_at",
+    "versions",
+    "validation",
+    "resolution"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "authoring_validation_event/v1"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "draft_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "previous_draft_id": {
+      "type": ["string", "null"]
+    },
+    "iteration": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "occurred_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "user_request_hash": {
+      "type": ["string", "null"]
+    },
+    "intent_cluster_id": {
+      "type": ["string", "null"]
+    },
+    "versions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "skill_version",
+        "prompt_builder_version",
+        "prompt_template_version",
+        "validator_version"
+      ],
+      "properties": {
+        "skill_version": {"type": "string", "minLength": 1},
+        "prompt_builder_version": {"type": "string", "minLength": 1},
+        "prompt_template_version": {"type": "string", "minLength": 1},
+        "validator_version": {"type": "string", "minLength": 1},
+        "external_model_label": {"type": ["string", "null"]},
+        "axis1_contract_version": {"type": ["string", "null"]},
+        "axis2_contract_version": {"type": ["string", "null"]},
+        "axis3_contract_version": {"type": ["string", "null"]}
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage", "status", "error_code", "root_cause_class"],
+      "properties": {
+        "stage": {
+          "type": "string",
+          "enum": [
+            "SCHEMA",
+            "CAPABILITY",
+            "DATA_SOURCE",
+            "AXIS_BOUNDARY",
+            "TIMEFRAME_CAUSALITY",
+            "DSL_PARSER",
+            "DSL_SEMANTIC",
+            "COMPILE_DRY_RUN",
+            "PERSISTENCE",
+            "ACCEPTANCE"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["PASS", "FAIL", "BLOCKED"]
+        },
+        "error_code": {
+          "type": ["string", "null"]
+        },
+        "error_message": {
+          "type": ["string", "null"]
+        },
+        "source_location": {
+          "type": ["string", "null"]
+        },
+        "capability_id": {
+          "type": ["string", "null"]
+        },
+        "feature_id": {
+          "type": ["string", "null"]
+        },
+        "data_source_id": {
+          "type": ["string", "null"]
+        },
+        "timeframe": {
+          "type": ["string", "null"]
+        },
+        "root_cause_class": {
+          "type": "string",
+          "enum": [
+            "PROMPT_DEFECT",
+            "SKILL_GAP",
+            "LLM_DRAFT_DEFECT",
+            "SCHEMA_DEFECT",
+            "VALIDATOR_DEFECT",
+            "DSL_PARSER_GAP",
+            "DSL_SEMANTIC_GAP",
+            "DSL_CAPABILITY_GAP",
+            "DATA_CONTRACT_GAP",
+            "AXIS_CONTRACT_GAP",
+            "USER_INTENT_AMBIGUITY",
+            "TEST_DEFECT",
+            "ENVIRONMENT_ISSUE",
+            "UNKNOWN"
+          ]
+        }
+      }
+    },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["correction_prompt_generated", "resolved", "resolution_class"],
+      "properties": {
+        "correction_prompt_generated": {"type": "boolean"},
+        "next_draft_id": {"type": ["string", "null"]},
+        "resolved": {"type": "boolean"},
+        "resolution_class": {
+          "type": "string",
+          "enum": [
+            "NONE",
+            "PROMPT_CORRECTION",
+            "SKILL_UPDATE",
+            "USER_CLARIFICATION",
+            "VALIDATOR_FIX",
+            "DATA_CONTRACT_FIX",
+            "AXIS_CONTRACT_FIX",
+            "DSL_PARSER_TRANCHE",
+            "DSL_SEMANTIC_TRANCHE",
+            "DSL_CAPABILITY_TRANCHE",
+            "BLOCKED_NEEDS_CAPABILITY",
+            "CANCELED"
+          ]
+        },
+        "resolution_note": {"type": ["string", "null"]}
+      }
+    }
+  }
+}
