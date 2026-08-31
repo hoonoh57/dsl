@@ -1,6 +1,6 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 5-5 / 2026-08-31 KST**
+Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 5-5 / RETEST REQUIRED / 2026-08-31 KST**
 
 이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + user-local PASS + 현재 `dsl-live-studio` 상태가 stale 문서보다 우선한다.
 
@@ -17,7 +17,7 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT
 ```text
 CURRENT_STEP = 5
 CURRENT_SUBSTEP = 5-5 bounded loops
-STATUS = WRITTEN / REMOTE_UNVALIDATED
+STATUS = REMOTE_RETEST_REQUIRED
 ```
 
 완료:
@@ -39,47 +39,62 @@ Step 5-4 user-defined functions = COMPLETE / USER-LOCAL PASS
 STEP5_4_USER_FUNCTIONS_CHECKPOINT_2026-08-31.md
 ```
 
-5-4 user-local evidence:
+---
+
+## 현재 5-5 검증상태
+
+첫 user-local 결과:
 
 ```text
+test_axis1_bounded_loops.py = Ran 7 / 1 failure
 test_axis1_user_functions.py = OK
-test_axis1_multi_output.py = OK
-test_axis1_generic_projection.py = OK
-test_axis1_capability_metadata.py = OK
-test_frozen_legacy_core_guard.py = OK
+나머지 multi-output / generic projection / capability metadata / frozen core guard = OK
 ```
+
+실패 위치:
+
+```text
+bounded-loop function mean3(close)를 ta.bbands multi-output 입력으로 연결한 case
+```
+
+원인 분류:
+
+```text
+FEATURE_DEFECT
+```
+
+정확한 원인:
+
+```text
+반복문 전개 자체는 수동 history expression과 일치했다.
+문제는 기존 5-1 ta.bbands multi-output lowering이 ta.sma + ta.stdev 조합을 사용하면서
+CoreTALib.bbands의 NaN-window 보존 semantics를 완전히 재현하지 못한 것이다.
+입력 series에 warmup NaN이 있으면 band가 2 bar 일찍 materialize되었다.
+```
+
+수정:
+
+```text
+axes/axis1_dsl/core/multi_output.py만 additive lowering 수준에서 보정
+기존 DSL primitive로 연속 finite bar 수를 확인하여 period window가 완전히 유효하기 전에는 NaN 보존
+migrated Parser/Semantic/Runtime/Backtest 직접 변경 없음
+frozen core 변경 없음
+assertion/expected 완화 없음
+```
+
+회귀검사 추가:
+
+```text
+tests/test_axis1_multi_output.py
+ -> BBands input 자체에 warmup NaN이 있는 경우 direct CoreTALib.bbands와 exact 비교
+ -> scalar period variable도 사용해 동적 scalar period contract 보존
+```
+
+현재는 user-local 재검증 전이므로 5-5 PASS로 부르지 않는다.
 
 ---
 
-## 현재 5-5 구현
-
-목표:
-
-```text
-반복 횟수가 compile 전에 확정되는 순수 계산만 허용하고
-runtime에 loop 실행권한이나 무한반복 가능성을 추가하지 않음
-```
-
-구현 파일:
-
-```text
-axes/axis1_dsl/core/bounded_loops.py
-axes/axis1_dsl/runtime/axis1_runtime.py
-axes/axis1_dsl/execution/axis1_backtest.py
-tests/test_axis1_bounded_loops.py
-```
-
-Lowering 순서:
-
-```text
-bounded loops
- -> user functions
- -> multi-output
- -> migrated parser/semantic/runtime/backtest
- -> generic projection
-```
-
-v1 범위:
+## 5-5 bounded loop contract
 
 ```text
 user-defined function 내부에서만 for ... in range(...) 허용
@@ -95,7 +110,15 @@ source line 수 보존
 과도한 expression 전개는 fail-closed
 ```
 
-Backtest diagnostics에는 function/index/range/iteration-count/target metadata를 보존한다. 내부 helper 이름은 user-function lowering에서 소거되어 실행 indicator/projection으로 나오지 않아야 한다.
+Lowering 순서:
+
+```text
+bounded loops
+ -> user functions
+ -> multi-output
+ -> migrated parser/semantic/runtime/backtest
+ -> generic projection
+```
 
 ---
 
@@ -123,7 +146,7 @@ runtime while/break/continue/dynamic bound 추가
 ## 다음 순서
 
 ```text
-5-5 bounded loops                         CURRENT
+5-5 bounded loops                         CURRENT / RETEST REQUIRED
 5-6 on_tick / on_fill commit/rollback
 5-7 partial fills / partial exits
 5-8 pyramiding / multi-position
@@ -156,17 +179,14 @@ runtime while/break/continue/dynamic bound 추가
 
 ## 다음 exact action
 
-사용자 local에서:
+사용자 local에서 최신 branch pull 후 우선 수정 직접 관련 검사:
 
 ```text
 python -m unittest discover -s tests -p "test_axis1_bounded_loops.py" -v
-python -m unittest discover -s tests -p "test_axis1_user_functions.py" -v
 python -m unittest discover -s tests -p "test_axis1_multi_output.py" -v
-python -m unittest discover -s tests -p "test_axis1_generic_projection.py" -v
-python -m unittest discover -s tests -p "test_axis1_capability_metadata.py" -v
 python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py" -v
 ```
 
-모두 PASS하면 5-5 checkpoint 후 5-6 on_tick/on_fill commit/rollback으로 이동한다.
+세 검사 모두 PASS하면 앞서 이미 OK였던 나머지 회귀검사 결과와 합쳐 5-5 checkpoint 후 5-6으로 이동한다.
 
-실패 시 test defect / feature defect / authority drift / environment issue / unknown으로 먼저 분류하고 원칙/assertion을 약화하지 않는다.
+실패 시 새 오류를 test defect / feature defect / authority drift / environment issue / unknown으로 다시 분류하고 원칙/assertion을 약화하지 않는다.
