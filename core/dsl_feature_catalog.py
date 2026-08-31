@@ -53,6 +53,7 @@ def _call_expression(name: str) -> str:
         "ta.supertrend": "ta.supertrend(10, 3)",
         "ta.supertrend_direction": "ta.supertrend_direction(10, 3)",
         "ta.macd": "ta.macd(close, 12, 26, \"exponential\")",
+        "user.macd_normalized": "user.macd_normalized(close, \"hist_abs_pct\", 12, 26, 9, \"exponential\")",
         "ta.atr": "ta.atr(14)",
         "ta.adx": "ta.adx(14)",
         "ta.trix": "ta.trix(12)",
