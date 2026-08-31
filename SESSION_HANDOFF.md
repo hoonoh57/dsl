@@ -1,6 +1,6 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 4 BOUNDARY 8 / 2026-08-31 KST**
+Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 4 BOUNDARY 9 / 2026-08-31 KST**
 
 이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + exact user-local PASS + 현재 `dsl-live-studio` 상태가 stale 문서보다 우선한다.
 
@@ -16,7 +16,7 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT
 
 ```text
 CURRENT_STEP = 4
-CURRENT_BOUNDARY = 8 Broker
+CURRENT_BOUNDARY = 9 Backtest + Projection Output
 BOUNDARY_STATUS = REMOTE_UNVALIDATED
 ```
 
@@ -33,55 +33,73 @@ Boundary 4 Indicator Kernel = COMPLETE / USER-LOCAL PASS
 Boundary 5 State + Bar Runtime = COMPLETE / USER-LOCAL PASS
 Boundary 6 MTF + Read-Only Context Binding = COMPLETE / USER-LOCAL PASS
 Boundary 7 DSL Runtime = COMPLETE / USER-LOCAL PASS
+Boundary 8 Broker = COMPLETE / USER-LOCAL PASS
 ```
 
-Boundary 7 user-local evidence:
+Boundary 8 user-local evidence:
 
 ```text
-DSL runtime parity: Ran 5 tests in 0.172s / OK
-frozen core guard: Ran 1 test in 0.044s / OK
+broker parity = OK
+frozen core guard = OK
 ```
 
 Checkpoint:
 
 ```text
-STEP4_BOUNDARY7_DSL_RUNTIME_PARITY_CHECKPOINT_2026-08-31.md
+STEP4_BOUNDARY8_BROKER_PARITY_CHECKPOINT_2026-08-31.md
 ```
 
 ---
 
-## 현재 Boundary 8
+## 현재 Boundary 9
 
 이식 대상:
 
 ```text
 legacy:
-  core/broker.py
+  core/backtest.py
+  core/backtest_parent_context.py
 
 axis1:
-  axes/axis1_dsl/execution/broker.py
+  axes/axis1_dsl/execution/backtest.py
+  axes/axis1_dsl/execution/backtest_parent_context.py
 ```
 
 현재 remote 상태:
 
 ```text
-Broker 이식 완료
+백테스트 엔진 이식 완료
+새 AXIS 1 Runtime/Broker만 사용
+기존 candles/markers/trades/closed-trades/metrics/equity/indicator projection 보존
 focused parity test 추가:
-  tests/test_axis1_broker_parity.py
+  tests/test_axis1_backtest_projection_parity.py
+```
+
+Context boundary:
+
+```text
+legacy ParentContextFrame / ParentFeatureRegistry를 AXIS 1 API에 받지 않는다.
+이미 준비된 DSLContextSeriesBinding만 받는다.
+market instrument와 target symbol exact 일치 필요.
+market bar times와 binding target_times exact 일치 필요.
+nearest/fill-forward/interpolation/default 없음.
 ```
 
 검증 대상:
 
 ```text
-MARKET/LIMIT/STOP/STOP_LIMIT
-GTC/DAY/OCO/cancel/client-order cancel
-fill price/quantity/history
-reject/expire/fail-closed
-fill-resolver behavior
-new broker의 frozen-core production import 부재
+거래 순서 / 체결값 / 수량
+metrics numeric
+markers / candles / equity
+numeric indicator projection / JMA trend-color projection
+closed trades / risk exits
+strategy/timeframe
+prepared context exact binding
+timeframe mismatch fail-closed
+new backtest/context adapter의 frozen-core/provider import 부재
 ```
 
-Boundary 8은 user-local PASS 전 TRUSTED로 부르지 않는다. PASS 전 Boundary 9 Backtest + Projection Output 시작 금지.
+Boundary 9는 user-local PASS 전 TRUSTED로 부르지 않는다. PASS 전 Step 5 신규 DSL 기능 개발 시작 금지.
 
 ---
 
@@ -104,58 +122,50 @@ expected frozen hash 변경으로 위반 수용
 
 ---
 
-## Step 4 남은 순서
+## Step 4 상태
 
 ```text
-8 Broker                               CURRENT
-9 Backtest + Projection Output
+1 Parser / AST                         PASS
+2 Function Registry                    PASS
+3 Assignment Flow + Semantic           PASS
+4 Indicator Kernel                     PASS
+5 State + Bar Runtime                  PASS
+6 MTF + Read-Only Context Binding      PASS
+7 DSL Runtime                          PASS
+8 Broker                               PASS
+9 Backtest + Projection Output         CURRENT / REMOTE_UNVALIDATED
 ```
 
-각 boundary는 반드시:
-
-```text
-이식 -> focused parity -> frozen guard -> user-local PASS -> checkpoint -> 다음 boundary
-```
+Boundary 9 PASS 후에만 Step 4 전체 migration parity를 COMPLETE 처리한다.
 
 ---
 
 ## 이후 작업순서
 
 ```text
-5. AXIS 1 신규 DSL 기능 개발
-   tuple/multi-output가 첫 우선순위
-6. machine-readable capability/diagnostic registry
-7. Bridge common + AXIS 1 실행계약
-8. AXIS 2 exact-as-of snapshot 계약
-9. AXIS 2 종목선별 엔진/feature
-10. AXIS 3 Condition/Strategy CRUD
-11. 3축 E2E Bridge
-12. 외부 LLM 자연어 작성 workflow
-13. 지속개선 분석도구
-14. 최종 자연어 E2E 검증
-15. legacy 문서 정리 + repo-wide compliance audit
+5-1 tuple / multi-output + destructuring
+5-2 generic projection
+5-3 capability metadata
+5-4 user-defined functions
+5-5 bounded loops
+5-6 on_tick / on_fill commit/rollback
+5-7 partial fills / partial exits
+5-8 pyramiding / multi-position
+5-9 reference differential fixtures
+5-10 full-engine batch/streaming parity
+6 machine-readable capability/diagnostic registry
+7 Bridge common + AXIS 1 execution contract
+8 AXIS 2 exact-as-of snapshot contract
+9 AXIS 2 selection engine
+10 AXIS 3 Condition/Strategy CRUD
+11 3축 E2E Bridge
+12 External LLM Authoring Lane
+13 Continuous Improvement tooling
+14 natural-language E2E acceptance
+15 legacy docs + repo-wide compliance audit
 ```
 
 새 아이디어는 PARKING LOT에 기록만 하고 현재 순서를 계속한다.
-
----
-
-## 3축 책임
-
-```text
-AXIS 1 = 단일종목 deterministic DSL 실행
-AXIS 2 = 사전계산 exact-as-of 종목선별
-AXIS 3 = Condition/Strategy CRUD + lineage/오케스트레이션
-Chart = 계산 없이 projection/evidence 표시
-```
-
-시장레짐/고베타/섹터/종목간 Histogram rank는 AXIS 1에서 계산하지 않는다.
-
----
-
-## External LLM / 지속개선
-
-외부 LLM은 proposal only다. 구조화 반환은 local deterministic validation을 통과해야 한다. 반복 오류는 구조화 로그로 누적해 Prompt/Skill/Validator/DSL/Data contract 개선 근거로 사용하되 자동 self-modification이나 검증완화는 금지한다.
 
 ---
 
@@ -175,10 +185,10 @@ Chart = 계산 없이 projection/evidence 표시
 사용자 local에서 최신 branch pull 후:
 
 ```text
-python -m unittest discover -s tests -p "test_axis1_broker_parity.py" -v
+python -m unittest discover -s tests -p "test_axis1_backtest_projection_parity.py" -v
 python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py" -v
 ```
 
-둘 다 PASS하면 Boundary 8 checkpoint 후 Boundary 9 Backtest + Projection Output으로 이동한다.
+둘 다 PASS하면 Boundary 9 checkpoint 후 Step 4 전체 migration parity를 COMPLETE 처리하고, 순서대로 Step 5-1 tuple / multi-output로 이동한다.
 
 실패 시 test defect / migration defect / authority drift / environment issue / unknown 순으로 원인분류하고 assertion이나 원칙을 약화하지 않는다.
