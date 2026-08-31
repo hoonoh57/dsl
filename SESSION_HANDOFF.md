@@ -45,7 +45,7 @@ tests/test_frozen_legacy_core_guard.py = OK
 
 ---
 
-## 현재 5-2 방향
+## 현재 5-2 구현
 
 목표:
 
@@ -53,18 +53,7 @@ tests/test_frozen_legacy_core_guard.py = OK
 여러 결과를 특정 지표별 예외처리 없이 공통 차트 projection contract로 노출
 ```
 
-중요 원칙:
-
-```text
-Chart는 indicator/condition 값을 재계산하지 않는다.
-기존 Backtest indicator output과 5-1 binding metadata만 사용한다.
-사용자 target 이름 + 원래 function/component/type identity를 보존한다.
-overlay/pane 및 direction-color는 기존 output을 그대로 재사용한다.
-값이 없는 component를 0/default/fill-forward로 만들지 않는다.
-특정 지표 이름을 renderer logic에 하드코딩하지 않는다.
-```
-
-예정 파일:
+구현 파일:
 
 ```text
 axes/axis1_dsl/execution/generic_projection.py
@@ -72,7 +61,36 @@ axes/axis1_dsl/execution/axis1_backtest.py
 tests/test_axis1_generic_projection.py
 ```
 
-5-2는 projection metadata/facade 층만 추가하며 migrated execution core와 frozen core를 수정하지 않는다.
+현재 동작:
+
+```text
+기존 Backtest indicators가 projection의 유일한 값 source
+각 indicator에 projection id/kind/pane join metadata 부착
+multi-output target은 function/component/type identity를 manifest에 보존
+기존 overlay/pane + direction-color intent 그대로 재사용
+warmup 등으로 기존 실행 output에 점이 없으면 available=false로 기록
+missing 값을 0/default/fill-forward로 합성하지 않음
+ordinary single-output numeric series도 같은 projection manifest에 포함
+```
+
+중요 원칙:
+
+```text
+Chart/Projection은 indicator/condition 값을 재계산하지 않는다.
+특정 ta.supertrend / ta.bbands / MACD 이름을 renderer logic에 하드코딩하지 않는다.
+projection layer는 indicator kernel/runtime/provider/frozen core를 호출하지 않는다.
+5-2는 migrated execution core와 frozen core를 수정하지 않는다.
+```
+
+검증 대기:
+
+```text
+generic target name에 대한 multi-output component identity
+기존 indicator data/overlay/direction-color 보존
+warmup-only output 무합성
+single-output numeric series 공통 projection
+projection layer dependency isolation
+```
 
 ---
 
@@ -136,7 +154,7 @@ Chart 재계산 / default 합성
 
 ## 다음 exact action
 
-5-2 구현 후 사용자 local에서:
+사용자 local에서:
 
 ```text
 python -m unittest discover -s tests -p "test_axis1_generic_projection.py" -v
