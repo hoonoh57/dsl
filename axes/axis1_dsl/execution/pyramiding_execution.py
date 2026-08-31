@@ -1,7 +1,7 @@
 """Deterministic same-direction pyramiding and multi-lot accounting for AXIS 1.
 
 This Step 5-8 layer is additive. It reuses the Step 5-7 partial-fill broker but
-keeps lot accounting separate from the migrated whole-fill BacktestEngine.
+keeps lot accounting separate from the migrated whole-fill batch engine.
 Multiple entry orders may build one same-direction aggregate position. Each entry
 order owns one lot; fills of the same order update that lot's weighted cost basis.
 Exits consume lots deterministically (FIFO by default) or one explicitly named
@@ -348,8 +348,6 @@ class PyramidingLedger:
             self.audit.append({"kind": "EXIT_ALLOCATION", **item.public_dict()})
 
         if remaining_to_allocate > _EPS:
-            # Validation above should make this unreachable; keep fail-closed if
-            # internal lot accounting ever drifts.
             raise PartialExecutionError(
                 f"exit allocation incomplete: {remaining_to_allocate}",
                 "EXIT_ALLOCATION_DRIFT",
