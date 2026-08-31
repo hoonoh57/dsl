@@ -57,7 +57,7 @@ FUNCTION_SPECS = {
           ("math.log","math.log10","math.abs","math.sqrt","math.sin","math.cos","math.tan","math.asin","math.acos","math.atan")],
         *[_spec(name,2,2,"series<number>",f"{name}(a, b) -> number|series","math") for name in ("math.pow","math.max","math.min")],
         *[_spec(name,0,0,"series<number>",f"{name}() -> series","session") for name in
-          ("session.day_open","session.day_high","session.day_low","session.prev_open","session.prev_high","session.prev_low","session.prev_close")],
+          ("session.day_open","session.day_high","session.day_low","session.day_return_pct","session.prev_open","session.prev_high","session.prev_low","session.prev_close")],
         _spec("state.edge",1,1,"series<bool>","state.edge(condition) -> condition","state"),
         _spec("state.falling_edge",1,1,"series<bool>","state.falling_edge(condition) -> condition","state"),
         _spec("state.ready_after",2,2,"series<bool>","state.ready_after(trigger, bars) -> condition","state"),
