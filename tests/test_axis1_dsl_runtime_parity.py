@@ -100,9 +100,7 @@ class Axis1DSLRuntimeParityTests(unittest.TestCase):
 
     def test_prepared_context_compile_matches_legacy(self):
         market = market_fixture()
-        target_times = tuple(
-            f"20260831{int(clock):06d}" for clock in market["time"]
-        )
+        target_times = tuple(f"20260831{int(clock):06d}" for clock in market["time"])
         fields = dict(
             target_symbol="TEST",
             target_times=target_times,
@@ -111,7 +109,7 @@ class Axis1DSLRuntimeParityTests(unittest.TestCase):
             feature_types={"market.regime": "NUMBER", "market.permission": "BOOLEAN"},
             feature_values={
                 "market.regime": tuple(float(i % 3 - 1) for i in range(len(target_times))),
-                "market.permission": tuple(i % 2 == 0 for i in range(len(target_times)),),
+                "market.permission": tuple(i % 2 == 0 for i in range(len(target_times))),
             },
         )
         legacy_binding = LegacyContextBinding(**fields)
