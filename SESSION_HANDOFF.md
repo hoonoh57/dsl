@@ -1,23 +1,23 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 4 BOUNDARY 9 / RETEST REQUIRED / 2026-08-31 KST**
+Status: **PRIMARY HUMAN HANDOFF / ACTIVE / STRICT-SEQUENTIAL-EXECUTION / CURRENT STEP 5-1 / 2026-08-31 KST**
 
-이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + exact user-local PASS + 현재 `dsl-live-studio` 상태가 stale 문서보다 우선한다.
+이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + user-local PASS + 현재 `dsl-live-studio` 상태가 stale 문서보다 우선한다.
 
 핵심 운영 원칙:
 
-> 중요한 방침/로직 변경은 그 턴에서 문서에 반영한다. 구현은 `DSL_NEXT_WORK_ORDER.md`의 번호와 현재 boundary를 건너뛰지 않는다.
+> 사용자 진행보고는 기본적으로 `한 일 / 할 일`만 사람이 이해하는 용어로 짧게 한다.
 
-> 사용자 진행보고는 기본적으로 `한 일 / 할 일`만 사람이 이해하는 용어로 짧게 한다. 기계용 상세정보는 내부에서 관리하고 콘솔도 디버깅에 필요한 최소 정보만 출력한다.
+> 검증된 migrated core는 안정된 실행 장비처럼 유지한다. 신규 DSL 기능은 가능한 한 명시적 contract + 얇은 lowering/facade 층으로 격리해 기존 메인 로직 오염을 피한다.
 
 ---
 
 ## 현재 작업
 
 ```text
-CURRENT_STEP = 4
-CURRENT_BOUNDARY = 9 Backtest + Projection Output
-BOUNDARY_STATUS = REMOTE_RETEST_REQUIRED
+CURRENT_STEP = 5
+CURRENT_SUBSTEP = 5-1 tuple / multi-output typed return + destructuring
+STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
 완료:
@@ -26,96 +26,73 @@ BOUNDARY_STATUS = REMOTE_RETEST_REQUIRED
 Step 1 기존 DSL 남은 기능 점검 = COMPLETE
 Step 2 AXIS 1 migration 설계/순서 = COMPLETE
 Step 3 Frozen Core 보호 gate = COMPLETE / USER-LOCAL PASS
-Boundary 1 Parser / AST = COMPLETE / USER-LOCAL PASS
-Boundary 2 Function Registry = COMPLETE / USER-LOCAL PASS
-Boundary 3 Assignment Flow + Semantic = COMPLETE / USER-LOCAL PASS
-Boundary 4 Indicator Kernel = COMPLETE / USER-LOCAL PASS
-Boundary 5 State + Bar Runtime = COMPLETE / USER-LOCAL PASS
-Boundary 6 MTF + Read-Only Context Binding = COMPLETE / USER-LOCAL PASS
-Boundary 7 DSL Runtime = COMPLETE / USER-LOCAL PASS
-Boundary 8 Broker = COMPLETE / USER-LOCAL PASS
+Step 4 AXIS 1 9개 migration boundary = COMPLETE / USER-LOCAL PASS
 ```
 
-Boundary 8 user-local evidence:
+Step 4 최종 checkpoint:
 
 ```text
-broker parity = OK
-frozen core guard = OK
+STEP4_BOUNDARY9_BACKTEST_PROJECTION_PARITY_CHECKPOINT_2026-08-31.md
 ```
 
-Checkpoint:
-
-```text
-STEP4_BOUNDARY8_BROKER_PARITY_CHECKPOINT_2026-08-31.md
-```
+Boundary 9 재검증 과정의 2개 오류는 TEST_DEFECT였다. Legacy에서도 금지된 `order.close_long(type = "MARKET")` fixture를 `order.close_long()`으로 수정했고, product/core/assertion을 바꾸지 않은 상태에서 최종 user-local OK를 확인했다.
 
 ---
 
-## 현재 Boundary 9
+## 현재 5-1 구현
 
-이식 대상:
-
-```text
-legacy:
-  core/backtest.py
-  core/backtest_parent_context.py
-
-axis1:
-  axes/axis1_dsl/execution/backtest.py
-  axes/axis1_dsl/execution/backtest_parent_context.py
-```
-
-현재 remote 상태:
+신규 문법은 migrated Parser/Semantic/Runtime을 직접 확장하는 대신 먼저 안전하게 낮춘다.
 
 ```text
-백테스트 엔진 이식 완료
-새 AXIS 1 Runtime/Broker만 사용
-기존 candles/markers/trades/closed-trades/metrics/equity/indicator projection 보존
-focused parity test:
-  tests/test_axis1_backtest_projection_parity.py
+신규 DSL 문법
+ -> typed multi-output lowering
+ -> 기존 migrated DSL
+ -> 기존 migrated runtime/backtest
 ```
 
-최근 user-local 결과:
+파일:
 
 ```text
-Ran 5 tests / errors=2
-원인 분류 = TEST_DEFECT
-두 오류 모두 legacy parser에서 동일하게 발생
-잘못된 test fixture:
-  order.close_long(type = "MARKET")
-기존 DSL 문법상 close 계열은 현재 인수를 받지 않음
-수정:
-  order.close_long()
-product/core/assertion 완화 없음
+axes/axis1_dsl/core/multi_output.py
+axes/axis1_dsl/runtime/axis1_runtime.py
+axes/axis1_dsl/execution/axis1_backtest.py
+tests/test_axis1_multi_output.py
 ```
 
-따라서 현재 실패는 AXIS 1 backtest migration defect로 판정하지 않는다. 수정된 fixture의 user-local 재검증 전에는 Boundary 9를 PASS/TRUSTED 처리하지 않는다.
-
-Context boundary:
+지원 v1:
 
 ```text
-legacy ParentContextFrame / ParentFeatureRegistry를 AXIS 1 API에 받지 않는다.
-이미 준비된 DSLContextSeriesBinding만 받는다.
-market instrument와 target symbol exact 일치 필요.
-market bar times와 binding target_times exact 일치 필요.
-nearest/fill-forward/interpolation/default 없음.
+line, direction = ta.supertrend([period, multiplier])
+upper, middle, lower = ta.bbands(series[, period, multiplier])
+macd, signal, hist, strength = user.macd_normalized_all(series[, short, long, signal, method])
 ```
 
-검증 대상:
+특징:
 
 ```text
-거래 순서 / 체결값 / 수량
-metrics numeric
-markers / candles / equity
-numeric indicator projection / JMA trend-color projection
-closed trades / risk exits
-strategy/timeframe
-prepared context exact binding
-timeframe mismatch fail-closed
-new backtest/context adapter의 frozen-core/provider import 부재
+component 이름/형식을 등록
+반환 개수와 대상 변수 개수 exact 일치
+strategy top-level만 허용
+중복/예약 이름 fail-closed
+등록되지 않은 multi-output 함수 fail-closed
+v1은 위치 인수만 허용
+lowering 뒤 기존 semantic/runtime 검증 재사용
+오류 line은 원래 DSL line으로 remap
 ```
 
-Boundary 9는 user-local PASS 전 TRUSTED로 부르지 않는다. PASS 전 Step 5 신규 DSL 기능 개발 시작 금지.
+Runtime facade:
+
+```text
+Axis1DSLRuntime
+```
+
+Backtest facade:
+
+```text
+Axis1BacktestEngine
+```
+
+Backtest diagnostics에는 multi-output binding metadata를 보존한다. 다음 5-2 generic projection은 이 metadata를 사용하되 5-1 PASS 전 시작하지 않는다.
 
 ---
 
@@ -131,36 +108,19 @@ core tree: 8b3f081de926f5c9f69e9cdbc158b81b2275176c
 
 ```text
 core/ 수정 / 이동 / 삭제 / 신규 파일 추가
-새 기능 역이식
-새 AXIS production code가 frozen core 내부 구현에 영구 의존
 expected frozen hash 변경으로 위반 수용
+새 feature를 frozen core에 역이식
+신규기능 때문에 migrated core를 불필요하게 대수술
+검증완화
 ```
 
 ---
 
-## Step 4 상태
+## 다음 순서
 
 ```text
-1 Parser / AST                         PASS
-2 Function Registry                    PASS
-3 Assignment Flow + Semantic           PASS
-4 Indicator Kernel                     PASS
-5 State + Bar Runtime                  PASS
-6 MTF + Read-Only Context Binding      PASS
-7 DSL Runtime                          PASS
-8 Broker                               PASS
-9 Backtest + Projection Output         CURRENT / RETEST REQUIRED
-```
-
-Boundary 9 PASS 후에만 Step 4 전체 migration parity를 COMPLETE 처리한다.
-
----
-
-## 이후 작업순서
-
-```text
-5-1 tuple / multi-output + destructuring
-5-2 generic projection
+5-1 multi-output + destructuring          CURRENT
+5-2 tuple-aware generic projection
 5-3 capability metadata
 5-4 user-defined functions
 5-5 bounded loops
@@ -181,17 +141,15 @@ Boundary 9 PASS 후에만 Step 4 전체 migration parity를 COMPLETE 처리한�
 15 legacy docs + repo-wide compliance audit
 ```
 
-새 아이디어는 PARKING LOT에 기록만 하고 현재 순서를 계속한다.
-
 ---
 
 ## 사용자 커뮤니케이션 / 콘솔
 
 ```text
 사용자 화면 = 한 일 / 할 일
-성공 콘솔 = 가능하면 [PASS] 한 줄
+정상 콘솔 = 가능하면 [PASS] 한 줄
 실패 콘솔 = 디버깅에 필요한 최소 원인/위치
-상세 hash/schema/error code/event = 내부 관리
+기계용 상세정보 = 내부 관리
 ```
 
 ---
@@ -201,10 +159,10 @@ Boundary 9 PASS 후에만 Step 4 전체 migration parity를 COMPLETE 처리한�
 사용자 local에서 최신 branch pull 후:
 
 ```text
-python -m unittest discover -s tests -p "test_axis1_backtest_projection_parity.py" -v
+python -m unittest discover -s tests -p "test_axis1_multi_output.py" -v
 python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py" -v
 ```
 
-둘 다 PASS하면 Boundary 9 checkpoint 후 Step 4 전체 migration parity를 COMPLETE 처리하고, 순서대로 Step 5-1 tuple / multi-output로 이동한다.
+둘 다 PASS하면 5-1 checkpoint 후 5-2 tuple-aware generic projection으로 이동한다.
 
-실패 시 새 오류를 test defect / migration defect / authority drift / environment issue / unknown으로 다시 분류하며 assertion이나 원칙을 약화하지 않는다.
+실패 시 test defect / feature defect / authority drift / environment issue / unknown으로 먼저 분류하고 원칙/assertion을 약화하지 않는다.
