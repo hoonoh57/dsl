@@ -18,7 +18,7 @@ Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 
 PREVIOUS REMEDIATION = Steps 1 through 15 COMPLETE / USER-LOCAL PASS
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-STATUS = AUTO USER-LOCAL PASS / REAL UI REVALIDATION REQUIRED
+STATUS = SUPERTrend REAL UI PASS / PANE HEIGHT REAL UI FAIL / FIX WRITTEN / REVALIDATION REQUIRED
 ```
 
 ## JSON 상태 권한
@@ -41,52 +41,39 @@ vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart
 
 한 문서에 workspace/display/addons/layout/geometry를 함께 보존한다.
 
-## 최신 실제 UI 실패와 수정
+## 최신 실제 UI 결과
 
-사용자 재현:
+사용자 재검증:
 
 ```text
-SuperTrend 삽입
-+ 메인/서브 패널 높이 변경
-+ 브라우저 종료/재기동
- -> 복원 실패
+SuperTrend 재기동 복원 = PASS
+거래량 pane 높이 복원 = FAIL
+서브차트 지표 pane 높이 복원 = FAIL
 ```
 
-추적에서 저장 순서 경쟁상태를 확인했다.
+이 결과로 Add-on 상태 자체와 pane layout 상태를 분리해 추적했다.
+
+확인 원인:
 
 ```text
-older queued PUT
-latest close POST/beacon
- -> arrival/completion inversion
- -> older state may overwrite latest state
+persisted pane heights hydrate
+ -> native chart + add-on pane startup construction
+ -> chart library auto-layout recalculates actual heights
+ -> observer sees startup-generated heights
+ -> startup layout can replace persisted layout authority before render settles
 ```
 
 현재 수정:
 
 ```text
-Chart State semantic mutation -> stateRevision 증가
-full JSON -> revision 포함
-JSON writer -> serialization
-lower revision write -> stale reject
-unique atomic temp file
+startup 동안 pane height observer persistence 억제
+JSON persisted primary/add-on pane heights를 authority로 유지
+all add-ons idle 후 persisted layout 재적용
+여러 layout frame에 걸쳐 재적용
+stabilization 완료 후 사용자 resize persistence 활성화
 ```
 
-따라서 최신 종료상태가 먼저 저장된 후 과거 요청이 늦게 도착해도 최신 JSON을 되돌릴 수 없다.
-
-회귀검증에는 다음 순서를 포함한다.
-
-```text
-latest state POST
- -> delayed stale PUT
- -> GET
- -> latest SuperTrend/layout/workspace 유지
-```
-
-2026-09-01 사용자 로컬 자동 재검증:
-
-```text
-verify.bat -> [PASS] current verification passed
-```
+회귀검증은 startup auto-layout이 실제 pane 높이를 임의값으로 변경해도 JSON 높이가 유지되고, stabilization 후 실제 pane이 JSON 높이로 돌아오는 시나리오를 포함한다.
 
 ## 계층 분리
 
@@ -98,25 +85,32 @@ Core
 ```
 
 - Core: deterministic 의미/계산. repository-root `core/`는 frozen reference이며 수정 금지.
-- Bridge / Runtime: lifecycle/state routing/observation. 계산 금지.
+- Bridge / Runtime: lifecycle/state routing/observation/layout projection. 계산 금지.
 - Add-ons: 기능별 계산과 private state.
 - JSON persistence: serialization/hydrate/atomic write/stale-write rejection만 담당.
 
 ## 다음 검증
 
-남은 단계는 실제 UI 재검증이다.
+먼저 사용자 로컬 자동검증:
 
 ```text
-SuperTrend 삽입
-메인/서브 패널 높이 변경
-브라우저 종료
-재기동
- -> 동일 상태 복원
- -> timeframe/workspace 유지
- -> PERSISTENCE ERROR 없음
+git pull --ff-only origin dsl-live-studio
+git submodule update --init --recursive
+verify.bat
 ```
 
-실제 UI 복원 PASS 전 다음 UI 기능으로 넘어가지 않는다.
+PASS 후 실제 UI:
+
+```text
+거래량 pane 높이 변경
+서브차트 지표 pane 높이 변경
+브라우저 종료
+재기동
+ -> 두 높이 모두 복원
+ -> SuperTrend/timeframe 등 기존 복원 상태 유지
+```
+
+실제 UI pane 높이 복원 PASS 전 UIA-1을 닫지 않는다.
 
 ## Frozen legacy Core
 
