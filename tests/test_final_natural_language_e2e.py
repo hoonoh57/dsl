@@ -111,7 +111,9 @@ class FinalNaturalLanguageE2EAcceptanceTests(unittest.TestCase):
 
         tampered = copy.deepcopy(self.scenario.request)
         values = tampered["execution_inputs"]["BBB"]["parent_context"]["feature_values"]
-        values["selection.reference_hist"][0] = float(values["selection.reference_hist"][0]) + 0.001
+        reference_hist = list(values["selection.reference_hist"])
+        reference_hist[0] = float(reference_hist[0]) + 0.001
+        values["selection.reference_hist"] = reference_hist
         rejected = execute_three_axis_request(self.scenario.store, tampered)
         self.assertEqual(rejected["meta"]["status"], "REJECTED")
         self.assertEqual(
