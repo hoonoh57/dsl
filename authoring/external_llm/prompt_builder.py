@@ -18,6 +18,13 @@ DSL_SYNTAX_REFERENCE = r'''AXIS 1 DSL syntax reference (use an advanced form onl
 strategy "NAME" {
     timeframe = "15m"
     input threshold = 1.0
+
+    function centered(source, period) {
+        basis_local = ta.sma(source, period)
+        return source - basis_local
+    }
+
+    centered_value = centered(close, 20)
     basis = ta.ema(close, 20)
     state armed = false
 
@@ -34,21 +41,19 @@ strategy "NAME" {
     on(enter) { order.buy(type = "MARKET") }
 }
 
-Pure user function:
-function centered(source, period) {
-    basis = ta.sma(source, period)
-    return source - basis
-}
-
 Bounded loop (inside a supported user function; compile-time constant range only):
-for i in range(0, 3) {
-    total = total + source[i]
+function mean3(source) {
+    total = 0
+    for i in range(0, 3) {
+        total = total + source[i]
+    }
+    return total / 3
 }
 
-Registered multi-output destructuring:
+Registered multi-output destructuring inside the strategy body:
 upper, middle, lower = ta.bbands(close, 20, 2)
 
-Intrabar state handlers:
+Intrabar state handlers inside the strategy body:
 on_tick {
     if (tick.price > peak) {
         set peak = tick.price
