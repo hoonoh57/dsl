@@ -74,7 +74,16 @@ single chart state hydrate
  -> READY
 ```
 
-UIA-1은 아직 **WRITTEN / REMOTE_UNVALIDATED**다. focused tests와 실제 browser restart 확인 전 PASS로 닫지 않는다.
+2026-09-01 사용자 로컬 `verify.bat`는 `[PASS] current verification passed`로 완료됐다. 따라서 자동 회귀검증은 **USER-LOCAL PASS**다.
+
+UIA-1 전체 상태:
+
+```text
+AUTOMATED = USER-LOCAL PASS
+MANUAL UI RESTORE = PENDING
+```
+
+실제 브라우저 종료/재기동 후 5분봉, 종목, 표시범위, 수익률 모드, 지표 설정 등 동일 semantic state 복원 확인 전에는 UIA-1 전체 PASS로 닫지 않는다.
 
 ## Layer authority
 
