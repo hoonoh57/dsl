@@ -18,7 +18,7 @@ Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 
 PREVIOUS REMEDIATION = Steps 1 through 15 COMPLETE / USER-LOCAL PASS
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-STATUS = REAL UI FAIL / ORDERING FIX WRITTEN / REVALIDATION REQUIRED
+STATUS = AUTO USER-LOCAL PASS / REAL UI REVALIDATION REQUIRED
 ```
 
 ## JSON 상태 권한
@@ -41,7 +41,7 @@ vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart
 
 한 문서에 workspace/display/addons/layout/geometry를 함께 보존한다.
 
-## 최신 실제 UI 실패
+## 최신 실제 UI 실패와 수정
 
 사용자 재현:
 
@@ -52,7 +52,7 @@ SuperTrend 삽입
  -> 복원 실패
 ```
 
-이후 추적에서 저장 순서 경쟁상태를 확인했다.
+추적에서 저장 순서 경쟁상태를 확인했다.
 
 ```text
 older queued PUT
@@ -73,13 +73,19 @@ unique atomic temp file
 
 따라서 최신 종료상태가 먼저 저장된 후 과거 요청이 늦게 도착해도 최신 JSON을 되돌릴 수 없다.
 
-회귀검증에 다음 순서를 추가했다.
+회귀검증에는 다음 순서를 포함한다.
 
 ```text
 latest state POST
  -> delayed stale PUT
  -> GET
  -> latest SuperTrend/layout/workspace 유지
+```
+
+2026-09-01 사용자 로컬 자동 재검증:
+
+```text
+verify.bat -> [PASS] current verification passed
 ```
 
 ## 계층 분리
@@ -98,15 +104,7 @@ Core
 
 ## 다음 검증
 
-먼저 자동검증:
-
-```text
-git pull --ff-only origin dsl-live-studio
-git submodule update --init --recursive
-verify.bat
-```
-
-자동검증 PASS 후 실제 UI:
+남은 단계는 실제 UI 재검증이다.
 
 ```text
 SuperTrend 삽입
