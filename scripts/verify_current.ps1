@@ -11,52 +11,54 @@ function Resolve-Executable([string]$Name) {
     return $command.Source
 }
 
-function Show-FailedCommandOutput([string]$LogPath) {
-    if (-not (Test-Path $LogPath)) { return }
-    $tail = @(Get-Content -Path $LogPath -Tail 120 -ErrorAction SilentlyContinue)
-    if ($tail.Count -eq 0) { return }
+function Show-FailedCommandOutput([string[]]$LogPaths) {
+    $lines = @()
+    foreach ($path in $LogPaths) {
+        if (Test-Path $path) {
+            $lines += @(Get-Content -Path $path -Tail 120 -ErrorAction SilentlyContinue)
+        }
+    }
+    if ($lines.Count -eq 0) { return }
 
     $matchIndex = -1
-    for ($i = 0; $i -lt $tail.Count; $i++) {
-        if ($tail[$i] -match '(?i)(^|\s)not ok\b|SyntaxError|FAIL:|FAILED|ERROR:|Traceback|AssertionError|Exception|ERR_|\[ERROR\]|\[FAIL\]') {
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -match '(?i)(^|\s)not ok\b|SyntaxError|FAIL:|FAILED|ERROR:|Traceback|AssertionError|Exception|ERR_|\[ERROR\]|\[FAIL\]') {
             $matchIndex = $i
             break
         }
     }
 
     if ($matchIndex -lt 0) {
-        $lines = @($tail | Select-Object -Last 20)
+        $selected = @($lines | Select-Object -Last 20)
     } else {
-        # Syntax/runtime errors often print the source path and caret immediately
-        # before the matching error line. Preserve that small pre-context.
         $start = [Math]::Max(0, $matchIndex - 3)
-        $end = [Math]::Min($tail.Count - 1, $matchIndex + 24)
-        $lines = @($tail[$start..$end])
+        $end = [Math]::Min($lines.Count - 1, $matchIndex + 24)
+        $selected = @($lines[$start..$end])
     }
 
-    foreach ($line in $lines) {
+    foreach ($line in $selected) {
         if (-not [string]::IsNullOrWhiteSpace($line)) { Write-Host $line }
     }
 }
 
 function Invoke-QuietCheck([string]$Label, [string]$Executable, [string[]]$Arguments) {
     $safe = ($Label -replace '[^A-Za-z0-9._-]', '_')
-    $log = Join-Path $RuntimeDir "$safe.log"
-    Remove-Item $log -Force -ErrorAction SilentlyContinue
+    $outLog = Join-Path $RuntimeDir "$safe.out.log"
+    $errLog = Join-Path $RuntimeDir "$safe.err.log"
+    Remove-Item $outLog, $errLog -Force -ErrorAction SilentlyContinue
 
     try {
-        & $Executable @Arguments > $log 2>&1
-        $exitCode = $LASTEXITCODE
+        $process = Start-Process -FilePath $Executable -ArgumentList $Arguments -WorkingDirectory $Root -RedirectStandardOutput $outLog -RedirectStandardError $errLog -Wait -PassThru -WindowStyle Hidden
     } catch {
         Write-Host "[ERROR] $Label - $($_.Exception.Message)" -ForegroundColor Red
-        Show-FailedCommandOutput $log
+        Show-FailedCommandOutput @($errLog, $outLog)
         throw
     }
 
-    if ($exitCode -ne 0) {
+    if ($process.ExitCode -ne 0) {
         Write-Host "[ERROR] $Label" -ForegroundColor Red
-        Show-FailedCommandOutput $log
-        throw "$Label failed with exit code $exitCode."
+        Show-FailedCommandOutput @($errLog, $outLog)
+        throw "$Label failed with exit code $($process.ExitCode)."
     }
 }
 
@@ -64,8 +66,6 @@ try {
     $node = Resolve-Executable 'node.exe'
     $python = Resolve-Executable 'python.exe'
 
-    # Parse the files on the product-state import path before running tests so a
-    # syntax regression reports the exact source file instead of an opaque test failure.
     Invoke-QuietCheck 'syntax-product-state-test' $node @('--check', 'chart_bridge\chart_single_json_state.test.mjs')
     Invoke-QuietCheck 'syntax-chart-server' $node @('--check', 'chart_bridge\chart_platform_server.mjs')
     Invoke-QuietCheck 'syntax-state-store' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\server\chart\ChartAddonJsonStore.mjs')
