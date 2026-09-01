@@ -18,7 +18,7 @@ Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 
 PREVIOUS REMEDIATION = Steps 1 through 15 COMPLETE / USER-LOCAL PASS
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-STATUS = LIVE STATE RACE FIX WRITTEN / USER-LOCAL REVALIDATION REQUIRED
+STATUS = AUTOMATED USER-LOCAL PASS / MANUAL UI REVALIDATION REQUIRED
 ```
 
 기준 정책:
@@ -110,6 +110,12 @@ unload -> latest full-state flush
 
 SuperTrend 추가 + 메인/서브 패널 높이 변경을 실제 state store/controller 경로로 통과시키는 회귀검증을 `verify.bat`에 포함했다.
 
+2026-09-01 사용자 로컬 자동 재검증:
+
+```text
+verify.bat -> [PASS] current verification passed
+```
+
 ## 콘솔 출력
 
 ```text
@@ -137,13 +143,7 @@ Core
 
 ## 다음 검증
 
-```text
-git pull --ff-only origin dsl-live-studio
-git submodule update --init --recursive
-verify.bat
-```
-
-그 후 실제 UI에서:
+실제 UI에서:
 
 ```text
 SuperTrend 삽입
@@ -151,6 +151,7 @@ SuperTrend 삽입
 브라우저 종료
 재기동
  -> 동일 상태 복원
+ -> 기존 timeframe 유지
  -> PERSISTENCE ERROR 없음
 ```
 
