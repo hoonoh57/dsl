@@ -8,6 +8,7 @@ import { ChartAddonJsonStore } from '../vendor/kiwoom-condition/condition1516/ch
 import { MySqlDailyMarketDataRepository } from '../vendor/kiwoom-condition/condition1516/chart-platform/src/server/market-data/MySqlDailyMarketDataRepository.mjs';
 import { createChartAddonPersistenceMiddleware } from '../vendor/kiwoom-condition/condition1516/chart-platform/src/shell/index-wysiwyg/ChartAddonPersistenceHttpHost.mjs';
 import { createIndexWysiwygProxy, createIndexWysiwygProxyMiddleware } from '../vendor/kiwoom-condition/condition1516/chart-platform/src/shell/index-wysiwyg/IndexWysiwygHttpHost.mjs';
+import { WorkspaceTimeframeJsonStore, createWorkspaceTimeframePersistenceMiddleware } from './workspace_timeframe_persistence.mjs';
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_PROJECT_ROOT = path.resolve(moduleDir, '..');
@@ -155,7 +156,7 @@ async function proxyStudio(request, response, studioBase, upstreamPath, method) 
   }
 }
 
-export function createChartPlatformServer({ root = DEFAULT_CHART_ROOT, env = process.env, repository, dslStudioUrl } = {}) {
+export function createChartPlatformServer({ root = DEFAULT_CHART_ROOT, env = process.env, repository, dslStudioUrl, workspaceTimeframeFile } = {}) {
   if (env === process.env) tryLoad(path.join(DEFAULT_PROJECT_ROOT, '.env'));
   tryLoad(path.join(root, '.env'));
   const marketDir = String(env.MARKET_DATA_ENV_DIR ?? '').trim();
@@ -166,6 +167,9 @@ export function createChartPlatformServer({ root = DEFAULT_CHART_ROOT, env = pro
 
   const studioBase = String(dslStudioUrl ?? env.DSL_STUDIO_URL ?? 'http://127.0.0.1:8010').replace(/\/+$/, '');
   const repo = repository ?? new MySqlDailyMarketDataRepository({ env });
+  const workspaceTimeframeMiddleware = createWorkspaceTimeframePersistenceMiddleware(new WorkspaceTimeframeJsonStore(
+    workspaceTimeframeFile ?? path.join(DEFAULT_PROJECT_ROOT, '.runtime', 'dsl-stack', 'chart-workspace-timeframe.json'),
+  ));
   const addonMiddleware = createChartAddonPersistenceMiddleware(new ChartAddonJsonStore(path.join(root, '.runtime', 'chart-addons')));
   const marketMiddleware = createSafeMarketDataMiddleware(repo);
   let proxy;
@@ -221,6 +225,7 @@ export function createChartPlatformServer({ root = DEFAULT_CHART_ROOT, env = pro
     }
 
     try {
+      if (!(await run(workspaceTimeframeMiddleware, request, response))) return;
       if (!(await run(addonMiddleware, request, response))) return;
       if (!(await run(marketMiddleware, request, response))) return;
       if (!(await run(proxyMiddleware, request, response))) return;
