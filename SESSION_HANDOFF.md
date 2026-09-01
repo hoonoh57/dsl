@@ -18,7 +18,7 @@ Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 
 PREVIOUS REMEDIATION = Steps 1 through 15 COMPLETE / USER-LOCAL PASS
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-STATUS = SELECTIVE REAL UI RESTORE FAILURE CONFIRMED / EXHAUSTIVE RUNTIME AUDIT WRITTEN / REVALIDATION REQUIRED
+STATUS = EXHAUSTIVE RUNTIME AUDIT AUTO PASS / REAL UI REVALIDATION REQUIRED
 ```
 
 ## JSON 상태 권한
@@ -80,15 +80,19 @@ hydrate
 UIA1_FULL_RUNTIME_STATE_AUDIT_2026-09-01.md
 ```
 
-## 다음 사용자 로컬 검증
+## 최신 자동검증
+
+2026-09-01 user-local:
 
 ```text
-git pull --ff-only origin dsl-live-studio
-git submodule update --init --recursive
-verify.bat
+[PASS] current verification passed
 ```
 
-자동검증 PASS 후 실제 UI에서 종목/비교종목/Add-on 속성/거래량 및 서브차트 높이/timeframe/viewport/display mode를 변경하고 종료·재기동한다.
+자동검증 단계는 완료했다.
+
+## 다음 실제 UI 검증
+
+종목/비교종목/Add-on 속성/거래량 및 서브차트 높이/timeframe/viewport/display mode를 한 번에 변경한 뒤 종료·재기동한다.
 
 정상은 전부 동일하게 복원되는 것이다. 실패 시 `STATE RESTORE ERROR`의 mismatch 목록을 받아 해당 경로를 한 번에 수정한다.
 
