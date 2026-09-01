@@ -46,22 +46,30 @@ vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart
 
 ## Latest real-UI failure
 
-최신 실제 UI 전수복원 gate는 다음을 보고했다.
+실제 UI 전수복원 gate가 다음 실패를 함께 검출했다.
 
 ```text
-workspace.layout.primaryPanes.priceHeight expected 435 actual 195
-persisted compare-1 / compare-2 / compare-3 pane layout actual missing
+primary price pane layout mismatch
+persisted compare-1 / compare-2 / compare-3 pane missing
 ```
 
-viewport / visibleCount mismatch는 이전 수정 후 이번 오류에서는 재발하지 않았다.
+viewport one-bar shift는 이후 수정으로 제거되었다.
 
-## Root-cause refinement
+## Latest automated failure classification
 
-기존 whole-chart ratio 복원은 `native pane 수 = primary 2개 + persistence manager가 직접 관리하는 pane 수`라고 가정했다.
+2026-09-02 user-local `verify.bat`에서 `chart-state-runtime-audit`가 실패했다.
 
-실제 차트에는 persistence manager 밖에서 생성된 native pane도 존재할 수 있으므로 이 가정이 깨지면 bulk ratio 경로가 비활성화되고, 다시 개별 `setHeight` fallback으로 내려가면서 primary 높이가 435 -> 195처럼 재배분됐다.
+원인은 저장 대상이 아닌 native pane의 높이까지 비율 분모에 포함시킨 **검증 계산 결함**이었다.
 
-또한 runtime audit은 전체 native pane vector/index를 알지 못해 mixed pane 구조의 비율 복원을 정확히 판정할 수 없었다.
+수정 원칙:
+
+```text
+persisted managed panes = restore authority
+unmanaged native panes  = 비율 분모에서 제외
+persisted pane missing  = hard FAIL 유지
+```
+
+동일 계산을 runtime audit과 layout stabilizer 양쪽에 적용했다.
 
 ## Corrected restore authority
 
@@ -71,55 +79,51 @@ hydrate chart-state.json
  -> restore registered Add-ons
  -> primary request becomes ready
  -> restore compare subjects
- -> assign stable native pane identity
- -> snapshot every native pane height
- -> overlay persisted weights onto their exact native indices
- -> one full native stretch-factor vector apply
+ -> restore complete persisted pane layout as one ratio vector
  -> reassert persisted startup viewport
- -> capture complete live runtime layout including native indices
- -> exhaustive proportional audit against persisted JSON
+ -> capture actual live runtime snapshot
+ -> exhaustive compare against persisted JSON
  -> PASS: persistence attach
  -> FAIL: persistence remains detached + all mismatches reported
 ```
 
 ### Pane layout semantic
 
-저장된 각 pane 높이는 전체 chart의 상대 배치 weight로 사용한다.
+저장된 각 pane 높이는 **저장 대상 pane들 사이의 상대 배치 비율**의 근거다.
+
+저장 대상이 아닌 native pane은 전체 canvas 높이를 소비할 수 있으므로 persisted ratio의 분모가 아니다.
 
 ```text
-all current native pane heights
- + persisted primary/add-on/compare pane weights at stable native indices
- -> one complete stretch-factor vector
- -> one bulk apply
+saved managed pane heights
+ -> managed-pane relative weights
+ -> native pane indices에 bulk 적용
+ -> managed-pane proportional runtime audit
 ```
 
-persistence manager가 직접 관리하지 않는 pane도 전체 vector에는 포함되며 현재 weight를 유지한다. 저장된 pane 자체가 runtime에서 없으면 여전히 hard FAIL이다.
-
-창 전체 높이가 달라져 실제 픽셀이 비례 변경되는 것은 정상이며, JSON 원본 높이 값은 그대로 보존한다.
-
-### Compare subject private state
-
-비교종목의 semantic state를 갱신할 때 기존 private persisted state를 병합하여 `__layout` 등 generic private state를 보존한다.
+저장된 pane 자체가 누락되면 계속 hard FAIL이다.
 
 ### Viewport semantic
 
 startup 조립 중 발생하는 임시 logical range는 persisted authority를 바꾸지 않는다. 최종 layout 안정화 전후에 저장된 viewport를 다시 적용하고 workspace 문서도 원래 viewport/visibleCount로 복구한 뒤 audit한다.
 
+### Compare subject semantic
+
+저장된 비교종목은 primary request가 준비된 뒤 생성한다. 생성 실패는 `missing`으로 숨기지 않고 실제 pane별 원인을 restore failure로 노출한다.
+
 ## Verification scope now pinned
 
 `dsl-live-studio`는 위 수정이 포함된 chart submodule을 가리킨다.
 
-자동검증에 다음 회귀가 포함된다.
+자동검증 범위:
 
 ```text
 whole-chart ratio layout restore
-mixed managed/unmanaged native pane restore
-stable native pane identity after pane removal
-complete native pane vector runtime audit
+unmanaged native pane coexistence
 missing persisted pane fail-closed
-compare private layout state preservation
 compare-subject deferred startup restore
+concrete compare restore error propagation
 startup viewport authority reassertion
+existing exhaustive runtime audit
 single JSON SSOT / persistence / console / frozen-core guards
 ```
 
@@ -127,8 +131,7 @@ single JSON SSOT / persistence / console / frozen-core guards
 
 ```text
 LATEST REAL UI FAILURE = CONFIRMED
-MIXED NATIVE PANE ROOT CAUSE = FIXED IN SOURCE
-DSL SUBMODULE = UPDATED
+UNMANAGED-PANE AUDIT DEFECT = FIXED / PINNED
 USER-LOCAL AUTO REVALIDATION = REQUIRED
 REAL UI REVALIDATION = REQUIRED
 UIA-1 = NOT PASS YET
