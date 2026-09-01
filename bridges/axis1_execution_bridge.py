@@ -95,6 +95,20 @@ class Axis1ExecutionBridge:
         return market
 
     @classmethod
+    def preflight(cls, raw_request: Mapping[str, Any]) -> Axis1ExecutionRequest:
+        """Validate a request and prepared context without running the strategy.
+
+        This is used by the three-axis router to validate every selected
+        candidate before the first execution starts.  In particular, an exact
+        prepared context binding hash is checked here rather than after earlier
+        candidates may already have executed.
+        """
+        request = Axis1ExecutionRequest.from_dict(raw_request)
+        cls._market(request)
+        cls._context_binding(request)
+        return request
+
+    @classmethod
     def execute(cls, raw_request: Mapping[str, Any]) -> dict[str, Any]:
         """Validate and execute one AXIS 1 backtest request.
 
@@ -102,7 +116,7 @@ class Axis1ExecutionBridge:
         the contract parser.  Once a request is structurally valid, deterministic
         AXIS 1 validation/execution failures return a structured REJECTED response.
         """
-        request = Axis1ExecutionRequest.from_dict(raw_request)
+        request = cls.preflight(raw_request)
         capability_hash = registry_hash()
         response_meta = lambda status: BridgeResponseMeta(
             request_id=request.meta.request_id,
@@ -151,6 +165,10 @@ class Axis1ExecutionBridge:
                 },
             )
         return response.public_dict()
+
+
+def preflight_axis1_request(raw_request: Mapping[str, Any]) -> Axis1ExecutionRequest:
+    return Axis1ExecutionBridge.preflight(raw_request)
 
 
 def execute_axis1_request(raw_request: Mapping[str, Any]) -> dict[str, Any]:
