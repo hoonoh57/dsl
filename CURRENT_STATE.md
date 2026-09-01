@@ -46,15 +46,22 @@ vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart
 
 ## Latest real-UI failure
 
-실제 UI 전수복원 gate가 다음 실패를 함께 검출했다.
+최신 실제 UI 전수복원 gate는 다음을 보고했다.
 
 ```text
-primary price pane layout mismatch
-viewport one-bar shift + visibleCount mismatch
-persisted compare-1 / compare-2 / compare-3 pane missing
+workspace.layout.primaryPanes.priceHeight expected 435 actual 195
+persisted compare-1 / compare-2 / compare-3 pane layout actual missing
 ```
 
-이 결과로 이전 자동검증 PASS만으로 UIA-1을 닫을 수 없음을 재확인했다.
+viewport / visibleCount mismatch는 이전 수정 후 이번 오류에서는 재발하지 않았다.
+
+## Root-cause refinement
+
+기존 whole-chart ratio 복원은 `native pane 수 = primary 2개 + persistence manager가 직접 관리하는 pane 수`라고 가정했다.
+
+실제 차트에는 persistence manager 밖에서 생성된 native pane도 존재할 수 있으므로 이 가정이 깨지면 bulk ratio 경로가 비활성화되고, 다시 개별 `setHeight` fallback으로 내려가면서 primary 높이가 435 -> 195처럼 재배분됐다.
+
+또한 runtime audit은 전체 native pane vector/index를 알지 못해 mixed pane 구조의 비율 복원을 정확히 판정할 수 없었다.
 
 ## Corrected restore authority
 
@@ -64,50 +71,55 @@ hydrate chart-state.json
  -> restore registered Add-ons
  -> primary request becomes ready
  -> restore compare subjects
- -> restore complete pane layout as one ratio vector
+ -> assign stable native pane identity
+ -> snapshot every native pane height
+ -> overlay persisted weights onto their exact native indices
+ -> one full native stretch-factor vector apply
  -> reassert persisted startup viewport
- -> capture actual live runtime snapshot
- -> exhaustive compare against persisted JSON
+ -> capture complete live runtime layout including native indices
+ -> exhaustive proportional audit against persisted JSON
  -> PASS: persistence attach
  -> FAIL: persistence remains detached + all mismatches reported
 ```
 
 ### Pane layout semantic
 
-여러 pane의 픽셀 높이를 순서대로 `setHeight`하면 뒤 pane 적용이 앞 pane 높이를 다시 바꾸므로 복원 authority로 사용할 수 없다.
-
-따라서 저장된 각 pane 높이는 **전체 pane 간 상대 배치 비율**의 근거로 사용하고, 재기동 시 모든 native pane에 한 번에 stretch-factor vector로 적용한다.
+저장된 각 pane 높이는 전체 chart의 상대 배치 weight로 사용한다.
 
 ```text
-saved price / volume / add-on / compare pane heights
- -> one ordered whole-chart weight vector
- -> one bulk native layout application
- -> proportional runtime audit
+all current native pane heights
+ + persisted primary/add-on/compare pane weights at stable native indices
+ -> one complete stretch-factor vector
+ -> one bulk apply
 ```
 
-창 전체 높이가 달라져도 동일한 상대 배치를 의미상 동일한 복원으로 본다. 단, 저장된 pane 자체가 누락되면 여전히 hard FAIL이다.
+persistence manager가 직접 관리하지 않는 pane도 전체 vector에는 포함되며 현재 weight를 유지한다. 저장된 pane 자체가 runtime에서 없으면 여전히 hard FAIL이다.
+
+창 전체 높이가 달라져 실제 픽셀이 비례 변경되는 것은 정상이며, JSON 원본 높이 값은 그대로 보존한다.
+
+### Compare subject private state
+
+비교종목의 semantic state를 갱신할 때 기존 private persisted state를 병합하여 `__layout` 등 generic private state를 보존한다.
 
 ### Viewport semantic
 
 startup 조립 중 발생하는 임시 logical range는 persisted authority를 바꾸지 않는다. 최종 layout 안정화 전후에 저장된 viewport를 다시 적용하고 workspace 문서도 원래 viewport/visibleCount로 복구한 뒤 audit한다.
 
-### Compare subject semantic
-
-저장된 비교종목은 primary request가 준비된 뒤 생성한다. 생성 실패는 `missing`으로 숨기지 않고 실제 pane별 원인을 restore failure로 노출한다.
-
 ## Verification scope now pinned
 
 `dsl-live-studio`는 위 수정이 포함된 chart submodule을 가리킨다.
 
-자동검증에 다음 회귀를 추가했다.
+자동검증에 다음 회귀가 포함된다.
 
 ```text
 whole-chart ratio layout restore
+mixed managed/unmanaged native pane restore
+stable native pane identity after pane removal
+complete native pane vector runtime audit
 missing persisted pane fail-closed
+compare private layout state preservation
 compare-subject deferred startup restore
-concrete compare restore error propagation
 startup viewport authority reassertion
-existing exhaustive runtime audit
 single JSON SSOT / persistence / console / frozen-core guards
 ```
 
@@ -115,9 +127,8 @@ single JSON SSOT / persistence / console / frozen-core guards
 
 ```text
 LATEST REAL UI FAILURE = CONFIRMED
-WHOLE-PANE RATIO RESTORE FIX = PINNED
-COMPARE STARTUP RESTORE FIX = PINNED
-VIEWPORT AUTHORITY FIX = PINNED
+MIXED NATIVE PANE ROOT CAUSE = FIXED IN SOURCE
+DSL SUBMODULE = UPDATED
 USER-LOCAL AUTO REVALIDATION = REQUIRED
 REAL UI REVALIDATION = REQUIRED
 UIA-1 = NOT PASS YET
