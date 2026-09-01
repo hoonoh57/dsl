@@ -36,6 +36,7 @@ DSL_AXIS2_PRECOMPUTED_SELECTION_POLICY.md
 DSL_EXTERNAL_LLM_STRATEGY_AUTHORING_POLICY.md
 DSL_AUTHORING_CONTINUOUS_IMPROVEMENT_POLICY.md
 DSL_HUMAN_COMMUNICATION_OUTPUT_POLICY.md
+DSL_UI_CONSISTENCY_ACCEPTANCE_POLICY.md
 ```
 
 Axis-local README는 각 package의 현재 책임을 설명하는 보조 active 문서다.
@@ -98,6 +99,8 @@ Chart = supplied projection/evidence 표시; 계산 권한 없음
 ```
 
 Condition의 **선별 의미**는 AXIS 2가 소유하고 Condition의 **버전/계보/승격 lifecycle**은 AXIS 3가 소유한다.
+
+UI acceptance 중 수정은 `DSL_UI_CONSISTENCY_ACCEPTANCE_POLICY.md`의 Core / Bridge-Runtime / Add-ons / JSON persistence 분리 원칙을 따른다.
 
 ## 6. Legacy core
 
