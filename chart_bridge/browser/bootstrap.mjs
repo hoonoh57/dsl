@@ -1,5 +1,4 @@
 import { chartAddonCatalog } from '/src/addons/catalog.mjs';
-import { installWorkspaceTimeframeJsonPersistence } from '/__dsl/WorkspaceTimeframeJsonPersistence.mjs';
 
 const runtimeModuleUrl = '/__dsl/DslStrategyRendererAddon.mjs';
 const strategyEditorUrl = '/__dsl/DslStrategyPropertiesEditor.mjs';
@@ -39,13 +38,9 @@ const rendererSeed = {
 if (!chartAddonCatalog.some(item => item.id === managerEntry.id)) chartAddonCatalog.push(managerEntry);
 if (!chartAddonCatalog.some(item => item.id === rendererSeed.id)) chartAddonCatalog.push(rendererSeed);
 
-const timeframePersistence = await installWorkspaceTimeframeJsonPersistence();
 const { MarketChartWorkspace } = await import('/src/shell/index-wysiwyg/MarketChartWorkspace.mjs');
 const host = document.getElementById('market-chart-host');
 if (!host) throw new Error('Missing #market-chart-host.');
 const workspace = new MarketChartWorkspace(host);
 await workspace.mount();
-window.addEventListener('beforeunload', () => {
-  timeframePersistence.flushOnUnload();
-  workspace.dispose();
-}, { once: true });
+window.addEventListener('beforeunload', () => workspace.dispose(), { once: true });
