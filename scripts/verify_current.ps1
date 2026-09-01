@@ -3,6 +3,7 @@ $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 $RuntimeDir = Join-Path $Root '.runtime\verification'
+$CheckTimeoutMs = 180000
 New-Item -ItemType Directory -Path $RuntimeDir -Force | Out-Null
 
 function Resolve-Executable([string]$Name) {
@@ -48,10 +49,20 @@ function Invoke-QuietCheck([string]$Label, [string]$Executable, [string[]]$Argum
     Remove-Item $outLog, $errLog -Force -ErrorAction SilentlyContinue
 
     try {
-        $process = Start-Process -FilePath $Executable -ArgumentList $Arguments -WorkingDirectory $Root -RedirectStandardOutput $outLog -RedirectStandardError $errLog -Wait -PassThru -WindowStyle Hidden
+        $process = Start-Process -FilePath $Executable -ArgumentList $Arguments -WorkingDirectory $Root -RedirectStandardOutput $outLog -RedirectStandardError $errLog -PassThru -WindowStyle Hidden
+        if (-not $process.WaitForExit($CheckTimeoutMs)) {
+            try { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue } catch {}
+            Write-Host "[ERROR] $Label - timed out" -ForegroundColor Red
+            Show-FailedCommandOutput @($errLog, $outLog)
+            throw "$Label timed out."
+        }
+        $process.WaitForExit()
+        $process.Refresh()
     } catch {
-        Write-Host "[ERROR] $Label - $($_.Exception.Message)" -ForegroundColor Red
-        Show-FailedCommandOutput @($errLog, $outLog)
+        if ($_.Exception.Message -notmatch 'timed out') {
+            Write-Host "[ERROR] $Label - $($_.Exception.Message)" -ForegroundColor Red
+            Show-FailedCommandOutput @($errLog, $outLog)
+        }
         throw
     }
 
@@ -87,7 +98,7 @@ try {
     Write-Host '[PASS] current verification passed' -ForegroundColor Green
     exit 0
 } catch {
-    if ($_.Exception.Message -notmatch 'failed with exit code') {
+    if ($_.Exception.Message -notmatch 'failed with exit code|timed out') {
         Write-Host "[ERROR] $($_.Exception.Message)" -ForegroundColor Red
     }
     exit 1
