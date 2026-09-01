@@ -2,13 +2,13 @@
 
 Status: **UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 KST**
 
-기존 remediation Steps 1~15는 모두 USER-LOCAL PASS로 완료되었다. 현재부터는 새 제품 검증 tranche인 UI 일관성 검증을 수행한다.
+기존 remediation Steps 1~15는 모두 USER-LOCAL PASS로 완료되었다. 현재부터는 실제 UI 경로에서 이식된 DSL과 차트 상태의 일관성을 검증한다.
 
 ## 현재 포인터
 
 ```text
 CURRENT_WORK = UI-ACCEPTANCE
-CURRENT_SUBSTEP = UIA-1 startup/workspace state restore
+CURRENT_SUBSTEP = UIA-1 unified chart state restore
 SUBSTEP_STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
@@ -18,121 +18,65 @@ SUBSTEP_STATUS = WRITTEN / REMOTE_UNVALIDATED
 DSL_UI_CONSISTENCY_ACCEPTANCE_POLICY.md
 ```
 
-## 완료된 기반
+## 현재 영속성 SSOT
+
+사용자 최신 결정:
 
 ```text
-Steps 1~15 = COMPLETE / USER-LOCAL PASS
-Final checkpoint = STEP15_REPO_WIDE_COMPLIANCE_CHECKPOINT_2026-09-01.md
+의미 있는 화면 변경
+ -> one logical Chart State
+ -> one JSON serialization/restore path
+ -> one atomic runtime JSON file
 ```
 
-이 완료 상태는 UI 검증 중 임의로 되돌리거나 검증을 약화하지 않는다.
-
-## UIA-1 현재 결함과 수정
-
-첫 번째 시작 결함:
+canonical runtime state:
 
 ```text
-프로그램 시작 직후 primary candle chart 빈 화면
-수동 조회가 최초 load trigger
+vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart-state.json
 ```
 
-분류:
+문서 구조:
 
 ```text
-Bridge / Runtime startup ordering defect
+schemaVersion
+visualsVisible
+display
+workspace
+addons
 ```
 
-수정:
+`workspace`에는 primary instrument, timeframe, base date, visible count, price display mode, viewport, recent instruments를 보존한다.
+
+`addons[*].state`에는 지표/전략/비교차트 파라미터, pane layout, 선/도형의 정확한 point coordinates 등 Add-on private state를 그대로 JSON-compatible 형태로 보존할 수 있다.
+
+## UIA-1 수정 내용
+
+1. 시작 시 수동 `조회`가 필요했던 문제:
 
 ```text
-persistence hydrate / UI wiring
- -> 기존 loadInitial() 자동 1회
- -> READY
+hydrate -> wiring -> automatic loadInitial -> READY
 ```
 
-두 번째 시작상태 결함:
+2. timeframe 재기동 복원 문제:
+
+기능별 localStorage 또는 timeframe 전용 JSON으로 고치지 않는다. 이전 임시 구현은 제거한다.
 
 ```text
-5분봉을 실제 표시한 뒤 브라우저 종료/재기동
- -> 다시 일봉으로 시작
+full chart-state.json hydrate
+ -> workspace restore
+ -> primary candle auto-load
+ -> add-on/layout/geometry restore
 ```
 
-초기 localStorage-only 보존 방식은 managed browser lifecycle에서 durable product state로 충분하지 않았다.
-
-분류:
+3. 이전 physical shard persistence:
 
 ```text
-JSON persistence boundary defect
+_chart.json + addon별 *.json
 ```
 
-수정:
+은 unified file이 없는 기존 환경에서 한 번 migration한 뒤 제거한다. 정상 운영 중 semantic state write는 full-document atomic rewrite만 사용한다.
 
-```text
-chart timeframe(period + interval)
- -> shell preference port
- -> Bridge / Runtime route
- -> persistence/chart_workspace/timeframe_json.mjs
- -> .runtime/dsl-stack/chart-workspace-timeframe.json
- -> 다음 browser bootstrap에서 hydrate
- -> MarketChartWorkspace가 복원값으로 자동 loadInitial()
-```
-
-영속성 규칙:
-
-```text
-schemaVersion 명시
-지원 월/주/일 + 지원 분봉/틱 interval만 허용
-지원되지 않는 값 저장 거부
-ordered PUT save
-browser unload 시 latest state beacon POST
-DSL 제품 JSON port가 localStorage fallback보다 우선
-```
-
-경계:
-
-```text
-DSL/Core 계산 변경 없음
-Add-on 전략/timeframe validation 변경 없음
-strategy/add-on JSON과 workspace JSON 분리
-Bridge / Runtime = route/adaptation only
-JSON persistence = schema validation + atomic file read/write only
-JSON persistence에서 Axis/Core/Add-on import 금지
-root frozen core 변경 없음
-```
-
-## UIA-1 user-local 완료 조건
-
-```text
-startup-load focused test PASS
-chart shell timeframe preference test PASS
-browser JSON persistence port test PASS
-server JSON persistence restart test PASS
-persistence layer separation guard PASS
-chart bridge server regression PASS
-frozen core guard PASS
-UI: 분 -> 5 -> 조회 -> browser 종료 -> 재기동
-UI: 조회 클릭 없이 5분봉과 candle 자동 복원
-```
-
-위 조건 PASS 전 다음 UI 기능으로 넘어가지 않는다.
-
-## 이후 UI 기능 검증 순서
-
-각 UI 기능을 하나씩 다음 순서로 검증한다.
-
-```text
-1. UI에서 기능 선택/작성
-2. 실행
-3. 화면 결과와 deterministic engine 결과 확인
-4. 실패 시 원인 계층 분류
-5. 해당 계층에서만 최소 수정
-6. focused regression
-7. 관련 cross-layer regression
-8. frozen core guard
-9. 같은 UI 동작 재확인
-```
-
-## 수정 분리 원칙
+## 수정 경계
 
 ```text
 Core
@@ -145,12 +89,54 @@ Core
 
 ```text
 repository-root core/ 수정 금지
-UI를 맞추기 위해 engine 결과 덮어쓰기 금지
-Bridge/Runtime에서 지표/전략/선별 재계산 금지
-Add-on 문제를 Core 특례로 흡수 금지
-JSON persistence에서 계산/보정 금지
-Axis 1/2/3 책임 혼합 금지
-검증완화/skip/compatibility exception 금지
+UI 상태를 Core 하드코딩으로 복원 금지
+Bridge/Runtime에서 지표/전략/선별 계산 금지
+Add-on 기능특례를 Core에 흡수 금지
+JSON persistence에서 계산/의미판정 금지
+기능별 persistent side-store 추가 금지
+localStorage를 제품 상태 authority로 사용 금지
+검증 assertion 약화/skip 금지
 ```
 
-실패는 수정 전에 UI defect / Bridge-Runtime defect / Core semantic defect / Add-on defect / Persistence-schema defect / Test defect / Environment issue / Authority drift / Unknown 중 하나로 먼저 분류한다.
+## UIA-1 user-local 완료 조건
+
+```text
+single JSON chart-state focused test PASS
+startup automatic-load regression PASS
+product server restart roundtrip PASS
+chart bridge regression PASS
+frozen core guard PASS
+```
+
+UI acceptance:
+
+```text
+5분봉 + 종목/표시범위/수익률 모드/지표 설정 등 변경
+ -> browser 종료
+ -> 재기동
+ -> 조회 클릭 없이 동일 semantic state 복원
+```
+
+파일 acceptance:
+
+```text
+runtime chart state directory의 JSON state file = chart-state.json 하나
+그 한 문서 안에서 workspace + display + addons 확인
+Add-on instance state의 exact point coordinates roundtrip 가능
+```
+
+위 조건 PASS 전 다음 UI 기능으로 넘어가지 않는다.
+
+## 이후 UI 기능 검증 순서
+
+```text
+1. UI에서 기능 선택/작성
+2. 실행
+3. 화면 결과와 deterministic engine 결과 확인
+4. 실패 원인 계층 분류
+5. 해당 계층만 최소 수정
+6. focused regression
+7. cross-layer regression
+8. frozen core guard
+9. 동일 UI 동작 재확인
+```
