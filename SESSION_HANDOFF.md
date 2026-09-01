@@ -18,7 +18,7 @@ Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 
 PREVIOUS REMEDIATION = Steps 1 through 15 COMPLETE / USER-LOCAL PASS
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-STATUS = REAL UI FAILURE FIX WRITTEN / USER-LOCAL REVALIDATION REQUIRED
+STATUS = LIVE STATE RACE FIX WRITTEN / USER-LOCAL REVALIDATION REQUIRED
 ```
 
 기준 정책:
@@ -88,6 +88,9 @@ SuperTrend 삽입
 1. transient persistence fetch 실패 시 기본상태로 계속 진행 가능
 2. main price/volume pane 높이는 JSON state에 연결되지 않음
 3. 이전 regression은 실제 UI state-event path를 검증하지 않음
+4. primary pane observer의 예약된 초기 높이가 최신 resize 뒤에 적용될 수 있음
+5. regression failure 시 observer timer가 남아 node test 종료를 막을 수 있음
+6. verify wrapper에 child timeout이 없어 무한 대기 가능
 ```
 
 현재 수정:
@@ -97,6 +100,10 @@ persistence load transient failure -> bounded retry
 persistence authority unavailable -> mutable chart attach 차단
 primary price/volume resize -> workspace.layout.primaryPanes
 add-on pane resize -> addons[*].state.__layout
+primary observer initial notification -> delivery 시점 latest snapshot만 사용
+node fallback observer timer -> process exit blocking 방지
+live-state regression -> finally cleanup 보장
+verify child check -> bounded timeout + failure location 출력
 rapid UI changes -> latest document coalesced save
 unload -> latest full-state flush
 ```
@@ -112,7 +119,7 @@ verify 성공             -> 최종 PASS 한 줄
 전체 stdout/stderr       -> .runtime 내부 로그 파일에 유지
 ```
 
-PowerShell 5.1 native command는 stderr 존재가 아니라 process exit code로 성공/실패를 판정한다.
+PowerShell 5.1 native command는 stderr 존재가 아니라 process exit code로 성공/실패를 판정한다. 각 검증 child에는 bounded timeout이 있어 더 이상 무한 대기하지 않는다.
 
 ## 계층 분리
 
