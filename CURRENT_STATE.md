@@ -46,43 +46,53 @@ vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart
 
 ## Latest real-UI result
 
-2026-09-01 실제 UI 재검증:
+실제 UI에서 선택적 복원 실패가 반복 확인됐다.
 
 ```text
 SuperTrend restore = PASS
-volume pane height restore = FAIL
-sub-chart indicator pane height restore = FAIL
+volume / indicator pane height restore = FAIL
+added compare subject restore = FAIL reported
 ```
 
-따라서 JSON 문서와 Add-on 활성 상태 자체는 복구되지만 pane layout의 startup projection이 아직 실패한 것으로 분류했다.
+따라서 `JSON 파일 하나`만으로는 충분하지 않으며, 저장된 전체 의미 상태가 재기동 후 실제 차트 전체 projection과 동일한지 확인하는 gate가 필요하다고 확정했다.
 
-추가 확인 원인:
+## Corrected restore authority
 
 ```text
-persisted pane heights hydrate
- -> startup add-on/native pane construction
- -> chart library auto-layout recalculates heights
- -> height observers can treat startup-generated heights as new semantic state
- -> persisted layout loses authority before startup settles
+hydrate chart-state.json
+ -> construct complete runtime
+ -> restore primary subject/timeframe/viewport/display
+ -> restore Add-ons + compare subjects
+ -> restore all persisted pane layouts
+ -> capture actual live runtime snapshot
+ -> exhaustive compare against persisted JSON
+ -> PASS: persistence attach
+ -> FAIL: persistence remains detached + all mismatches reported
 ```
 
-현재 수정:
+전수 비교 범위:
 
 ```text
-startup layout observation -> suppressed until add-on activation settles
-persisted primary volume + add-on pane heights -> retained as authority
-all add-ons idle -> persisted heights reapplied across multiple layout frames
-restore complete -> user resize observation/persistence enabled
+primary instrument
+compare subjects
+primary + compare timeframe
+base date / adjusted mode
+viewport / visible range
+price display mode
+registered active Add-ons
+all persisted Add-on properties/private state
+primary price + volume pane heights
+all persisted Add-on pane heights
 ```
 
-회귀검증은 startup auto-layout이 저장된 높이를 임의값으로 변경한 뒤 최종적으로 JSON 높이가 실제 pane에 다시 적용되는 시나리오를 포함한다.
+startup restore가 불완전하면 그 상태를 새 권한으로 저장하지 않는다. `STATE RESTORE ERROR`가 발생하면 기존 `chart-state.json`을 보존한다.
 
 현재 상태:
 
 ```text
-SUPERTrend REAL UI = PASS
-PANE HEIGHT REAL UI = FAIL CONFIRMED
-PANE STARTUP RESTORE FIX = WRITTEN
+REAL UI SELECTIVE RESTORE FAILURE = CONFIRMED
+EXHAUSTIVE RUNTIME AUDIT = WRITTEN
+DSL SUBMODULE PIN = WRITTEN
 AUTO REVALIDATION = REQUIRED
 REAL UI REVALIDATION = REQUIRED
 UIA-1 = NOT PASS YET
@@ -98,7 +108,7 @@ Core
 ```
 
 - Core = deterministic DSL/parser/runtime/indicator/execution meaning. UI 복원 특례 금지.
-- Bridge/Runtime = lifecycle/routing/state observation/layout projection. feature calculation 금지.
+- Bridge/Runtime = lifecycle/routing/state observation/layout projection/runtime audit. feature calculation 금지.
 - Add-ons = feature-specific behavior/private state.
 - JSON persistence = serialization/hydrate/atomic write/stale-write rejection only.
 
