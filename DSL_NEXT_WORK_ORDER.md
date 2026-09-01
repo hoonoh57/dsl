@@ -2,14 +2,14 @@
 
 Status: **UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 KST**
 
-기존 remediation Steps 1~15는 모두 USER-LOCAL PASS로 완료되었다. 현재부터는 실제 UI 경로에서 이식된 DSL과 차트 상태의 일관성을 검증한다.
+기존 remediation Steps 1~15는 모두 USER-LOCAL PASS로 완료되었다. 현재는 실제 UI 경로에서 이식된 DSL과 차트 상태의 일관성을 검증한다.
 
 ## 현재 포인터
 
 ```text
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-SUBSTEP_STATUS = AUTOMATED USER-LOCAL PASS / MANUAL UI RESTORE PENDING
+SUBSTEP_STATUS = REAL UI FAILURE FIX WRITTEN / USER-LOCAL REVALIDATION REQUIRED
 ```
 
 기준 정책:
@@ -20,8 +20,6 @@ DSL_HUMAN_COMMUNICATION_OUTPUT_POLICY.md
 ```
 
 ## 현재 영속성 SSOT
-
-사용자 최신 결정:
 
 ```text
 의미 있는 화면 변경
@@ -36,84 +34,92 @@ canonical runtime state:
 vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart-state.json
 ```
 
-문서 구조:
+문서 범위:
 
 ```text
-schemaVersion
-visualsVisible
-display
 workspace
+  instrument / timeframe / base date / visible count
+  price mode / viewport / recent instruments
+  primary price + volume pane layout
+
+display
 addons
+  enabled/visible / parameters / private state
+  add-on pane layout / geometry points
 ```
 
-`workspace`에는 primary instrument, timeframe, base date, visible count, price display mode, viewport, recent instruments를 보존한다.
+## 실제 UI 실패에서 확인된 결함
 
-`addons[*].state`에는 지표/전략/비교차트 파라미터, pane layout, 선/도형의 정확한 point coordinates 등 Add-on private state를 그대로 JSON-compatible 형태로 보존할 수 있다.
-
-## UIA-1 수정 내용
-
-1. 시작 시 수동 `조회`가 필요했던 문제:
+사용자 재현:
 
 ```text
-hydrate -> wiring -> automatic loadInitial -> READY
+SuperTrend 삽입
+메인 + 서브 패널 높이 변경
+브라우저 종료/재기동
+ -> 상태 복원 실패
 ```
 
-2. timeframe 재기동 복원 문제:
-
-기능별 localStorage 또는 timeframe 전용 JSON으로 고치지 않는다. 이전 임시 구현은 제거한다.
+원인:
 
 ```text
-full chart-state.json hydrate
- -> workspace restore
- -> primary candle auto-load
- -> add-on/layout/geometry restore
+transient persistence fetch 실패 후 기본상태 운영 가능
+primary pane 높이의 SSOT 연결 누락
+기존 test가 실제 UI state-event path를 검증하지 않음
 ```
 
-3. 이전 physical shard persistence:
+수정:
 
 ```text
-_chart.json + addon별 *.json
+transient persistence load -> retry
+JSON authority unavailable -> mutable chart state attach 차단
+primary pane resize -> workspace.layout.primaryPanes
+add-on pane resize -> addons[*].state.__layout
+rapid changes -> latest full document coalesced save
+unload -> latest full document flush
 ```
 
-은 unified file이 없는 기존 환경에서 한 번 migration한 뒤 제거한다. 정상 운영 중 semantic state write는 full-document atomic rewrite만 사용한다.
+## 검증
 
-4. 콘솔 과다 출력:
+사용자 명령:
 
 ```text
-정상 기동/검증 -> 최종 PASS 한 줄
-실패            -> 실패한 항목 + 실제 오류 구간만 bounded 출력
-전체 raw output -> .runtime 내부 로그에 보존
+git pull --ff-only origin dsl-live-studio
+git submodule update --init --recursive
+verify.bat
 ```
 
-5. PowerShell 5.1 native stderr 판정 결함:
-
-Python unittest의 정상 stderr 출력은 실패 근거가 아니다.
+`verify.bat`에는 실제 state store/controller를 사용한 다음 시나리오가 포함된다.
 
 ```text
-child stdout -> internal .out.log
-child stderr -> internal .err.log
-success/failure authority -> child process exit code only
-failure console -> failed check + bounded stderr/stdout context
+SuperTrend enable
++ primary price/volume pane resize
++ add-on pane resize
++ timeframe 유지
+ -> same full state document
 ```
 
-## 현재 검증 상태
-
-2026-09-01 사용자 로컬:
+성공 콘솔:
 
 ```text
-verify.bat -> [PASS] current verification passed
+[PASS] current verification passed
 ```
 
-따라서 다음 자동 항목은 USER-LOCAL PASS다.
+## UIA-1 완료 조건
+
+자동검증 후 실제 UI에서 다시 확인한다.
 
 ```text
-single JSON chart-state focused test
-startup automatic-load regression
-product server restart roundtrip
-chart bridge regression
-console output policy guard
-frozen core guard
+SuperTrend 삽입
+메인/서브 패널 높이 변경
+브라우저 종료
+재기동
+ -> SuperTrend 복원
+ -> 메인/서브 높이 복원
+ -> 기존 timeframe 등 workspace 상태 유지
+ -> PERSISTENCE ERROR 없음
 ```
+
+실제 UI 복원 PASS 전 다음 UI 기능으로 넘어가지 않는다.
 
 ## 수정 경계
 
@@ -135,30 +141,8 @@ JSON persistence에서 계산/의미판정 금지
 기능별 persistent side-store 추가 금지
 localStorage를 제품 상태 authority로 사용 금지
 검증 assertion 약화/skip 금지
-성공 로그로 오류 로그를 밀어내는 콘솔 출력 금지
-stderr 존재만으로 native command 실패 판정 금지
+JSON authority를 읽지 못한 상태에서 defaults를 새 authority처럼 저장 금지
 ```
-
-## UIA-1 남은 완료 조건
-
-실제 UI acceptance만 남아 있다.
-
-```text
-5분봉 + 종목/표시범위/수익률 모드/지표 설정 등 변경
- -> browser 종료
- -> 재기동
- -> 조회 클릭 없이 동일 semantic state 복원
-```
-
-파일 acceptance:
-
-```text
-runtime chart state directory의 JSON state file = chart-state.json 하나
-그 한 문서 안에서 workspace + display + addons 확인
-Add-on instance state의 exact point coordinates roundtrip 가능
-```
-
-위 실제 UI 복원까지 PASS 전 다음 UI 기능으로 넘어가지 않는다.
 
 ## 이후 UI 기능 검증 순서
 
