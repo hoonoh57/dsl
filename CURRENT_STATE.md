@@ -29,7 +29,7 @@ dsl-live-studio
 
 ## Current active work — UIA-1
 
-현재 목표:
+목표:
 
 ```text
 모든 의미 있는 UI 변경
@@ -46,7 +46,7 @@ vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart
 
 ## Latest real-UI result
 
-이전 자동검증 PASS 이후 실제 UI에서 다음 실패가 확인됐다.
+사용자 실제 UI 재검증에서 다음 실패가 다시 확인됐다.
 
 ```text
 SuperTrend 삽입
@@ -55,44 +55,44 @@ SuperTrend 삽입
  -> state restore FAIL
 ```
 
-화면에 `PERSISTENCE ERROR · Failed to fetch`가 나타났으며, 자동검증만으로 UIA-1을 PASS 처리할 수 없다는 것이 확인됐다.
+따라서 UIA-1은 PASS가 아니다.
 
-확인된 구현 누락/결함:
+추가 추적에서 종료 직전 저장 경쟁상태를 확인했다.
 
 ```text
-primary price/volume pane layout persistence 없음
-persistence load failure 후 defaults로 계속 진행 가능
-regression이 live UI state-event path를 검증하지 않음
-primary pane observer 초기 예약값이 최신 resize 뒤에 적용될 수 있음
-검증 실패 시 observer timer가 남아 node test 종료를 막을 수 있음
-verify wrapper에 child timeout 없음
+older queued full-state save
+latest browser-close full-state save
+ -> 완료/도착 순서 역전 가능
+ -> older state가 latest JSON을 뒤늦게 overwrite 가능
 ```
 
 현재 수정:
 
 ```text
-persistence transient fetch retry
-JSON authority unavailable -> mutable state attach blocked
-primary pane resize -> workspace.layout.primaryPanes
-add-on pane resize -> addons[*].state.__layout
-primary observer -> delivery 시점 latest pane heights만 반영
-node fallback observer timer -> process exit blocking 방지
-live state regression -> finally cleanup 보장
-verify child process -> bounded timeout + failure context
-latest state coalesced save + unload full-state flush
+semantic state mutation -> monotonic stateRevision 증가
+single JSON document -> stateRevision 포함
+JSON writes -> serialized
+incoming revision < persisted revision -> stale write reject
+atomic temporary file -> unique path
 ```
 
-2026-09-01 사용자 로컬 자동 재검증:
+최신 종료상태가 먼저 저장된 후 오래된 요청이 늦게 도착해도 최신 JSON을 되돌릴 수 없다.
+
+검증 강화:
 
 ```text
-verify.bat -> [PASS] current verification passed
+latest state POST
+ -> delayed stale PUT
+ -> GET
+ -> latest SuperTrend/layout/workspace 유지
 ```
 
 현재 상태:
 
 ```text
-FIX = WRITTEN
-AUTO REVALIDATION = USER-LOCAL PASS
+REAL UI FAILURE = CONFIRMED
+ORDERING FIX = WRITTEN
+AUTO REVALIDATION = REQUIRED
 REAL UI REVALIDATION = REQUIRED
 UIA-1 = NOT PASS YET
 ```
@@ -109,17 +109,7 @@ Core
 - Core = deterministic DSL/parser/runtime/indicator/execution meaning. UI 복원 특례 금지.
 - Bridge/Runtime = lifecycle/routing/state observation. feature calculation 금지.
 - Add-ons = feature-specific behavior/private state.
-- JSON persistence = state serialization/hydrate/atomic write only.
-
-## Final product architecture
-
-```text
-AXIS 2 exact-PIT selection
- -> Candidate Set + evidence
- -> AXIS 3 promoted Condition/Strategy versions + RunPlan
- -> versioned Bridge preflight
- -> AXIS 1 deterministic single-instrument execution
-```
+- JSON persistence = serialization/hydrate/atomic write/stale-write rejection only.
 
 ## Frozen legacy Core
 
