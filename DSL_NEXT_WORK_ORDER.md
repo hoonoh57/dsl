@@ -87,6 +87,17 @@ _chart.json + addon별 *.json
 
 성공한 test case/TAP/단계별 INFO/PASS를 콘솔에 연속 출력하여 실제 오류를 밀어내는 것을 금지한다.
 
+5. PowerShell 5.1 native stderr 판정 결함:
+
+Python unittest는 정상 진행표시도 stderr로 쓸 수 있으므로 stderr 존재 자체를 실패로 취급하지 않는다.
+
+```text
+child stdout -> internal .out.log
+child stderr -> internal .err.log
+success/failure authority -> child process exit code only
+failure console -> failed check + bounded stderr/stdout context
+```
+
 ## 수정 경계
 
 ```text
@@ -108,6 +119,7 @@ JSON persistence에서 계산/의미판정 금지
 localStorage를 제품 상태 authority로 사용 금지
 검증 assertion 약화/skip 금지
 성공 로그로 오류 로그를 밀어내는 콘솔 출력 금지
+stderr 존재만으로 native command 실패 판정 금지
 ```
 
 ## UIA-1 user-local 완료 조건
