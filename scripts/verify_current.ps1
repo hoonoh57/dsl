@@ -117,6 +117,8 @@ try {
     $node = Resolve-Executable 'node.exe'
     $python = Resolve-Executable 'python.exe'
 
+    Invoke-QuietCheck 'architecture-compliance' $python @('-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_implementation_compliance_gate.py')
+
     Invoke-QuietCheck 'syntax-product-state-test' $node @('--check', 'chart_bridge\chart_single_json_state.test.mjs')
     Invoke-QuietCheck 'syntax-chart-server' $node @('--check', 'chart_bridge\chart_platform_server.mjs')
     Invoke-QuietCheck 'syntax-state-store' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\server\chart\ChartAddonJsonStore.mjs')
