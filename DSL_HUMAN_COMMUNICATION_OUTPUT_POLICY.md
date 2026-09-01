@@ -1,6 +1,6 @@
 # DSL Human Communication / Console Output Policy
 
-Status: **ACTIVE HUMAN-INTERFACE AUTHORITY / 2026-08-31 KST**
+Status: **ACTIVE HUMAN-INTERFACE AUTHORITY / 2026-09-01 KST**
 
 이 문서는 내부 기계계약과 사용자 커뮤니케이션을 분리하는 출력 원칙을 정의한다.
 
@@ -205,4 +205,25 @@ AXIS 1/2/3 운영 UI
 
 향후 각 Step에서 해당 코드/콘솔을 수정할 때 이 정책을 함께 적용한다.
 
-현재 작업은 계속 `DSL_NEXT_WORK_ORDER.md`의 `CURRENT_STEP`을 따른다.
+현재 작업은 계속 `DSL_NEXT_WORK_ORDER.md`의 현재 포인터를 따른다.
+
+---
+
+## 9. 실행기 강제 규칙
+
+정상 테스트와 정상 기동의 상세 stdout/stderr를 프롬프트 콘솔에 그대로 흘리지 않는다.
+
+```text
+성공
+ -> 세부 출력은 내부 log/evidence에 보존
+ -> 콘솔은 최종 [PASS] 한 줄
+
+실패
+ -> 실패한 명령/서비스 이름
+ -> 실제 오류가 시작되는 구간만 제한된 길이로 콘솔 표시
+ -> 전체 원시 출력은 내부 log 파일에 유지
+```
+
+실패와 무관한 성공 test case, TAP 진행행, startup 단계별 INFO/PASS는 오류 화면을 밀어내므로 기본 콘솔 출력 금지다.
+
+오류 구간이 길어도 콘솔은 bounded tail / failure section만 보여야 하며, 원시 전체 로그를 보기 위해 사용자가 스크롤을 수백 줄 되돌리는 상황을 만들지 않는다.
