@@ -15,7 +15,7 @@ Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 
 ```text
 PREVIOUS REMEDIATION = Steps 1 through 15 COMPLETE / USER-LOCAL PASS
 CURRENT_WORK = UI-ACCEPTANCE
-CURRENT_SUBSTEP = UIA-1 startup/workspace state restore
+CURRENT_SUBSTEP = UIA-1 unified chart state restore
 STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
@@ -25,110 +25,82 @@ STATUS = WRITTEN / REMOTE_UNVALIDATED
 DSL_UI_CONSISTENCY_ACCEPTANCE_POLICY.md
 ```
 
-## UIA-1 현재 수정
+## 사용자 최신 영속성 권한
 
-### 1. 시작 직후 빈 차트
-
-사용자 화면에서 시작 직후 UI는 보이지만 candle chart가 비어 있고 `조회`를 눌러야 최초 화면이 렌더되는 문제가 확인됐다.
-
-분류:
+의미 있는 화면 변경은 기능별 하드코딩 저장소로 나누지 않는다.
 
 ```text
-Bridge / Runtime startup ordering defect
+UI semantic change
+ -> one logical Chart State
+ -> one JSON persistence path
+ -> one atomic runtime state file
+ -> next session hydrate
+ -> UI projection restore
 ```
 
-최소 수정:
+현재 canonical runtime state file:
+
+```text
+vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart-state.json
+```
+
+이 파일 한 개에 다음 상태를 함께 보존한다.
+
+```text
+workspace
+  primary instrument
+  timeframe
+  base date
+  visible count
+  price display mode
+  viewport logical range
+  recent instruments
+
+display
+  global chart display state
+
+addons
+  enabled/visible
+  feature parameters
+  strategy state
+  compare-subject state
+  pane layout
+  arbitrary instance geometry such as exact point coordinates
+```
+
+마우스 hover/focus 같은 순간 UI 이벤트 자체는 영속 상태가 아니지만, 사용자가 만든 선/도형의 점 좌표처럼 다음 세션에 의미가 있는 결과 상태는 Add-on instance state에 JSON으로 정확히 들어가야 한다.
+
+## UIA-1 수정
+
+### 시작 직후 빈 차트
+
+분류: Bridge / Runtime startup ordering defect.
 
 ```text
 state hydrate
  -> UI/runtime wiring
- -> existing loadInitial() 자동 1회 await
+ -> existing loadInitial() 자동 1회
  -> READY
 ```
 
-### 2. 선택 timeframe 재기동 복원 실패
+### timeframe 재기동 복원 실패
 
-1분봉/5분봉을 실제로 띄운 뒤 브라우저를 종료하고 재기동해도 다시 일봉으로 시작하는 문제가 확인됐다.
+초기 localStorage/timeframe 전용 JSON 방식은 최신 사용자 권한과 맞지 않아 폐기했다.
 
-초기 localStorage preference 방식은 현재 managed browser 재기동 경로에서 제품 수준의 durable restore를 보장하지 못했으므로 최종 영속성 권한으로 사용하지 않는다.
-
-분류:
+현재 수정:
 
 ```text
-JSON persistence boundary defect
+single Chart State hydrate
+ -> workspace timeframe/instrument/baseDate/display/viewport 복원
+ -> primary chart 자동 loadInitial()
+ -> Add-on/layout/instance state 같은 document에서 복원
 ```
 
-수정:
+제품 경로에서는 `WorkspaceTimeframePreference`, timeframe 전용 browser port, timeframe 전용 route/file을 사용하지 않는다.
 
-```text
-UI timeframe 선택
- -> chart shell preference port
- -> Bridge / Runtime route
- -> 별도 JSON persistence layer
- -> 다음 bootstrap에서 JSON을 먼저 hydrate
- -> 기존 MarketChartWorkspace mount
- -> 복원된 timeframe으로 startup loadInitial()
-```
+기존 `_chart.json` + Add-on별 JSON shard가 남아 있는 환경은 unified state가 없을 때 한 번 읽어 `chart-state.json`으로 migration한 뒤 shard를 제거한다. 이후 모든 semantic change는 full document atomic rewrite로 같은 파일 하나에 저장한다.
 
-실제 JSON 저장 로직은 Bridge 내부가 아니라 다음 물리 계층에 분리한다.
-
-```text
-persistence/chart_workspace/timeframe_json.mjs
-```
-
-제품 영속 파일:
-
-```text
-.runtime/dsl-stack/chart-workspace-timeframe.json
-```
-
-파일은 schemaVersion + timeframe(period/interval)만 저장한다. 월/주/일과 현재 지원되는 분봉/틱 interval만 허용하며 지원되지 않는 값은 저장 단계에서 fail-closed한다.
-
-브라우저 종료 직전에는 최신값을 beacon으로 같은 JSON route에 다시 전송한다. 정상 선택 변경도 ordered PUT queue로 즉시 저장한다.
-
-chart-platform standalone에서는 기존 localStorage fallback을 유지하지만, DSL 제품에서는 주입된 JSON persistence port가 우선권을 가진다. 따라서 전략/지표 Add-on JSON이나 DSL Core에 workspace timeframe을 혼입하지 않는다.
-
-경계:
-
-```text
-DSL/Core 계산 변경 없음
-Add-on 전략/timeframe 검증 변경 없음
-Chart workspace preference와 strategy/add-on JSON 분리 유지
-Bridge / Runtime = route/adaptation only
-JSON persistence = schema validation + atomic file read/write only
-root frozen core 변경 없음
-```
-
-## UIA-1 다음 검증
-
-사용자 local:
-
-```text
-git pull --ff-only origin dsl-live-studio
-git submodule update --init --recursive
-node --test vendor\kiwoom-condition\condition1516\chart-platform\tests\market-chart-workspace-initial-load.test.mjs
-node --test vendor\kiwoom-condition\condition1516\chart-platform\tests\workspace-timeframe-preference.test.mjs
-node --test chart_bridge\browser\WorkspaceTimeframeJsonPersistence.test.mjs
-node --test chart_bridge\workspace_timeframe_persistence.test.mjs
-node --test chart_bridge\chart_platform_server.test.mjs
-python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py" -v
-```
-
-그 뒤 UI에서:
-
-```text
-분 -> 5 -> 조회
-5분봉 표시 확인
-브라우저 종료
-start.bat 또는 restart.bat로 재기동
-조회 클릭 없이 5분봉 + candle 자동 복원
-```
-
-을 확인한다. PASS 전 다음 기능으로 넘어가지 않는다.
-
-## UI 검증 수정 원칙
-
-사용자가 명시한 계층 분리:
+## 계층 분리
 
 ```text
 Core
@@ -137,23 +109,35 @@ Core
  -> JSON persistence
 ```
 
-수정 사유가 생기면 먼저 어느 계층의 결함인지 분류하고 그 계층에서만 최소 수정한다.
+- Core: deterministic 의미/계산. repository-root `core/`는 frozen reference이며 수정 금지.
+- Bridge / Runtime: lifecycle, request/response, state-port routing. 계산/보정 금지.
+- Add-ons: 기능별 계산과 private semantic state. 선/도형 좌표도 자신의 JSON-compatible state로 기록.
+- JSON persistence: full state document의 serialization/hydrate/atomic write만 담당. 전략/지표 의미를 계산하지 않음.
 
-### Core
+## UIA-1 다음 검증
 
-현재 제품의 deterministic DSL 의미/계산 계층이다. 신규 수정 위치는 `axes/axis1_dsl/`이며 repository-root `core/`는 frozen reference로 계속 불변이다.
+사용자 local:
 
-### Bridge / Runtime
+```text
+git pull --ff-only origin dsl-live-studio
+git submodule update --init --recursive
+node --test vendor\kiwoom-condition\condition1516\chart-platform\tests\chart-single-json-state.test.mjs
+node --test vendor\kiwoom-condition\condition1516\chart-platform\tests\market-chart-workspace-initial-load.test.mjs
+node --test chart_bridge\chart_single_json_state.test.mjs
+node --test chart_bridge\chart_platform_server.test.mjs
+python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py" -v
+```
 
-request/response validation, UI-to-contract adaptation, lifecycle/routing, context binding을 소유한다. 지표/전략/선별을 재계산하거나 누락값을 보정하지 않는다.
+UI에서는 5분봉뿐 아니라 종목/표시범위/수익률 모드/지표 파라미터 등 의미 있는 상태를 바꾼 뒤 브라우저를 종료·재기동하여 동일하게 복원되는지 확인한다.
 
-### Add-ons
+파일 확인:
 
-범용 Core 위의 기능별 조합/확장을 소유한다. Add-on 요구를 Core나 Bridge의 제품특례로 숨기지 않는다.
+```text
+vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/
+ -> chart-state.json 하나만 runtime state JSON으로 존재
+```
 
-### JSON persistence
-
-schema/version/hash 저장·복원만 소유하며 계산/조건판정/주문의미/실행값 보정을 하지 않는다.
+PASS 전 다음 UI 기능으로 넘어가지 않는다.
 
 ## Frozen legacy Core
 
