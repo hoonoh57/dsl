@@ -82,11 +82,17 @@ verify child process -> bounded timeout + failure context
 latest state coalesced save + unload full-state flush
 ```
 
+2026-09-01 사용자 로컬 자동 재검증:
+
+```text
+verify.bat -> [PASS] current verification passed
+```
+
 현재 상태:
 
 ```text
 FIX = WRITTEN
-AUTO REVALIDATION = REQUIRED
+AUTO REVALIDATION = USER-LOCAL PASS
 REAL UI REVALIDATION = REQUIRED
 UIA-1 = NOT PASS YET
 ```
