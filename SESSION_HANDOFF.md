@@ -18,7 +18,7 @@ Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-02 
 PREVIOUS REMEDIATION = Steps 1 through 15 COMPLETE / USER-LOCAL PASS
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-STATUS = MIXED NATIVE PANE FIX PINNED / USER-LOCAL AUTO + REAL UI REVALIDATION REQUIRED
+STATUS = UNMANAGED-PANE AUDIT FIX PINNED / USER-LOCAL AUTO + REAL UI REVALIDATION REQUIRED
 ```
 
 ## JSON 상태 권한
@@ -35,59 +35,34 @@ vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart
 
 ## 최신 실제 UI failure evidence
 
-최신 전수복원 gate가 다음을 보고했다.
+전수복원 gate가 최근 다음을 보고했다.
 
 ```text
-workspace.layout.primaryPanes.priceHeight expected 435 actual 195
-addons.research.compare-subjects.state.__layout.panes.compare-1.height actual missing
-addons.research.compare-subjects.state.__layout.panes.compare-2.height actual missing
-addons.research.compare-subjects.state.__layout.panes.compare-3.height actual missing
+workspace.layout.primaryPanes.priceHeight mismatch
+persisted compare-1 / compare-2 / compare-3 pane missing
 ```
 
-viewport / visibleCount mismatch는 이번 실패에서는 재발하지 않았다.
+viewport one-bar shift는 이후 수정으로 제거됐다.
 
-## 최신 root cause
+## 최신 자동검증 failure evidence
 
-whole-chart ratio 복원 코드가 다음을 암묵적으로 가정했다.
+2026-09-02 user-local `verify.bat`:
 
 ```text
-native pane count = primary 2 + persistence manager owned panes
+[ERROR] chart-state-runtime-audit
 ```
 
-실제 chart에는 persistence manager 밖에서 생성된 native pane도 존재할 수 있다. 이 경우 bulk ratio 계획을 만들지 못하고 개별 `setHeight` fallback으로 내려가며, 각 높이 적용 때 chart engine이 다른 pane을 다시 배분해 primary가 435 -> 195처럼 변했다.
+원인은 저장 대상이 아닌 native pane 높이를 persisted ratio의 분모에 포함한 검증 계산 결함이었다.
 
-runtime audit도 전체 native pane vector/index를 모르므로 mixed pane 구조에서 복원 비율을 정확히 검증하지 못했다.
-
-## 이번 구조 수정
-
-### 1. Stable native pane identity
-
-모든 add-on pane은 생성/삭제에 따라 현재 native index를 안정적으로 조회할 수 있다.
-
-### 2. Complete native pane vector restore
+수정 기준:
 
 ```text
-snapshot every native pane height
- -> persisted primary/add-on/compare weight를 exact native index에 덮어씀
- -> manager 밖 pane은 현재 weight 유지
- -> complete vector를 stretch factor로 한 번에 적용
+persisted managed panes만 상대비율 비교
+unmanaged native panes는 persisted ratio 분모에서 제외
+persisted pane missing은 hard FAIL 유지
 ```
 
-더 이상 `native pane 수 == manager record 수 + 2`를 요구하지 않는다.
-
-### 3. Runtime audit
-
-live runtime snapshot에 전체 native pane height vector와 persisted pane의 native index를 포함한다. audit은 이 전체 vector 기준 비율을 검사한다.
-
-저장된 pane 자체가 없다면 여전히 hard FAIL이다.
-
-### 4. Compare private state
-
-비교종목 semantic state 갱신 시 기존 private persisted state를 병합하여 `__layout` 등 generic private state를 보존한다.
-
-### 5. Startup viewport authority
-
-최초 JSON viewport/visibleCount를 startup authority로 별도 보존하고 전체 layout 안정화 전후에 다시 적용한다.
+runtime audit과 layout stabilizer 양쪽 계산을 동일하게 수정했다.
 
 ## Restore gate
 
@@ -97,28 +72,32 @@ hydrate
  -> registered Add-ons
  -> primary request ready
  -> compare subjects
- -> stable native pane identity
- -> complete native pane ratio restore
+ -> persisted managed-pane ratio layout restore
  -> startup viewport reassert
- -> live runtime snapshot including native pane vector
+ -> live runtime snapshot
  -> persisted-vs-live exhaustive audit
  -> PASS: persistence attach
  -> FAIL: persistence detached, existing JSON preserved, mismatches reported
 ```
 
+## Pane layout 의미
+
+저장된 pane 높이는 재기동 시 절대 픽셀이 아니라 저장 대상 pane들 사이의 상대 배치 비율이다.
+
+저장 대상이 아닌 native pane이 존재해도 이 비율 판정에 섞지 않는다. 다만 저장된 pane 자체가 runtime에서 없으면 반드시 실패한다.
+
 ## 자동검증 범위
 
-`verify.bat`에 다음 회귀가 포함되어 있다.
+`verify.bat`에는 다음이 포함된다.
 
 ```text
-whole-chart ratio restore
-mixed managed/unmanaged native pane restore
-stable native pane identity after pane removal
-complete native pane vector audit
+whole-chart managed-pane ratio restore
+unmanaged native pane coexistence
 missing persisted pane fail-closed
-compare private layout preservation
 compare-subject deferred restore
+compare concrete failure propagation
 startup viewport authority reassert
+exhaustive runtime audit
 single JSON persistence
 workspace/product restart
 console policy
@@ -133,21 +112,9 @@ git submodule update --init --recursive
 verify.bat
 ```
 
-`[PASS] current verification passed`가 나오면 `start.bat`으로 실제 UI 재기동 검증을 한다.
+자동검증 PASS 후에만 `start.bat`으로 실제 UI 재기동 검증을 다시 한다.
 
-검증 상태 예:
-
-```text
-primary 종목
-비교 종목 3개 이상
-SuperTrend / 기타 Add-on 속성
-메인/거래량/여러 서브 pane 배치
-timeframe
-viewport / 표시갯수
-가격/수익률 표시모드
-```
-
-브라우저 종료·재실행 뒤 위 의미 상태가 모두 동일하고 `STATE RESTORE ERROR`, `PERSISTENCE ERROR`가 없어야 UIA-1 PASS다.
+실제 UI PASS 전 UIA-1 완료 처리 금지.
 
 ## 계층 분리
 
