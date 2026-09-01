@@ -8,7 +8,7 @@ import { createChartPlatformServer } from './chart_platform_server.mjs';
 import {
   WORKSPACE_TIMEFRAME_ROUTE,
   WorkspaceTimeframeJsonStore,
-} from './workspace_timeframe_persistence.mjs';
+} from '../persistence/chart_workspace/timeframe_json.mjs';
 
 async function listen(server) {
   await new Promise((resolve, reject) => {
