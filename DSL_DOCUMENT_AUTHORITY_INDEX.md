@@ -1,6 +1,6 @@
 # DSL Document Authority Index
 
-Status: **DOCUMENT AUTHORITY SSOT / ACTIVE / 2026-09-01 KST**
+Status: **DOCUMENT AUTHORITY SSOT / ACTIVE / 2026-09-02 KST**
 
 이 문서는 루트에 누적된 설계·실험·구현 기록이 최신 제품 권한과 충돌하지 않도록 문서의 지위를 고정한다.
 
@@ -13,9 +13,10 @@ Status: **DOCUMENT AUTHORITY SSOT / ACTIVE / 2026-09-01 KST**
 2. DSL_NEXT_WORK_ORDER.md
 3. CURRENT_STATE.md
 4. DSL_DOCUMENT_AUTHORITY_INDEX.md
-5. 현재 active architecture/policy 문서
-6. checkpoint/evidence 문서
-7. historical 문서
+5. DSL_IMPLEMENTATION_COMPLIANCE_GATE.md
+6. 현재 active architecture/policy 문서
+7. checkpoint/evidence 문서
+8. historical 문서
 ```
 
 더 최신의 user-local PASS evidence와 사용자 결정이 오래된 문서보다 우선한다.
@@ -29,6 +30,7 @@ SESSION_HANDOFF.md
 DSL_NEXT_WORK_ORDER.md
 CURRENT_STATE.md
 DSL_DOCUMENT_AUTHORITY_INDEX.md
+DSL_IMPLEMENTATION_COMPLIANCE_GATE.md
 DSL_THREE_AXIS_FINAL_TARGET.md
 DSL_THREE_AXIS_MODULE_BOUNDARY.md
 DSL_FROZEN_CORE_MIGRATION_POLICY.md
@@ -38,6 +40,8 @@ DSL_AUTHORING_CONTINUOUS_IMPROVEMENT_POLICY.md
 DSL_HUMAN_COMMUNICATION_OUTPUT_POLICY.md
 DSL_UI_CONSISTENCY_ACCEPTANCE_POLICY.md
 ```
+
+`DSL_IMPLEMENTATION_COMPLIANCE_GATE.md`는 production 로직 수정 **이전**에 적용하는 최우선 구현 절차다. 기능 테스트 PASS가 이 게이트 위반을 덮어쓸 수 없다.
 
 Axis-local README는 각 package의 현재 책임을 설명하는 보조 active 문서다.
 
@@ -82,6 +86,7 @@ ADAPTIVE_*.md
 ```text
 current support SSOT = axes/axis1_dsl/core/capability_diagnostic_registry.py
 현재 축 경계         = DSL_THREE_AXIS_MODULE_BOUNDARY.md
+구현 전 준수 게이트  = DSL_IMPLEMENTATION_COMPLIANCE_GATE.md
 현재 실행 순서       = DSL_NEXT_WORK_ORDER.md
 현재 완료상태         = CURRENT_STATE.md + latest checkpoint
 ```
@@ -100,7 +105,7 @@ Chart = supplied projection/evidence 표시; 계산 권한 없음
 
 Condition의 **선별 의미**는 AXIS 2가 소유하고 Condition의 **버전/계보/승격 lifecycle**은 AXIS 3가 소유한다.
 
-UI acceptance 중 수정은 `DSL_UI_CONSISTENCY_ACCEPTANCE_POLICY.md`의 Core / Bridge-Runtime / Add-ons / JSON persistence 분리 원칙을 따른다.
+UI acceptance 중 수정은 `DSL_UI_CONSISTENCY_ACCEPTANCE_POLICY.md`의 Core / Bridge-Runtime / Add-ons / JSON persistence 분리 원칙을 따르며, production 수정 전에 `DSL_IMPLEMENTATION_COMPLIANCE_GATE.md`를 먼저 통과해야 한다.
 
 ## 6. Legacy core
 
