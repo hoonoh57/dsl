@@ -14,24 +14,13 @@ Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-09-01 KST**
 CURRENT_STEP = 14
 CURRENT_STEP_NAME = Final natural-language E2E acceptance
 CURRENT_SUBSTEP = 14-1 representative natural-language authoring -> exact PIT selection -> promoted strategy -> AXIS1 execution trace
-SUBSTEP_STATUS = READY
+SUBSTEP_STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
 완료:
 
 ```text
-STEP 1 COMPLETE = 기존 DSL 남은 기능 exact audit
-STEP 2 COMPLETE = AXIS 1 migration manifest + boundary 순서
-STEP 3 COMPLETE = Frozen Core 보호 gate user-local PASS
-STEP 4 COMPLETE = AXIS 1 migration user-local PASS
-STEP 5 COMPLETE = AXIS 1 신규 DSL 기능/검증 user-local PASS
-STEP 6 COMPLETE = capability/diagnostic registry user-local PASS
-STEP 7 COMPLETE = Bridge common + AXIS 1 execution contract user-local PASS
-STEP 8 COMPLETE = AXIS 2 exact-as-of snapshot contract user-local PASS
-STEP 9 COMPLETE = AXIS 2 deterministic selection engine user-local PASS
-STEP 10 COMPLETE = AXIS 3 Condition/Strategy CRUD + orchestration user-local PASS
-STEP 11 COMPLETE = three-axis versioned E2E Bridge user-local PASS
-STEP 12 COMPLETE = External LLM Authoring Lane user-local PASS
+STEP 1~12 COMPLETE = USER-LOCAL PASS
 STEP 13 COMPLETE = Continuous Improvement analysis tooling user-local PASS
   -> STEP13_CONTINUOUS_IMPROVEMENT_CHECKPOINT_2026-09-01.md
 ```
@@ -49,7 +38,7 @@ test_frozen_legacy_core_guard.py = OK
 
 ## Step 14 현재 — Final natural-language E2E acceptance
 
-대표 자연어 목표를 실제 분리 권한으로 끝까지 검증한다.
+대표 자연어 목표:
 
 ```text
 최근 10일 EMA120 돌파 + 기준 Histogram 강도 증거
@@ -60,44 +49,107 @@ MACD 상향돌파 OR JMA 상승전환 매수
 수익 확보 후 JMA 하락전환 매도
 ```
 
-### 고정 권한 분해
+### 구현
 
 ```text
-Authoring Lane = 자연어 -> untrusted structured draft -> deterministic validation only
-AXIS 2 precompute/snapshot = 과거 10일 event/reference/current comparison을 exact PIT evidence로 공급
-AXIS 2 selection = snapshot filter/rank/top-N만 수행
-AXIS 3 = exact Condition/Strategy version + lifecycle + run plan
-Bridge = CandidateSet/RunPlan/context/execution data를 versioned contract로 연결
-AXIS 1 = 15m single-symbol strategy 계산/실행
-Chart/acceptance = 계산 재수행 없이 trace/projection/evidence 확인
+acceptance/__init__.py
+acceptance/final_natural_language_scenario.py
+tests/test_final_natural_language_e2e.py
 ```
 
-AXIS 1이 universe/history cross-symbol search를 하지 않고, AXIS 2가 주문/DSL을 실행하지 않으며, AXIS 3이 선별 계산을 재구현하지 않는 상태가 유지되어야 한다.
-
-### Step 14 핵심 acceptance
+Step 14 final acceptance 과정에서 발견된 generic Bridge preflight gap을 좁게 보강했다.
 
 ```text
-1. representative natural-language request가 Authoring prompt에 verbatim 보존
-2. material ambiguity는 human acceptance 전 blocked
-3. accepted structured draft가 현재 registry/feature/source/context/DSL contract를 모두 PASS
-4. 과거 breakout/reference/current re-breakout은 AXIS2 snapshot의 precomputed exact PIT evidence로 표현
-5. SelectionSpec가 snapshot id/hash/as_of/cutoff에 exact binding
-6. CandidateSet이 의도한 종목만 deterministic order로 반환
-7. reference Histogram이 candidate별 exact read-only parent context로 AXIS1에 전달
-8. Strategy/Condition immutable version + promoted state exact binding
-9. AXIS1 15m DSL이 EMA120/reference Histogram/MACD/JMA/profit permission logic을 compile/execute
-10. candidate ordinal / selection hash / strategy hash / condition hash / context binding / AXIS1 response trace 보존
-11. future/nearest/fill-forward/default synthesis 없음
-12. 같은 inputs는 같은 acceptance identity/trace hash
-13. context/reference tamper는 실행 전에 fail-closed
-14. frozen legacy core 변경 없음
+bridges/axis1_execution_bridge.py
+bridges/three_axis_e2e_bridge.py
 ```
 
-### Step 14 구현 원칙
+변경 의미:
 
-대표 시나리오용 고정 숫자나 feature identity는 test/acceptance fixture에 둘 수 있지만, AXIS 1/2/3 production core에 특정 전략 shortcut을 추가하지 않는다.
+```text
+prepared parent-context binding hash를 non-executing preflight에서 검증
+모든 selected candidate의 context integrity 검증이 끝난 뒤에만 첫 AXIS1 실행 시작
+후순위 후보 context tamper로 일부 후보만 먼저 실행되는 상태 차단
+```
 
-자연어에서 정확히 정해지지 않은 `수익 확보` 기준은 silent guess하지 않는다. acceptance 시나리오에서는 명시적 material assumption을 인간이 승인한 뒤에만 진행한다.
+AXIS 1 DSL/지표/Backtest 계산 로직, AXIS 2 selection semantics, AXIS 3 CRUD semantics, frozen core는 변경하지 않았다.
+
+### 대표 시나리오 권한 분해
+
+```text
+Authoring Lane
+ -> 자연어 원문을 prompt에 그대로 보존
+ -> structured draft strict validation
+ -> '수익확보' 수치가 원문에 없으므로 +2% material assumption으로 human approval 전 BLOCKED
+ -> 명시 승인 후 ACCEPTED_DRAFT
+
+AXIS 2
+ -> 최근 10일 EMA120 breakout 여부
+ -> 현재 EMA120 re-breakout 여부
+ -> current Histogram >= reference 여부
+ -> reference Histogram numeric value
+ -> normalized Histogram frozen rank
+ 위 값을 모두 precomputed exact PIT snapshot evidence로 소비
+ -> filter/rank/top-N -> AAA, BBB
+
+AXIS 3
+ -> exact SelectionSpec를 Condition immutable version으로 저장
+ -> accepted draft의 exact DSL을 Strategy immutable version으로 저장
+ -> 둘 다 PROMOTED exact version/hash로 run plan 생성
+
+Bridge / AXIS 1
+ -> candidate별 snapshot reference Histogram을 exact read-only ctx.selection.reference_hist로 전달
+ -> 15m EMA120 + normalized Histogram + MACD + JMA + state permission strategy 실행
+```
+
+### DSL acceptance state logic
+
+대표 strategy는 product Core shortcut 없이 기존 범용 DSL만 조합한다.
+
+```text
+entry_setup = close > EMA120
+              AND hist_strength >= reference_hist
+              AND (MACD turn-up OR JMA turn-up)
+
+in_trade / entry_price / profit_secured = explicit on_bar state
+
+JMA turn-down AND profit 미확보 AND close > EMA120
+ -> exit_blocked_now
+
+JMA turn-down AND (profit 확보 OR close <= EMA120)
+ -> exit_now
+```
+
+Acceptance market fixture는 EMA120 warmup 이후 다음 순서를 의도적으로 만든다.
+
+```text
+entry
+ -> +2% 미만 JMA turn-down / exit blocked
+ -> +2% profit secured
+ -> JMA turn-down / exit allowed
+```
+
+### Step 14 완료 조건
+
+```text
+verbatim natural-language prompt preservation PASS
+material assumption human gate PASS
+accepted draft full deterministic validation PASS
+AXIS2 precomputed PIT feature separation PASS
+exact snapshot/spec hash/as_of/cutoff binding PASS
+expected CandidateSet AAA/BBB + deterministic ordinal PASS
+reference Histogram candidate evidence == AXIS1 prepared context value PASS
+context binding hash/registry trace PASS
+promoted Strategy/Condition exact version/hash PASS
+AXIS1 entry + pre-profit blocked-exit + post-profit exit signals PASS
+closed profitable trade + flat final position PASS
+same request -> same E2E request/response hash PASS
+context value tamper without matching binding hash -> before first AXIS1 execution REJECTED PASS
+no provider/nearest/fill-forward/universe lookup inside AXIS1 DSL PASS
+Step 13/12/11 regressions PASS
+frozen core guard PASS
+focused user-local Step 14 test PASS
+```
 
 Step 14 PASS + checkpoint 전 Step 15 시작 금지.
 
