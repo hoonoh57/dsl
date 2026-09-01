@@ -2,7 +2,7 @@
 
 Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 KST**
 
-이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + user-local PASS + 현재 `dsl-live-studio` 상태가 stale 문서보다 우선한다.
+이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + user-local 결과 + 현재 `dsl-live-studio` 상태가 stale 문서보다 우선한다.
 
 핵심 운영 원칙:
 
@@ -18,20 +18,10 @@ Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 
 PREVIOUS REMEDIATION = Steps 1 through 15 COMPLETE / USER-LOCAL PASS
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-STATUS = SUPERTrend REAL UI PASS / PANE HEIGHT REAL UI FAIL / FIX WRITTEN / REVALIDATION REQUIRED
+STATUS = SELECTIVE REAL UI RESTORE FAILURE CONFIRMED / EXHAUSTIVE RUNTIME AUDIT WRITTEN / REVALIDATION REQUIRED
 ```
 
 ## JSON 상태 권한
-
-```text
-UI semantic change
- -> one logical Chart State
- -> monotonic stateRevision
- -> one JSON persistence path
- -> one atomic runtime state file
- -> next session hydrate
- -> UI projection restore
-```
 
 canonical runtime state file:
 
@@ -41,39 +31,66 @@ vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart
 
 한 문서에 workspace/display/addons/layout/geometry를 함께 보존한다.
 
-## 최신 실제 UI 결과
+그러나 단일 JSON 파일 존재만으로 SSOT PASS로 인정하지 않는다. 저장된 의미 상태가 실제 재기동 차트 전체 projection과 동일해야 한다.
 
-사용자 재검증:
+## 최신 사용자 결정
 
-```text
-SuperTrend 재기동 복원 = PASS
-거래량 pane 높이 복원 = FAIL
-서브차트 지표 pane 높이 복원 = FAIL
-```
-
-이 결과로 Add-on 상태 자체와 pane layout 상태를 분리해 추적했다.
-
-확인 원인:
+기능별 복구 패치를 계속 추가하지 않는다.
 
 ```text
-persisted pane heights hydrate
- -> native chart + add-on pane startup construction
- -> chart library auto-layout recalculates actual heights
- -> observer sees startup-generated heights
- -> startup layout can replace persisted layout authority before render settles
+current live chart state
+ -> one JSON
+restart
+ -> restore JSON
+ -> capture complete live runtime state
+ -> exhaustive compare
 ```
 
-현재 수정:
+전수 비교 범위:
 
 ```text
-startup 동안 pane height observer persistence 억제
-JSON persisted primary/add-on pane heights를 authority로 유지
-all add-ons idle 후 persisted layout 재적용
-여러 layout frame에 걸쳐 재적용
-stabilization 완료 후 사용자 resize persistence 활성화
+primary instrument
+compare subjects
+timeframe / base date / adjusted
+viewport / visible range
+price display mode
+all active registered Add-ons
+all persisted Add-on properties/private state
+primary price + volume pane heights
+all persisted Add-on pane heights
 ```
 
-회귀검증은 startup auto-layout이 실제 pane 높이를 임의값으로 변경해도 JSON 높이가 유지되고, stabilization 후 실제 pane이 JSON 높이로 돌아오는 시나리오를 포함한다.
+## Restore gate
+
+```text
+hydrate
+ -> runtime construction
+ -> Add-on/subject/layout restore
+ -> live runtime snapshot
+ -> persisted-vs-live exhaustive audit
+ -> PASS: persistence attach
+ -> FAIL: persistence detached, existing JSON preserved, mismatch paths reported together
+```
+
+불완전하게 복원된 화면이 기존 `chart-state.json`을 덮어쓰지 못하게 한다.
+
+관련 evidence:
+
+```text
+UIA1_FULL_RUNTIME_STATE_AUDIT_2026-09-01.md
+```
+
+## 다음 사용자 로컬 검증
+
+```text
+git pull --ff-only origin dsl-live-studio
+git submodule update --init --recursive
+verify.bat
+```
+
+자동검증 PASS 후 실제 UI에서 종목/비교종목/Add-on 속성/거래량 및 서브차트 높이/timeframe/viewport/display mode를 변경하고 종료·재기동한다.
+
+정상은 전부 동일하게 복원되는 것이다. 실패 시 `STATE RESTORE ERROR`의 mismatch 목록을 받아 해당 경로를 한 번에 수정한다.
 
 ## 계층 분리
 
@@ -85,32 +102,9 @@ Core
 ```
 
 - Core: deterministic 의미/계산. repository-root `core/`는 frozen reference이며 수정 금지.
-- Bridge / Runtime: lifecycle/state routing/observation/layout projection. 계산 금지.
+- Bridge / Runtime: lifecycle/state routing/layout projection/runtime audit. 계산 금지.
 - Add-ons: 기능별 계산과 private state.
 - JSON persistence: serialization/hydrate/atomic write/stale-write rejection만 담당.
-
-## 다음 검증
-
-먼저 사용자 로컬 자동검증:
-
-```text
-git pull --ff-only origin dsl-live-studio
-git submodule update --init --recursive
-verify.bat
-```
-
-PASS 후 실제 UI:
-
-```text
-거래량 pane 높이 변경
-서브차트 지표 pane 높이 변경
-브라우저 종료
-재기동
- -> 두 높이 모두 복원
- -> SuperTrend/timeframe 등 기존 복원 상태 유지
-```
-
-실제 UI pane 높이 복원 PASS 전 UIA-1을 닫지 않는다.
 
 ## Frozen legacy Core
 
