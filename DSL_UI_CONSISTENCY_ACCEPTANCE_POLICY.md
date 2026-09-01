@@ -49,6 +49,7 @@ UI 요청을 제품 계약으로 변환
 실행 lifecycle/routing
 context binding
 오류 전달/진단 연결
+state-port routing
 ```
 
 금지:
@@ -58,6 +59,7 @@ context binding
 선별/전략 의미 재구현
 UI 결과를 맞추기 위한 계산값 보정
 누락값 임의 default/fill
+기능별 persistent side-store
 ```
 
 ### Add-ons
@@ -70,6 +72,7 @@ UI 결과를 맞추기 위한 계산값 보정
 전략/Condition 제품 기능
 차트 projection/관찰 기능
 추가 사용자 지표 등 additive extension
+기능별 JSON-compatible private state
 ```
 
 원칙:
@@ -78,6 +81,7 @@ UI 결과를 맞추기 위한 계산값 보정
 일반 Core 능력이 이미 있으면 Add-on이 조합해서 사용
 새 일반 능력이 실제로 부족할 때만 별도 generic tranche로 Core 확장
 Add-on 요구를 이유로 Bridge나 Core에 해당 기능의 제품정책을 숨기지 않음
+선/도형 좌표와 같은 persistent instance state는 Add-on state로 기록
 ```
 
 ### JSON persistence
@@ -85,10 +89,11 @@ Add-on 요구를 이유로 Bridge나 Core에 해당 기능의 제품정책을 �
 소유:
 
 ```text
-versioned schema
+versioned state document
 저장/복원
 artifact identity/version/hash
 사용자 설정과 선언적 상태
+atomic write
 ```
 
 금지:
@@ -99,9 +104,44 @@ artifact identity/version/hash
 지표 생성
 주문 의미
 실행시점 보정
+기능별 별도 영속성 권한 생성
 ```
 
 JSON은 계산결과의 원인이 아니라 **이미 결정된 상태/계약을 보존하는 수단**이다.
+
+### 단일 Chart State 원칙
+
+UI/Chart에서 다음 세션에도 의미가 있는 변경은 기능마다 별도 파일이나 localStorage에 저장하지 않는다.
+
+```text
+meaningful UI change
+ -> one logical Chart State
+ -> one JSON serialization/restore path
+ -> one atomic runtime chart-state.json
+```
+
+Chart State는 최소 다음을 한 문서에서 함께 보존할 수 있어야 한다.
+
+```text
+workspace
+  instrument
+  timeframe
+  base date
+  visible range/count
+  viewport
+  price/return display mode
+
+display
+
+addons
+  parameters
+  strategy state
+  compare state
+  pane layout
+  exact geometry / point coordinates
+```
+
+마우스 hover/focus처럼 순간적인 interaction event 자체는 저장대상이 아니지만, 사용자가 만든 선의 한 점 이동처럼 **다음 세션에도 동일해야 하는 결과 상태**는 반드시 같은 Chart State JSON에 반영되어야 한다.
 
 ## 2. UI 일관성 테스트 순서
 
@@ -144,6 +184,8 @@ UI를 통과시키기 위해 Core 결과를 덮어쓰기
 Bridge가 지표/전략/선별을 재계산
 Add-on 문제를 Core 특례로 흡수
 JSON 로드 시 잘못된 값을 자동 보정
+기능별 하드코딩 복원 경로 추가
+제품 persistent state를 localStorage에 별도 저장
 실패 assertion 약화
 compatibility exception 추가로 경계 위반 숨기기
 repository-root frozen core 수정
@@ -169,7 +211,8 @@ UI 테스트는 이 경계를 우회하는 별도 실행경로를 만들지 않�
 UI 입력 의미 == contract 입력 의미
 실행 결과 == deterministic engine 결과
 화면 표시 == supplied result/projection
-저장 후 복원 == 동일 선언/버전/해시 의미
+저장 후 복원 == 동일 선언/버전/해시/화면 의미
+meaningful chart state == one authoritative runtime JSON document
 다른 계층에 제품 특례 누수 없음
 관련 자동 regression PASS
 frozen legacy core guard PASS
