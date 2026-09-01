@@ -89,35 +89,21 @@ startup restore가 불완전하면 그 상태를 새 권한으로 저장하지 �
 
 ## Latest automated revalidation
 
-2026-09-01 user-local `verify.bat`은 `workspace-startup`에서 실패했다.
-
-분류:
+2026-09-01 user-local `verify.bat`:
 
 ```text
-TEST DEFECT
+[PASS] current verification passed
 ```
 
-기존 테스트가 과거의 단순 READY 반환 문자열만 찾고 있어, 새 restore audit 이후의 `restore:'PASS'` READY 계약을 따라가지 못했다. 제품 복원 로직 실행 실패로 분류하지 않는다.
-
-수정된 startup 검증 순서:
-
-```text
-initial load
- -> compare subjects idle
- -> persisted layout stabilization
- -> exhaustive runtime audit
- -> persistence attach
- -> READY PASS
-```
+따라서 exhaustive runtime audit, startup ordering, persistence, console policy, frozen-core guard까지 자동검증 기준은 PASS다.
 
 현재 상태:
 
 ```text
-REAL UI SELECTIVE RESTORE FAILURE = CONFIRMED
+REAL UI SELECTIVE RESTORE FAILURE = PREVIOUSLY CONFIRMED
 EXHAUSTIVE RUNTIME AUDIT = WRITTEN
 WORKSPACE STARTUP TEST CONTRACT = CORRECTED
-DSL SUBMODULE PIN = UPDATED
-AUTO REVALIDATION = REQUIRED
+AUTO REVALIDATION = USER-LOCAL PASS
 REAL UI REVALIDATION = REQUIRED
 UIA-1 = NOT PASS YET
 ```
