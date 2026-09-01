@@ -18,17 +18,17 @@ Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 
 PREVIOUS REMEDIATION = Steps 1 through 15 COMPLETE / USER-LOCAL PASS
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-STATUS = AUTOMATED USER-LOCAL PASS / MANUAL UI RESTORE PENDING
+STATUS = REAL UI FAILURE FIX WRITTEN / USER-LOCAL REVALIDATION REQUIRED
 ```
 
-현재 정책:
+기준 정책:
 
 ```text
 DSL_UI_CONSISTENCY_ACCEPTANCE_POLICY.md
 DSL_HUMAN_COMMUNICATION_OUTPUT_POLICY.md
 ```
 
-## 사용자 최신 영속성 권한
+## JSON 상태 권한
 
 의미 있는 화면 변경은 기능별 하드코딩 저장소로 나누지 않는다.
 
@@ -41,23 +41,19 @@ UI semantic change
  -> UI projection restore
 ```
 
-현재 canonical runtime state file:
+canonical runtime state file:
 
 ```text
 vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart-state.json
 ```
 
-이 파일 한 개에 다음 상태를 함께 보존한다.
+한 문서에 다음을 함께 보존한다.
 
 ```text
 workspace
-  primary instrument
-  timeframe
-  base date
-  visible count
-  price display mode
-  viewport logical range
-  recent instruments
+  primary instrument / timeframe / base date
+  visible count / price display mode / viewport / recent instruments
+  primary price + volume pane layout
 
 display
   global chart display state
@@ -65,49 +61,49 @@ display
 addons
   enabled/visible
   feature parameters
-  strategy state
-  compare-subject state
-  pane layout
-  arbitrary instance geometry such as exact point coordinates
+  strategy/compare state
+  add-on pane layout
+  exact geometry/point coordinates
 ```
 
-마우스 hover/focus 같은 순간 UI 이벤트 자체는 영속 상태가 아니지만, 사용자가 만든 선/도형의 점 좌표처럼 다음 세션에 의미가 있는 결과 상태는 Add-on instance state에 JSON으로 정확히 들어가야 한다.
+## UIA-1 실제 UI 실패와 수정
 
-## UIA-1 수정
+이전 자동검증은 단순 JSON roundtrip을 확인했지만 실제 UI 이벤트가 SSOT까지 도달하는지를 충분히 검증하지 못했다.
 
-### 시작 직후 빈 차트
-
-분류: Bridge / Runtime startup ordering defect.
+사용자 실제 재현:
 
 ```text
-state hydrate
- -> UI/runtime wiring
- -> existing loadInitial() 자동 1회
- -> READY
+SuperTrend 삽입
+ + 메인/서브 패널 높이 변경
+ -> 브라우저 종료
+ -> 재기동
+ -> SuperTrend 및 layout 복원 실패
 ```
 
-### timeframe 재기동 복원 실패
+화면에는 `PERSISTENCE ERROR · Failed to fetch`도 확인됐다.
 
-초기 localStorage/timeframe 전용 JSON 방식은 최신 사용자 권한과 맞지 않아 폐기했다.
+확인된 결함:
+
+```text
+1. transient persistence fetch 실패 시 기본상태로 계속 진행 가능
+2. main price/volume pane 높이는 JSON state에 연결되지 않음
+3. 이전 regression은 실제 UI state-event path를 검증하지 않음
+```
 
 현재 수정:
 
 ```text
-single Chart State hydrate
- -> workspace timeframe/instrument/baseDate/display/viewport 복원
- -> primary chart 자동 loadInitial()
- -> Add-on/layout/instance state 같은 document에서 복원
+persistence load transient failure -> bounded retry
+persistence authority unavailable -> mutable chart attach 차단
+primary price/volume resize -> workspace.layout.primaryPanes
+add-on pane resize -> addons[*].state.__layout
+rapid UI changes -> latest document coalesced save
+unload -> latest full-state flush
 ```
 
-제품 경로에서는 `WorkspaceTimeframePreference`, timeframe 전용 browser port, timeframe 전용 route/file을 사용하지 않는다.
+SuperTrend 추가 + 메인/서브 패널 높이 변경을 실제 state store/controller 경로로 통과시키는 회귀검증을 `verify.bat`에 포함했다.
 
-기존 `_chart.json` + Add-on별 JSON shard가 남아 있는 환경은 unified state가 없을 때 한 번 읽어 `chart-state.json`으로 migration한 뒤 shard를 제거한다. 이후 모든 semantic change는 full document atomic rewrite로 같은 파일 하나에 저장한다.
-
-## 콘솔 출력 수정
-
-기존 raw test output과 startup 단계별 INFO/PASS가 오류를 밀어내는 문제가 있었다.
-
-현재 규칙:
+## 콘솔 출력
 
 ```text
 start/restart/stop 성공 -> 최종 PASS 한 줄
@@ -116,15 +112,7 @@ verify 성공             -> 최종 PASS 한 줄
 전체 stdout/stderr       -> .runtime 내부 로그 파일에 유지
 ```
 
-PowerShell 5.1에서는 Python `unittest`의 정상 진행표시 `..`가 stderr로 출력될 수 있으므로 stderr 발생 자체를 실패로 판정하지 않는다. `verify.bat`는 각 하위 프로세스의 stdout/stderr를 별도 파일로 캡처하고 process exit code만 성공/실패 권한으로 사용한다.
-
-2026-09-01 사용자 로컬 검증:
-
-```text
-verify.bat -> [PASS] current verification passed
-```
-
-따라서 자동검증은 USER-LOCAL PASS다. UIA-1 전체 완료에는 실제 브라우저 종료/재기동 후 동일 semantic state 복원 확인이 남아 있다.
+PowerShell 5.1 native command는 stderr 존재가 아니라 process exit code로 성공/실패를 판정한다.
 
 ## 계층 분리
 
@@ -136,22 +124,30 @@ Core
 ```
 
 - Core: deterministic 의미/계산. repository-root `core/`는 frozen reference이며 수정 금지.
-- Bridge / Runtime: lifecycle, request/response, state-port routing. 계산/보정 금지.
-- Add-ons: 기능별 계산과 private semantic state. 선/도형 좌표도 자신의 JSON-compatible state로 기록.
-- JSON persistence: full state document의 serialization/hydrate/atomic write만 담당. 전략/지표 의미를 계산하지 않음.
+- Bridge / Runtime: lifecycle, state routing, pane-state observation. 계산/보정 금지.
+- Add-ons: 기능별 계산과 private state.
+- JSON persistence: full state serialization/hydrate/atomic write only.
 
-## UIA-1 다음 검증
-
-UI에서 5분봉뿐 아니라 종목/표시범위/수익률 모드/지표 파라미터 등 의미 있는 상태를 바꾼 뒤 브라우저를 종료·재기동하여 동일하게 복원되는지 확인한다.
-
-파일 확인:
+## 다음 검증
 
 ```text
-vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/
- -> chart-state.json 하나만 runtime state JSON으로 존재
+git pull --ff-only origin dsl-live-studio
+git submodule update --init --recursive
+verify.bat
 ```
 
-PASS 전 다음 UI 기능으로 넘어가지 않는다.
+그 후 실제 UI에서:
+
+```text
+SuperTrend 삽입
+메인/서브 패널 높이 변경
+브라우저 종료
+재기동
+ -> 동일 상태 복원
+ -> PERSISTENCE ERROR 없음
+```
+
+이 실제 UI 복원까지 PASS 전 다음 UI 기능으로 넘어가지 않는다.
 
 ## Frozen legacy Core
 
