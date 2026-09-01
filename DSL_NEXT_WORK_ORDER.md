@@ -70,7 +70,8 @@ JSON persistence boundary defect
 ```text
 chart timeframe(period + interval)
  -> shell preference port
- -> Bridge JSON persistence
+ -> Bridge / Runtime route
+ -> persistence/chart_workspace/timeframe_json.mjs
  -> .runtime/dsl-stack/chart-workspace-timeframe.json
  -> 다음 browser bootstrap에서 hydrate
  -> MarketChartWorkspace가 복원값으로 자동 loadInitial()
@@ -93,7 +94,9 @@ DSL 제품 JSON port가 localStorage fallback보다 우선
 DSL/Core 계산 변경 없음
 Add-on 전략/timeframe validation 변경 없음
 strategy/add-on JSON과 workspace JSON 분리
-Bridge/JSON 계층은 계산/보정 없음
+Bridge / Runtime = route/adaptation only
+JSON persistence = schema validation + atomic file read/write only
+JSON persistence에서 Axis/Core/Add-on import 금지
 root frozen core 변경 없음
 ```
 
@@ -104,6 +107,7 @@ startup-load focused test PASS
 chart shell timeframe preference test PASS
 browser JSON persistence port test PASS
 server JSON persistence restart test PASS
+persistence layer separation guard PASS
 chart bridge server regression PASS
 frozen core guard PASS
 UI: 분 -> 5 -> 조회 -> browser 종료 -> 재기동
