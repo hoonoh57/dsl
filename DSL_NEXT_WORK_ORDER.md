@@ -9,7 +9,7 @@ Status: **UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 KST**
 ```text
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-SUBSTEP_STATUS = AUTOMATED USER-LOCAL PASS / MANUAL UI REVALIDATION REQUIRED
+SUBSTEP_STATUS = REAL UI FAIL / ORDERING FIX WRITTEN / REVALIDATION REQUIRED
 ```
 
 기준 정책:
@@ -24,6 +24,7 @@ DSL_HUMAN_COMMUNICATION_OUTPUT_POLICY.md
 ```text
 의미 있는 화면 변경
  -> one logical Chart State
+ -> monotonic stateRevision
  -> one JSON serialization/restore path
  -> one atomic runtime JSON file
 ```
@@ -41,73 +42,42 @@ workspace
   instrument / timeframe / base date / visible count
   price mode / viewport / recent instruments
   primary price + volume pane layout
-
 display
 addons
   enabled/visible / parameters / private state
   add-on pane layout / geometry points
 ```
 
-## 실제 UI 실패에서 확인된 결함
-
-사용자 재현:
+## 실제 UI 실패에서 추가 확인된 원인
 
 ```text
-SuperTrend 삽입
-메인 + 서브 패널 높이 변경
-브라우저 종료/재기동
- -> 상태 복원 실패
-```
-
-확인된 원인:
-
-```text
-transient persistence fetch 실패 후 기본상태 운영 가능
-primary pane 높이의 SSOT 연결 누락
-기존 test가 실제 UI state-event path를 검증하지 않음
-primary pane observer 초기 예약값이 최신 resize를 뒤늦게 덮어쓸 수 있음
-검증 실패 시 observer timer가 남아 node test가 종료되지 않을 수 있음
-verify wrapper에 child timeout이 없음
+older queued full-state save
+latest browser-close full-state save
+ -> request completion/order inversion
+ -> older document may overwrite latest document
 ```
 
 수정:
 
 ```text
-transient persistence load -> retry
-JSON authority unavailable -> mutable chart state attach 차단
-primary pane resize -> workspace.layout.primaryPanes
-add-on pane resize -> addons[*].state.__layout
-primary pane initial notification -> delivery 시점 latest snapshot만 사용
-node fallback observer timer -> process exit를 막지 않음
-live-state regression cleanup -> finally 보장
-verify child check -> bounded timeout + failure location 출력
-rapid changes -> latest full document coalesced save
-unload -> latest full document flush
+every semantic state mutation -> stateRevision +1
+full JSON -> stateRevision persisted
+JSON writes -> serialized
+stale lower-revision write -> rejected
 ```
 
-## 검증
-
-2026-09-01 사용자 로컬:
+회귀검증은 실제 실패 순서를 포함한다.
 
 ```text
-verify.bat -> [PASS] current verification passed
-```
-
-자동검증은 USER-LOCAL PASS다. 실제 UI 재기동 복원 확인 전 UIA-1 전체 PASS로 닫지 않는다.
-
-`verify.bat`에는 실제 state store/controller를 사용한 다음 시나리오가 포함된다.
-
-```text
-SuperTrend enable
-+ primary price/volume pane resize
-+ add-on pane resize
-+ timeframe 유지
- -> same full state document
+latest close-state POST
+ -> delayed older PUT
+ -> restore
+ -> latest SuperTrend/layout/workspace must remain
 ```
 
 ## UIA-1 완료 조건
 
-실제 UI에서 다시 확인한다.
+자동검증과 실제 UI 모두 통과해야 한다.
 
 ```text
 SuperTrend 삽입
@@ -116,7 +86,7 @@ SuperTrend 삽입
 재기동
  -> SuperTrend 복원
  -> 메인/서브 높이 복원
- -> 기존 timeframe 등 workspace 상태 유지
+ -> 기존 timeframe/workspace 유지
  -> PERSISTENCE ERROR 없음
 ```
 
@@ -138,12 +108,11 @@ repository-root core/ 수정 금지
 UI 상태를 Core 하드코딩으로 복원 금지
 Bridge/Runtime에서 지표/전략/선별 계산 금지
 Add-on 기능특례를 Core에 흡수 금지
-JSON persistence에서 계산/의미판정 금지
+JSON persistence에서 계산/지표 의미판정 금지
 기능별 persistent side-store 추가 금지
 localStorage를 제품 상태 authority로 사용 금지
 검증 assertion 약화/skip 금지
-JSON authority를 읽지 못한 상태에서 defaults를 새 authority처럼 저장 금지
-검증 child process 무한 대기 허용 금지
+older state가 latest revision을 overwrite하는 것 금지
 ```
 
 ## 이후 UI 기능 검증 순서
