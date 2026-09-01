@@ -21,11 +21,15 @@ class ConsoleOutputPolicyTest(unittest.TestCase):
 
     def test_verification_uses_exit_code_not_stderr_as_failure_authority(self):
         source = (ROOT / "scripts" / "verify_current.ps1").read_text(encoding="utf-8")
-        self.assertIn("Start-Process -FilePath $Executable", source)
-        self.assertIn("RedirectStandardOutput $outLog", source)
-        self.assertIn("RedirectStandardError $errLog", source)
-        self.assertIn("-Wait -PassThru", source)
-        self.assertIn("$process.ExitCode -ne 0", source)
+        self.assertIn("$startInfo.RedirectStandardOutput = $true", source)
+        self.assertIn("$startInfo.RedirectStandardError = $true", source)
+        self.assertIn("$process.StandardOutput.ReadToEndAsync()", source)
+        self.assertIn("$process.StandardError.ReadToEndAsync()", source)
+        self.assertIn("$exitCode = [int]$process.ExitCode", source)
+        self.assertIn("if ($exitCode -ne 0)", source)
+        self.assertIn("Write-VerificationLog $outLog $stdout", source)
+        self.assertIn("Write-VerificationLog $errLog $stderr", source)
+        self.assertNotIn("if ($stderr", source)
         self.assertNotIn("& $Executable @Arguments > $log 2>&1", source)
 
     def test_verification_hides_success_detail_and_preserves_failure_source_context(self):
