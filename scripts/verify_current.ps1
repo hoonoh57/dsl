@@ -48,28 +48,63 @@ function Invoke-QuietCheck([string]$Label, [string]$Executable, [string[]]$Argum
     $errLog = Join-Path $RuntimeDir "$safe.err.log"
     Remove-Item $outLog, $errLog -Force -ErrorAction SilentlyContinue
 
+    foreach ($argument in $Arguments) {
+        if ([string]$argument -match '\s') {
+            throw "$Label contains an unsupported whitespace argument in the verifier."
+        }
+    }
+
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $Executable
+    $startInfo.Arguments = ($Arguments -join ' ')
+    $startInfo.WorkingDirectory = $Root
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $startInfo
+    $stdoutTask = $null
+    $stderrTask = $null
+
     try {
-        $process = Start-Process -FilePath $Executable -ArgumentList $Arguments -WorkingDirectory $Root -RedirectStandardOutput $outLog -RedirectStandardError $errLog -PassThru -WindowStyle Hidden
+        if (-not $process.Start()) { throw 'child process did not start.' }
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+
         if (-not $process.WaitForExit($CheckTimeoutMs)) {
-            try { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue } catch {}
+            try { $process.Kill() } catch {}
+            try { $process.WaitForExit() } catch {}
+            $stdout = if ($null -ne $stdoutTask) { [string]$stdoutTask.Result } else { '' }
+            $stderr = if ($null -ne $stderrTask) { [string]$stderrTask.Result } else { '' }
+            [System.IO.File]::WriteAllText($outLog, $stdout)
+            [System.IO.File]::WriteAllText($errLog, $stderr)
             Write-Host "[ERROR] $Label - timed out" -ForegroundColor Red
             Show-FailedCommandOutput @($errLog, $outLog)
             throw "$Label timed out."
         }
+
         $process.WaitForExit()
-        $process.Refresh()
+        $stdout = [string]$stdoutTask.Result
+        $stderr = [string]$stderrTask.Result
+        $exitCode = [int]$process.ExitCode
+        [System.IO.File]::WriteAllText($outLog, $stdout)
+        [System.IO.File]::WriteAllText($errLog, $stderr)
     } catch {
         if ($_.Exception.Message -notmatch 'timed out') {
             Write-Host "[ERROR] $Label - $($_.Exception.Message)" -ForegroundColor Red
             Show-FailedCommandOutput @($errLog, $outLog)
         }
         throw
+    } finally {
+        $process.Dispose()
     }
 
-    if ($process.ExitCode -ne 0) {
-        Write-Host "[ERROR] $Label" -ForegroundColor Red
+    if ($exitCode -ne 0) {
+        Write-Host "[ERROR] $Label - exit code $exitCode" -ForegroundColor Red
         Show-FailedCommandOutput @($errLog, $outLog)
-        throw "$Label failed with exit code $($process.ExitCode)."
+        throw "$Label failed with exit code $exitCode."
     }
 }
 
