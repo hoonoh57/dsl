@@ -5,10 +5,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { createChartPlatformServer } from './chart_platform_server.mjs';
-import {
-  WORKSPACE_TIMEFRAME_ROUTE,
-  WorkspaceTimeframeJsonStore,
-} from '../persistence/chart_workspace/timeframe_json.mjs';
+import { WORKSPACE_TIMEFRAME_ROUTE } from './workspace_timeframe_route.mjs';
+import { WorkspaceTimeframeJsonStore } from '../persistence/chart_workspace/timeframe_json.mjs';
 
 async function listen(server) {
   await new Promise((resolve, reject) => {
@@ -98,13 +96,16 @@ test('unload beacon POST uses the same validation and cannot persist unsupported
   }
 });
 
-test('workspace JSON persistence remains a one-way data layer dependency', async () => {
+test('Bridge routing and JSON persistence stay as one-way separated layers', async () => {
   const persistenceSource = await readFile(new URL('../persistence/chart_workspace/timeframe_json.mjs', import.meta.url), 'utf8');
+  const routeSource = await readFile(new URL('./workspace_timeframe_route.mjs', import.meta.url), 'utf8');
   const bridgeSource = await readFile(new URL('./chart_platform_server.mjs', import.meta.url), 'utf8');
 
+  assert.doesNotMatch(persistenceSource, /request|response|WORKSPACE_TIMEFRAME_ROUTE|GET, PUT, POST/);
   assert.doesNotMatch(persistenceSource, /axes\//);
   assert.doesNotMatch(persistenceSource, /addons\//);
   assert.doesNotMatch(persistenceSource, /core\//);
+  assert.doesNotMatch(routeSource, /node:fs|readFile|writeFile|rename/);
   assert.match(bridgeSource, /\.\.\/persistence\/chart_workspace\/timeframe_json\.mjs/);
-  assert.doesNotMatch(bridgeSource, /\.\/workspace_timeframe_persistence\.mjs/);
+  assert.match(bridgeSource, /\.\/workspace_timeframe_route\.mjs/);
 });
