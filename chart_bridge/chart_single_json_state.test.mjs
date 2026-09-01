@@ -25,6 +25,7 @@ async function withServer(root, run) {
 
 const state = {
   schemaVersion: 1,
+  stateRevision: 17,
   visualsVisible: true,
   display: { indicatorSyncEnabled: false },
   workspace: {
@@ -84,8 +85,52 @@ test('browser unload POST writes the same full state route rather than a special
       });
       assert.equal(posted.status, 200);
       const restored = await (await fetch(`${base}/api/chart/addons/state`)).json();
+      assert.equal(restored.stateRevision, 17);
       assert.deepEqual(restored.workspace.timeframe, { period: 'minute', interval: '5' });
       assert.deepEqual(restored.addons['drawing.test'].state.points, [{ x: 101.25, y: 220.75 }]);
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('late stale PUT cannot overwrite newer browser-close state', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'dsl-chart-state-order-'));
+  try {
+    await withServer(root, async base => {
+      const latest = structuredClone(state);
+      latest.stateRevision = 42;
+      latest.workspace.visibleCount = 242;
+      latest.workspace.layout = { primaryPanes: { priceHeight: 510, volumeHeight: 135 } };
+      latest.addons['indicator.supertrend.2'] = {
+        enabled: true,
+        definitionId: 'indicator.supertrend',
+        visible: true,
+        state: { atrPeriod: 14, multiplier: 2 },
+      };
+      const stale = structuredClone(state);
+      stale.stateRevision = 41;
+      stale.workspace.visibleCount = 141;
+
+      const closeSaved = await fetch(`${base}/api/chart/addons/state`, {
+        method: 'POST',
+        headers: { 'content-type': 'text/plain;charset=UTF-8' },
+        body: JSON.stringify(latest),
+      });
+      assert.equal(closeSaved.status, 200);
+
+      const lateOldSave = await fetch(`${base}/api/chart/addons/state`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(stale),
+      });
+      assert.equal(lateOldSave.status, 200);
+
+      const restored = await (await fetch(`${base}/api/chart/addons/state`)).json();
+      assert.equal(restored.stateRevision, 42);
+      assert.equal(restored.workspace.visibleCount, 242);
+      assert.deepEqual(restored.workspace.layout.primaryPanes, { priceHeight: 510, volumeHeight: 135 });
+      assert.equal(restored.addons['indicator.supertrend.2'].enabled, true);
     });
   } finally {
     await rm(root, { recursive: true, force: true });
