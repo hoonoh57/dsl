@@ -9,7 +9,7 @@ Status: **UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 KST**
 ```text
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-SUBSTEP_STATUS = LIVE STATE RACE FIX WRITTEN / USER-LOCAL REVALIDATION REQUIRED
+SUBSTEP_STATUS = AUTOMATED USER-LOCAL PASS / MANUAL UI REVALIDATION REQUIRED
 ```
 
 기준 정책:
@@ -87,13 +87,13 @@ unload -> latest full document flush
 
 ## 검증
 
-사용자 명령:
+2026-09-01 사용자 로컬:
 
 ```text
-git pull --ff-only origin dsl-live-studio
-git submodule update --init --recursive
-verify.bat
+verify.bat -> [PASS] current verification passed
 ```
+
+자동검증은 USER-LOCAL PASS다. 실제 UI 재기동 복원 확인 전 UIA-1 전체 PASS로 닫지 않는다.
 
 `verify.bat`에는 실제 state store/controller를 사용한 다음 시나리오가 포함된다.
 
@@ -105,17 +105,9 @@ SuperTrend enable
  -> same full state document
 ```
 
-검증이 비정상 대기하면 무한정 멈추지 않고 해당 check를 timeout 실패로 출력해야 한다.
-
-성공 콘솔:
-
-```text
-[PASS] current verification passed
-```
-
 ## UIA-1 완료 조건
 
-자동검증 후 실제 UI에서 다시 확인한다.
+실제 UI에서 다시 확인한다.
 
 ```text
 SuperTrend 삽입
