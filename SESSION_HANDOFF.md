@@ -1,6 +1,6 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / FINAL STABLE / ALL PLANNED STEPS COMPLETE / 2026-09-01 KST**
+Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 KST**
 
 이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + user-local PASS + 현재 `dsl-live-studio` 상태가 stale 문서보다 우선한다.
 
@@ -8,102 +8,116 @@ Status: **PRIMARY HUMAN HANDOFF / FINAL STABLE / ALL PLANNED STEPS COMPLETE / 20
 
 > 사용자 진행보고는 기본적으로 `한 일 / 할 일`만 사람이 이해하는 용어로 짧게 한다.
 
-> 세 축의 계산 권한을 섞지 않는다. Historical 문서는 evidence로 보존하되 current authority가 아니다.
+> 현재 단계는 지금까지 이식한 DSL 기능을 실제 UI 경로에서 하나씩 일관성 검증하는 단계다.
 
 ## 현재 상태
 
 ```text
-CURRENT_STEP = COMPLETE
-STATUS = FINAL USER-LOCAL PASS
-PLANNED SEQUENCE = Steps 1 through 15 complete
-NEXT ACTION = none until a new user-requested tranche begins
+PREVIOUS REMEDIATION = Steps 1 through 15 COMPLETE / USER-LOCAL PASS
+CURRENT_WORK = UI-ACCEPTANCE
+CURRENT_SUBSTEP = UIA-1 migrated DSL feature-by-feature UI consistency verification
+STATUS = ACTIVE / USER-DRIVEN UI TESTING
 ```
 
-최종 checkpoint:
+현재 정책:
+
+```text
+DSL_UI_CONSISTENCY_ACCEPTANCE_POLICY.md
+```
+
+최종 이전 checkpoint:
 
 ```text
 STEP15_REPO_WIDE_COMPLIANCE_CHECKPOINT_2026-09-01.md
 ```
 
-문서 authority:
+## UI 검증 수정 원칙
+
+사용자가 명시한 계층 분리:
 
 ```text
-1. SESSION_HANDOFF.md
-2. DSL_NEXT_WORK_ORDER.md
-3. CURRENT_STATE.md
-4. DSL_DOCUMENT_AUTHORITY_INDEX.md
-5. active architecture/policy documents
-6. checkpoints/evidence
-7. historical documents
+Core
+ -> Bridge / Runtime
+ -> Add-ons
+ -> JSON persistence
 ```
 
-## 최종 구조
+수정 사유가 생기면 먼저 어느 계층의 결함인지 분류하고 **그 계층에서만 최소 수정**한다.
+
+### Core
+
+현재 제품의 deterministic DSL 의미/계산 계층이다. 신규 수정 위치는 `axes/axis1_dsl/`이며 repository-root `core/`는 frozen reference로 계속 불변이다.
+
+```text
+소유: parser / semantic / indicator / state / execution / backtest meaning
+금지: UI 특례 / JSON 특례 / 특정 전략 shortcut / Axis2·3 제품정책
+```
+
+### Bridge / Runtime
+
+```text
+소유: request/response validation, UI-to-contract adaptation, lifecycle/routing, context binding
+금지: 지표/전략/선별 재계산, 결과 보정, 누락값 임의 fill/default
+```
+
+### Add-ons
+
+```text
+소유: generic Core 위의 기능별 조합/확장, selector/strategy/chart projection 등
+원칙: Add-on 요구를 Core나 Bridge의 제품특례로 숨기지 않음
+```
+
+### JSON persistence
+
+```text
+소유: schema/version/hash 저장·복원
+금지: 계산/조건판정/지표생성/주문의미/실행값 보정
+```
+
+## UI 기능별 검증 루프
+
+```text
+UI에서 실행
+ -> 결과 확인
+ -> 실패 시 원인 계층 분류
+ -> 해당 계층 최소 수정
+ -> focused test
+ -> 관련 regression
+ -> frozen-core guard
+ -> 동일 UI 동작 재확인
+```
+
+기본적으로 한 기능 PASS 후 다음 기능으로 넘어간다.
+
+## 실패 분류
+
+```text
+UI defect
+Bridge / Runtime defect
+Core semantic defect
+Add-on defect
+Persistence/schema defect
+Test defect
+Environment issue
+Authority drift
+Unknown
+```
+
+분류 전 수정하지 않는다.
+
+## 영구 경계
 
 ```text
 AXIS 1 = deterministic single-instrument DSL/runtime/execution
-AXIS 2 = immutable exact-PIT selection semantics / filter / rank / top-N / evidence
-AXIS 3 = Condition/Strategy immutable version lifecycle + orchestration
-Bridge = versioned Request -> Response cross-axis composition
-External LLM = proposal-only authoring
-Continuous Improvement = evidence analysis only / no automatic mutation
-Chart = supplied result/projection display only
+AXIS 2 = immutable exact-PIT selection semantics/evidence
+AXIS 3 = Condition/Strategy immutable version lifecycle/orchestration
+Bridge = versioned Request -> Response composition
+Chart/UI = 입력/관찰 surface, 계산 authority 없음
 ```
 
-Condition 권한:
+UI 테스트를 이유로 별도 계산 shortcut이나 cross-axis 직접 의존을 만들지 않는다.
 
-```text
-selection semantics = AXIS 2
-artifact lifecycle  = AXIS 3
-```
-
-최종 호출 순서:
-
-```text
-AXIS 2 CandidateSet
- -> AXIS 3 promoted exact Condition/Strategy + RunPlan
- -> Bridge all-candidate preflight
- -> AXIS 1 deterministic one-symbol execution
-```
-
-## 완료 범위
-
-```text
-Step 1  legacy capability audit
-Step 2  migration manifest/boundaries
-Step 3  frozen core guard
-Step 4  AXIS 1 migration parity
-Step 5  additive DSL/execution features + verification
-Step 6  capability/diagnostic registry
-Step 7  common Bridge + AXIS 1 execution contract
-Step 8  AXIS 2 exact-as-of snapshot
-Step 9  AXIS 2 selection engine
-Step 10 AXIS 3 CRUD + orchestration
-Step 11 three-axis E2E Bridge
-Step 12 External LLM authoring lane
-Step 13 Continuous Improvement analysis
-Step 14 final natural-language E2E acceptance
-Step 15 repo-wide compliance + legacy-document disposition
-```
-
-## 최종 user-local evidence
-
-사용자가 마지막 요청된 전체 회귀 세트를 모두 `OK`로 확인했다.
-
-```text
-test_repo_wide_compliance.py = OK
-test_final_natural_language_e2e.py = OK
-test_three_axis_e2e_bridge.py = OK
-test_axis1_execution_bridge_contract.py = OK
-test_axis1_full_engine_parity.py = OK
-test_axis2_exact_asof_snapshot.py = OK
-test_axis2_selection_engine.py = OK
-test_axis3_crud_orchestration.py = OK
-test_external_llm_authoring_lane.py = OK
-test_authoring_continuous_improvement.py = OK
-test_frozen_legacy_core_guard.py = OK
-```
-
-## Frozen legacy Core — 영구 보존
+## Frozen legacy Core
 
 ```text
 path: core/
@@ -113,19 +127,8 @@ core tree: 8b3f081de926f5c9f69e9cdbc158b81b2275176c
 
 수정/이동/추가/삭제 금지.
 
-## 새 작업 시작 규칙
+## 다음 action
 
-현재 strict remediation sequence는 종료되었다. 새 세션에서 사용자가 기능 추가나 수정 요청을 하면 과거 Step을 임의로 다시 열지 말고 **새 tranche**로 시작한다.
+사용자가 UI에서 첫 DSL 기능을 실행하고 결과를 공유하면 그 기능부터 일관성 검증을 시작한다.
 
-새 tranche는:
-
-```text
-현재 authority 확인
- -> 필요한 최소 경계 정의
- -> 구현
- -> focused verification
- -> 관련 regression
- -> frozen-core guard 유지
-```
-
-실패 시 test defect / feature defect / authority drift / environment issue / unknown으로 먼저 분류하고 assertion/contract를 약화하지 않는다.
+오류가 있으면 console/화면 evidence를 기준으로 먼저 계층을 분류하고 assertion/contract를 약화하지 않는다.
