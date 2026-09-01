@@ -46,7 +46,7 @@ vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart
 
 ## Latest real-UI result
 
-사용자 실제 UI 재검증에서 다음 실패가 다시 확인됐다.
+사용자 실제 UI 재검증에서 다음 실패가 확인됐다.
 
 ```text
 SuperTrend 삽입
@@ -55,18 +55,7 @@ SuperTrend 삽입
  -> state restore FAIL
 ```
 
-따라서 UIA-1은 PASS가 아니다.
-
-추가 추적에서 종료 직전 저장 경쟁상태를 확인했다.
-
-```text
-older queued full-state save
-latest browser-close full-state save
- -> 완료/도착 순서 역전 가능
- -> older state가 latest JSON을 뒤늦게 overwrite 가능
-```
-
-현재 수정:
+추적 결과 종료 직전 저장 경쟁상태를 확인했고 다음과 같이 수정했다.
 
 ```text
 semantic state mutation -> monotonic stateRevision 증가
@@ -76,9 +65,7 @@ incoming revision < persisted revision -> stale write reject
 atomic temporary file -> unique path
 ```
 
-최신 종료상태가 먼저 저장된 후 오래된 요청이 늦게 도착해도 최신 JSON을 되돌릴 수 없다.
-
-검증 강화:
+회귀검증은 다음 실제 실패 순서를 포함한다.
 
 ```text
 latest state POST
@@ -87,12 +74,18 @@ latest state POST
  -> latest SuperTrend/layout/workspace 유지
 ```
 
+2026-09-01 사용자 로컬 자동 재검증:
+
+```text
+verify.bat -> [PASS] current verification passed
+```
+
 현재 상태:
 
 ```text
-REAL UI FAILURE = CONFIRMED
+REAL UI FAILURE = PREVIOUSLY CONFIRMED
 ORDERING FIX = WRITTEN
-AUTO REVALIDATION = REQUIRED
+AUTO REVALIDATION = USER-LOCAL PASS
 REAL UI REVALIDATION = REQUIRED
 UIA-1 = NOT PASS YET
 ```
