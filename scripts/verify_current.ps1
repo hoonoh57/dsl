@@ -16,18 +16,21 @@ function Show-FailedCommandOutput([string]$LogPath) {
     $tail = @(Get-Content -Path $LogPath -Tail 120 -ErrorAction SilentlyContinue)
     if ($tail.Count -eq 0) { return }
 
-    $start = -1
+    $matchIndex = -1
     for ($i = 0; $i -lt $tail.Count; $i++) {
-        if ($tail[$i] -match '(?i)(^|\s)not ok\b|FAIL:|FAILED|ERROR:|Traceback|AssertionError|Exception|ERR_|\[ERROR\]|\[FAIL\]') {
-            $start = $i
+        if ($tail[$i] -match '(?i)(^|\s)not ok\b|SyntaxError|FAIL:|FAILED|ERROR:|Traceback|AssertionError|Exception|ERR_|\[ERROR\]|\[FAIL\]') {
+            $matchIndex = $i
             break
         }
     }
 
-    if ($start -lt 0) {
-        $lines = @($tail | Select-Object -Last 30)
+    if ($matchIndex -lt 0) {
+        $lines = @($tail | Select-Object -Last 20)
     } else {
-        $end = [Math]::Min($tail.Count - 1, $start + 59)
+        # Syntax/runtime errors often print the source path and caret immediately
+        # before the matching error line. Preserve that small pre-context.
+        $start = [Math]::Max(0, $matchIndex - 3)
+        $end = [Math]::Min($tail.Count - 1, $matchIndex + 24)
         $lines = @($tail[$start..$end])
     }
 
@@ -60,6 +63,14 @@ function Invoke-QuietCheck([string]$Label, [string]$Executable, [string[]]$Argum
 try {
     $node = Resolve-Executable 'node.exe'
     $python = Resolve-Executable 'python.exe'
+
+    # Parse the files on the product-state import path before running tests so a
+    # syntax regression reports the exact source file instead of an opaque test failure.
+    Invoke-QuietCheck 'syntax-product-state-test' $node @('--check', 'chart_bridge\chart_single_json_state.test.mjs')
+    Invoke-QuietCheck 'syntax-chart-server' $node @('--check', 'chart_bridge\chart_platform_server.mjs')
+    Invoke-QuietCheck 'syntax-state-store' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\server\chart\ChartAddonJsonStore.mjs')
+    Invoke-QuietCheck 'syntax-state-model' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\runtime\chart\ChartAddonState.mjs')
+    Invoke-QuietCheck 'syntax-state-http' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\shell\index-wysiwyg\ChartAddonPersistenceHttpHost.mjs')
 
     Invoke-QuietCheck 'chart-state' $node @('--test', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\chart-single-json-state.test.mjs')
     Invoke-QuietCheck 'workspace-startup' $node @('--test', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\market-chart-workspace-initial-load.test.mjs')
