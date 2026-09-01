@@ -46,46 +46,44 @@ vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart
 
 ## Latest real-UI result
 
-사용자 실제 UI 재검증에서 다음 실패가 확인됐다.
+2026-09-01 실제 UI 재검증:
 
 ```text
-SuperTrend 삽입
-+ 메인/서브 패널 높이 변경
-+ browser restart
- -> state restore FAIL
+SuperTrend restore = PASS
+volume pane height restore = FAIL
+sub-chart indicator pane height restore = FAIL
 ```
 
-추적 결과 종료 직전 저장 경쟁상태를 확인했고 다음과 같이 수정했다.
+따라서 JSON 문서와 Add-on 활성 상태 자체는 복구되지만 pane layout의 startup projection이 아직 실패한 것으로 분류했다.
+
+추가 확인 원인:
 
 ```text
-semantic state mutation -> monotonic stateRevision 증가
-single JSON document -> stateRevision 포함
-JSON writes -> serialized
-incoming revision < persisted revision -> stale write reject
-atomic temporary file -> unique path
+persisted pane heights hydrate
+ -> startup add-on/native pane construction
+ -> chart library auto-layout recalculates heights
+ -> height observers can treat startup-generated heights as new semantic state
+ -> persisted layout loses authority before startup settles
 ```
 
-회귀검증은 다음 실제 실패 순서를 포함한다.
+현재 수정:
 
 ```text
-latest state POST
- -> delayed stale PUT
- -> GET
- -> latest SuperTrend/layout/workspace 유지
+startup layout observation -> suppressed until add-on activation settles
+persisted primary volume + add-on pane heights -> retained as authority
+all add-ons idle -> persisted heights reapplied across multiple layout frames
+restore complete -> user resize observation/persistence enabled
 ```
 
-2026-09-01 사용자 로컬 자동 재검증:
-
-```text
-verify.bat -> [PASS] current verification passed
-```
+회귀검증은 startup auto-layout이 저장된 높이를 임의값으로 변경한 뒤 최종적으로 JSON 높이가 실제 pane에 다시 적용되는 시나리오를 포함한다.
 
 현재 상태:
 
 ```text
-REAL UI FAILURE = PREVIOUSLY CONFIRMED
-ORDERING FIX = WRITTEN
-AUTO REVALIDATION = USER-LOCAL PASS
+SUPERTrend REAL UI = PASS
+PANE HEIGHT REAL UI = FAIL CONFIRMED
+PANE STARTUP RESTORE FIX = WRITTEN
+AUTO REVALIDATION = REQUIRED
 REAL UI REVALIDATION = REQUIRED
 UIA-1 = NOT PASS YET
 ```
@@ -100,7 +98,7 @@ Core
 ```
 
 - Core = deterministic DSL/parser/runtime/indicator/execution meaning. UI 복원 특례 금지.
-- Bridge/Runtime = lifecycle/routing/state observation. feature calculation 금지.
+- Bridge/Runtime = lifecycle/routing/state observation/layout projection. feature calculation 금지.
 - Add-ons = feature-specific behavior/private state.
 - JSON persistence = serialization/hydrate/atomic write/stale-write rejection only.
 
