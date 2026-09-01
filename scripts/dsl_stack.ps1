@@ -20,10 +20,6 @@ $LiveUrl = 'http://127.0.0.1:8010/api/capabilities'
 $ChartHealthUrl = 'http://127.0.0.1:3032/__chart_health'
 $ChartUrl = 'http://127.0.0.1:3032/'
 
-function Write-Info([string]$Message) {
-    Write-Host "[INFO] $Message"
-}
-
 function Write-Pass([string]$Message) {
     Write-Host "[PASS] $Message" -ForegroundColor Green
 }
@@ -62,7 +58,7 @@ function Stop-ProcessTree([int]$ProcessId) {
     }
 }
 
-function Stop-TrackedProcess([string]$PidFile, [string[]]$Needles, [string]$Label) {
+function Stop-TrackedProcess([string]$PidFile, [string[]]$Needles) {
     $processId = Read-ProcessId $PidFile
     if ($null -eq $processId) {
         Remove-Item $PidFile -Force -ErrorAction SilentlyContinue
@@ -71,13 +67,12 @@ function Stop-TrackedProcess([string]$PidFile, [string[]]$Needles, [string]$Labe
 
     $commandLine = Get-CommandLine $processId
     if (Test-ExpectedCommand $commandLine $Needles) {
-        Write-Info "Stopping $Label (PID $processId)"
         Stop-ProcessTree $processId
     }
     Remove-Item $PidFile -Force -ErrorAction SilentlyContinue
 }
 
-function Stop-ExpectedPortOwner([int]$Port, [string[]]$Needles, [string]$Label) {
+function Stop-ExpectedPortOwner([int]$Port, [string[]]$Needles) {
     $connections = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue)
     foreach ($connection in $connections) {
         $processId = [int]$connection.OwningProcess
@@ -86,7 +81,6 @@ function Stop-ExpectedPortOwner([int]$Port, [string[]]$Needles, [string]$Label) 
         if (-not (Test-ExpectedCommand $commandLine $Needles)) {
             throw "Port $Port is occupied by an unrelated process (PID $processId). Refusing to terminate it."
         }
-        Write-Info "Stopping stale $Label listener on port $Port (PID $processId)"
         Stop-ProcessTree $processId
     }
 }
@@ -96,7 +90,6 @@ function Stop-ChartBrowser {
     if ($null -ne $processId) {
         $commandLine = Get-CommandLine $processId
         if ($commandLine.IndexOf($BrowserProfile, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
-            Write-Info "Stopping chart browser (PID $processId)"
             Stop-ProcessTree $processId
         }
     }
@@ -114,10 +107,10 @@ function Stop-ChartBrowser {
 
 function Stop-All {
     Stop-ChartBrowser
-    Stop-TrackedProcess $ChartPidFile @('chart_platform_server.mjs') 'Chart Bridge'
-    Stop-TrackedProcess $LivePidFile @('live_studio_main.py') 'Live Studio'
-    Stop-ExpectedPortOwner 3032 @('chart_platform_server.mjs') 'Chart Bridge'
-    Stop-ExpectedPortOwner 8010 @('live_studio_main.py') 'Live Studio'
+    Stop-TrackedProcess $ChartPidFile @('chart_platform_server.mjs')
+    Stop-TrackedProcess $LivePidFile @('live_studio_main.py')
+    Stop-ExpectedPortOwner 3032 @('chart_platform_server.mjs')
+    Stop-ExpectedPortOwner 8010 @('live_studio_main.py')
 }
 
 function Resolve-Executable([string]$Name) {
@@ -149,10 +142,7 @@ function Wait-Url([string]$Url, [string]$Label, [int]$TimeoutSeconds = 25) {
     do {
         try {
             $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 2
-            if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) {
-                Write-Pass "$Label ready"
-                return
-            }
+            if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) { return }
         } catch {}
         Start-Sleep -Milliseconds 300
     } while ((Get-Date) -lt $deadline)
@@ -181,7 +171,6 @@ function Start-ChartBrowser {
     )
     $process = Start-Process -FilePath $browser -ArgumentList $arguments -PassThru
     Set-Content -Path $BrowserPidFile -Value $process.Id -Encoding ascii
-    Write-Pass "Chart opened: $ChartUrl"
 }
 
 function Start-Servers {
@@ -193,15 +182,46 @@ function Start-Servers {
     $python = Resolve-Executable 'python.exe'
     $node = Resolve-Executable 'node.exe'
 
-    Write-Info 'Starting Live Studio on 127.0.0.1:8010'
     $live = Start-Process -FilePath $python -ArgumentList @('.\live_studio_main.py') -WorkingDirectory $Root -RedirectStandardOutput $LiveOutLog -RedirectStandardError $LiveErrLog -WindowStyle Hidden -PassThru
     Set-Content -Path $LivePidFile -Value $live.Id -Encoding ascii
     Wait-Url $LiveUrl 'Live Studio'
 
-    Write-Info 'Starting Chart Bridge on 127.0.0.1:3032'
     $chart = Start-Process -FilePath $node -ArgumentList @('.\chart_bridge\chart_platform_server.mjs') -WorkingDirectory $Root -RedirectStandardOutput $ChartOutLog -RedirectStandardError $ChartErrLog -WindowStyle Hidden -PassThru
     Set-Content -Path $ChartPidFile -Value $chart.Id -Encoding ascii
     Wait-Url $ChartHealthUrl 'Chart Bridge'
+}
+
+function Show-ErrorTail([string]$Path, [string]$Label) {
+    if (-not (Test-Path $Path)) { return $false }
+    $lines = @(Get-Content -Path $Path -Tail 24 -ErrorAction SilentlyContinue | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ($lines.Count -eq 0) { return $false }
+    Write-Host "[ERROR] $Label" -ForegroundColor Red
+    foreach ($line in $lines) { Write-Host "  $line" }
+    return $true
+}
+
+function Show-FilteredOutputError([string]$Path, [string]$Label) {
+    if (-not (Test-Path $Path)) { return $false }
+    $matches = @(Get-Content -Path $Path -Tail 120 -ErrorAction SilentlyContinue | Where-Object {
+        $_ -match '(?i)\[ERROR\]|\[FAIL\]|Traceback|Exception|Error:|AssertionError|ERR_'
+    } | Select-Object -Last 16)
+    if ($matches.Count -eq 0) { return $false }
+    Write-Host "[ERROR] $Label" -ForegroundColor Red
+    foreach ($line in $matches) { Write-Host "  $line" }
+    return $true
+}
+
+function Show-FailureEvidence {
+    $shown = $false
+    if (Show-ErrorTail $LiveErrLog 'Live Studio') { $shown = $true }
+    if (Show-ErrorTail $ChartErrLog 'Chart Bridge') { $shown = $true }
+    if (-not $shown) {
+        if (Show-FilteredOutputError $LiveOutLog 'Live Studio') { $shown = $true }
+        if (Show-FilteredOutputError $ChartOutLog 'Chart Bridge') { $shown = $true }
+    }
+    if (-not $shown) {
+        Write-Host "[ERROR] Detailed log files: $RuntimeDir" -ForegroundColor Red
+    }
 }
 
 New-Item -ItemType Directory -Path $RuntimeDir -Force | Out-Null
@@ -209,7 +229,6 @@ New-Item -ItemType Directory -Path $RuntimeDir -Force | Out-Null
 try {
     switch ($Action) {
         'start' {
-            Write-Info 'Resetting the DSL chart stack'
             Stop-All
             Start-Servers
             Start-ChartBrowser
@@ -220,19 +239,19 @@ try {
                 throw 'Servers are not both running. Use start.bat instead; restart.bat never restarts servers.'
             }
             Start-ChartBrowser
-            Write-Pass 'Chart restarted without restarting servers'
+            Write-Pass 'Chart restarted'
         }
         'stop' {
             Stop-All
-            Write-Pass 'DSL servers and chart stopped'
+            Write-Pass 'DSL chart stack stopped'
         }
     }
     exit 0
 } catch {
     Write-Host "[ERROR] $($_.Exception.Message)" -ForegroundColor Red
     if ($Action -eq 'start') {
+        Show-FailureEvidence
         try { Stop-All } catch {}
-        Write-Host "[INFO] Logs: $RuntimeDir"
     }
     exit 1
 }
