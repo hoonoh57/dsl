@@ -1,165 +1,185 @@
 # DSL Strict Sequential Next-Work Order
 
-Status: **ACTIVE EXECUTION-ORDER AUTHORITY / DO-NOT-SKIP / 2026-09-01 KST**
+Status: **ACTIVE EXECUTION-ORDER AUTHORITY / FINAL STEP / 2026-09-01 KST**
 
 이 문서는 현재 프로젝트의 작업 순서 SSOT다.
 
-> 현재 번호가 user-local 검증과 checkpoint를 통과하기 전 다음 번호로 넘어가지 않는다.
+> 현재 Step 15가 user-local 검증과 final checkpoint를 통과하기 전 repo-wide final PASS를 선언하지 않는다.
 
 ---
 
 ## 현재 포인터
 
 ```text
-CURRENT_STEP = 14
-CURRENT_STEP_NAME = Final natural-language E2E acceptance
-CURRENT_SUBSTEP = 14-1 representative natural-language authoring -> exact PIT selection -> promoted strategy -> AXIS1 execution trace
+CURRENT_STEP = 15
+CURRENT_STEP_NAME = Legacy docs disposition + repo-wide compliance audit
+CURRENT_SUBSTEP = 15-1 authority alignment + deterministic architecture/import/test-hygiene audit
 SUBSTEP_STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
 완료:
 
 ```text
-STEP 1~12 COMPLETE = USER-LOCAL PASS
-STEP 13 COMPLETE = Continuous Improvement analysis tooling user-local PASS
-  -> STEP13_CONTINUOUS_IMPROVEMENT_CHECKPOINT_2026-09-01.md
+STEP 1~13 COMPLETE = USER-LOCAL PASS
+STEP 14 COMPLETE = Final natural-language E2E acceptance USER-LOCAL PASS
+  -> STEP14_FINAL_NATURAL_LANGUAGE_E2E_CHECKPOINT_2026-09-01.md
 ```
 
-Step 13 user-local evidence:
+Step 14 user-local evidence:
 
 ```text
-test_authoring_continuous_improvement.py = OK
-test_external_llm_authoring_lane.py = OK
+test_final_natural_language_e2e.py = OK
 test_three_axis_e2e_bridge.py = OK
+test_axis1_execution_bridge_contract.py = OK
+test_external_llm_authoring_lane.py = OK
+test_authoring_continuous_improvement.py = OK
 test_frozen_legacy_core_guard.py = OK
 ```
 
----
-
-## Step 14 현재 — Final natural-language E2E acceptance
-
-대표 자연어 목표:
-
-```text
-최근 10일 EMA120 돌파 + 기준 Histogram 강도 증거
-현재 EMA120 재돌파 + 기준 이상 Histogram 후보 선별
-15분봉 close > EMA120 + Histogram >= reference
-MACD 상향돌파 OR JMA 상승전환 매수
-수익 확보 전 EMA120 위에서는 JMA 하락전환 매도 억제
-수익 확보 후 JMA 하락전환 매도
-```
-
-### 구현
-
-```text
-acceptance/__init__.py
-acceptance/final_natural_language_scenario.py
-tests/test_final_natural_language_e2e.py
-```
-
-Step 14 final acceptance 과정에서 발견된 generic Bridge preflight gap을 좁게 보강했다.
-
-```text
-bridges/axis1_execution_bridge.py
-bridges/three_axis_e2e_bridge.py
-```
-
-변경 의미:
-
-```text
-prepared parent-context binding hash를 non-executing preflight에서 검증
-모든 selected candidate의 context integrity 검증이 끝난 뒤에만 첫 AXIS1 실행 시작
-후순위 후보 context tamper로 일부 후보만 먼저 실행되는 상태 차단
-```
-
-AXIS 1 DSL/지표/Backtest 계산 로직, AXIS 2 selection semantics, AXIS 3 CRUD semantics, frozen core는 변경하지 않았다.
-
-### 대표 시나리오 권한 분해
-
-```text
-Authoring Lane
- -> 자연어 원문을 prompt에 그대로 보존
- -> structured draft strict validation
- -> '수익확보' 수치가 원문에 없으므로 +2% material assumption으로 human approval 전 BLOCKED
- -> 명시 승인 후 ACCEPTED_DRAFT
-
-AXIS 2
- -> 최근 10일 EMA120 breakout 여부
- -> 현재 EMA120 re-breakout 여부
- -> current Histogram >= reference 여부
- -> reference Histogram numeric value
- -> normalized Histogram frozen rank
- 위 값을 모두 precomputed exact PIT snapshot evidence로 소비
- -> filter/rank/top-N -> AAA, BBB
-
-AXIS 3
- -> exact SelectionSpec를 Condition immutable version으로 저장
- -> accepted draft의 exact DSL을 Strategy immutable version으로 저장
- -> 둘 다 PROMOTED exact version/hash로 run plan 생성
-
-Bridge / AXIS 1
- -> candidate별 snapshot reference Histogram을 exact read-only ctx.selection.reference_hist로 전달
- -> 15m EMA120 + normalized Histogram + MACD + JMA + state permission strategy 실행
-```
-
-### DSL acceptance state logic
-
-대표 strategy는 product Core shortcut 없이 기존 범용 DSL만 조합한다.
-
-```text
-entry_setup = close > EMA120
-              AND hist_strength >= reference_hist
-              AND (MACD turn-up OR JMA turn-up)
-
-in_trade / entry_price / profit_secured = explicit on_bar state
-
-JMA turn-down AND profit 미확보 AND close > EMA120
- -> exit_blocked_now
-
-JMA turn-down AND (profit 확보 OR close <= EMA120)
- -> exit_now
-```
-
-Acceptance market fixture는 EMA120 warmup 이후 다음 순서를 의도적으로 만든다.
-
-```text
-entry
- -> +2% 미만 JMA turn-down / exit blocked
- -> +2% profit secured
- -> JMA turn-down / exit allowed
-```
-
-### Step 14 완료 조건
-
-```text
-verbatim natural-language prompt preservation PASS
-material assumption human gate PASS
-accepted draft full deterministic validation PASS
-AXIS2 precomputed PIT feature separation PASS
-exact snapshot/spec hash/as_of/cutoff binding PASS
-expected CandidateSet AAA/BBB + deterministic ordinal PASS
-reference Histogram candidate evidence == AXIS1 prepared context value PASS
-context binding hash/registry trace PASS
-promoted Strategy/Condition exact version/hash PASS
-AXIS1 entry + pre-profit blocked-exit + post-profit exit signals PASS
-closed profitable trade + flat final position PASS
-same request -> same E2E request/response hash PASS
-context value tamper without matching binding hash -> before first AXIS1 execution REJECTED PASS
-no provider/nearest/fill-forward/universe lookup inside AXIS1 DSL PASS
-Step 13/12/11 regressions PASS
-frozen core guard PASS
-focused user-local Step 14 test PASS
-```
-
-Step 14 PASS + checkpoint 전 Step 15 시작 금지.
+검증 중 immutable tuple을 직접 변조하던 focused test defect 1건은 test fixture만 수정했고 제품 assertion/로직은 약화하지 않았다.
 
 ---
 
-## 이후 고정 순서
+## Step 15 현재 — Legacy docs disposition + repo-wide compliance audit
+
+목표:
 
 ```text
-15 Legacy docs disposition + repo-wide compliance audit
+누적 historical 문서를 삭제하지 않고 지위를 명확히 분리
++ active authority 문서의 현재 3축 구조를 exact 정렬
++ current product source import graph audit
++ Bridge contract data-only audit
++ External LLM / Continuous Improvement 권한 누수 audit
++ critical regression skip/expectedFailure audit
++ frozen core exact tree regression
 ```
+
+### 문서 disposition
+
+신규 authority index:
+
+```text
+DSL_DOCUMENT_AUTHORITY_INDEX.md
+```
+
+문서 지위를 세 층으로 고정한다.
+
+```text
+ACTIVE AUTHORITY
+FROZEN AUDIT / MIGRATION EVIDENCE
+HISTORICAL / NON-AUTHORITATIVE
+```
+
+Historical 문서는 당시 evidence 보존을 위해 삭제하지 않는다.
+
+대표 historical 범주:
+
+```text
+DSL_LIVE_STUDIO_FEATURE_CATALOG_V2/V3/V4.md
+CTX*.md
+E*.md
+H*.md
+ADAPTIVE_*.md
+과거 개별 integration / experiment 기록
+```
+
+과거 static Feature Catalog count는 current support SSOT가 아니다.
+
+```text
+current support SSOT = axes/axis1_dsl/core/capability_diagnostic_registry.py
+```
+
+### Active authority drift remediation
+
+정렬한 문서:
+
+```text
+CURRENT_STATE.md
+DSL_THREE_AXIS_FINAL_TARGET.md
+DSL_THREE_AXIS_MODULE_BOUNDARY.md
+axes/axis1_dsl/README.md
+axes/axis2_selection/README.md
+```
+
+제거한 stale authority:
+
+```text
+AXIS1 migration not started 표현
+AXIS2가 Condition CRUD lifecycle을 소유한다는 표현
+AXIS2 -> AXIS1 -> AXIS3 실행순서 표현
+REMEDIATION_REQUIRED stale current-state 표시
+```
+
+최종 책임:
+
+```text
+AXIS1 = single-instrument deterministic DSL/runtime/execution
+AXIS2 = immutable exact-PIT selection semantics + CandidateSet evidence
+AXIS3 = versioned Condition/Strategy artifact lifecycle + orchestration
+Bridge = versioned cross-axis composition
+External LLM = proposal only
+Continuous Improvement = evidence analysis only; automatic mutation 없음
+```
+
+Condition 책임은 다음처럼 분리한다.
+
+```text
+selection semantics = AXIS2
+artifact lifecycle  = AXIS3
+```
+
+### Deterministic audit implementation
+
+```text
+compliance/__init__.py
+compliance/repo_audit.py
+tests/test_repo_wide_compliance.py
+```
+
+Audit은 read-only다.
+
+검사:
+
+```text
+AXIS sibling direct import 없음
+current axes/bridges/authoring/acceptance/compliance -> frozen root core runtime import 없음
+bridges/contracts data-only
+AXIS1 Bridge가 AXIS2/3 직접 import하지 않음
+three-axis Bridge가 AXIS1 internals를 bypass하지 않음
+External authoring이 AXIS2/3 또는 execution Bridge를 호출하지 않음
+Continuous Improvement가 axes/bridges를 import하지 않음
+critical current regression test에 skip/expectedFailure bypass 없음
+active docs의 최종 ownership/execution order exact
+legacy document disposition explicit
+동일 repository -> 동일 audit report/hash
+```
+
+Frozen `core/` tree 자체의 exact immutability는 기존 `test_frozen_legacy_core_guard.py`가 계속 별도 authority다.
+
+### Step 15 완료 조건
+
+```text
+test_repo_wide_compliance.py PASS
+final natural-language E2E regression PASS
+three-axis Bridge regression PASS
+AXIS1 execution Bridge regression PASS
+AXIS2 selection regression PASS
+AXIS3 CRUD/orchestration regression PASS
+External LLM authoring regression PASS
+Continuous Improvement regression PASS
+frozen legacy core guard PASS
+```
+
+모두 user-local PASS 후:
+
+```text
+STEP15_REPO_WIDE_COMPLIANCE_CHECKPOINT_2026-09-01.md 생성
+CURRENT_STATE = FINAL USER-LOCAL PASS
+DSL_NEXT_WORK_ORDER = ALL PLANNED STEPS COMPLETE
+SESSION_HANDOFF = final stable state
+```
+
+그 전에는 final PASS를 선언하지 않는다.
 
 ---
 
@@ -167,17 +187,12 @@ Step 14 PASS + checkpoint 전 Step 15 시작 금지.
 
 ```text
 frozen legacy core 수정 금지
-AXIS 1 = single-instrument deterministic execution
-AXIS 2 = immutable PIT selection semantics
-AXIS 3 = versioned Condition/Strategy lifecycle + orchestration
-External LLM = proposal only
-Continuous Improvement = evidence analysis only, automatic mutation 없음
-축간 연결 = versioned Request -> Response only
-future value / nearest-time / fill-forward / default synthesis 금지
-특정 최종 예제를 위한 Core shortcut 금지
-fail-closed 유지
-검증완화/compatibility exception 금지
-현재 순서 건너뛰기 금지
+AXIS 1/2/3 권한 혼합 금지
+cross-axis 연결은 versioned Bridge only
+future / nearest / fill-forward / interpolation / default synthesis 금지
+특정 전략 Core shortcut 금지
+External LLM execution authority 금지
+Continuous Improvement automatic mutation 금지
+historical 문서를 current SSOT로 부활시키지 않음
+검증완화/skip/compatibility exception 금지
 ```
-
-중요 방침/로직/순서 변경은 그 턴에 이 문서와 `SESSION_HANDOFF.md`에 함께 반영한다.
