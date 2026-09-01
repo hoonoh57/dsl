@@ -57,12 +57,15 @@ SuperTrend 삽입
 
 화면에 `PERSISTENCE ERROR · Failed to fetch`가 나타났으며, 자동검증만으로 UIA-1을 PASS 처리할 수 없다는 것이 확인됐다.
 
-확인된 구현 누락:
+확인된 구현 누락/결함:
 
 ```text
 primary price/volume pane layout persistence 없음
 persistence load failure 후 defaults로 계속 진행 가능
 regression이 live UI state-event path를 검증하지 않음
+primary pane observer 초기 예약값이 최신 resize 뒤에 적용될 수 있음
+검증 실패 시 observer timer가 남아 node test 종료를 막을 수 있음
+verify wrapper에 child timeout 없음
 ```
 
 현재 수정:
@@ -72,8 +75,11 @@ persistence transient fetch retry
 JSON authority unavailable -> mutable state attach blocked
 primary pane resize -> workspace.layout.primaryPanes
 add-on pane resize -> addons[*].state.__layout
+primary observer -> delivery 시점 latest pane heights만 반영
+node fallback observer timer -> process exit blocking 방지
+live state regression -> finally cleanup 보장
+verify child process -> bounded timeout + failure context
 latest state coalesced save + unload full-state flush
-live SuperTrend/layout SSOT regression added
 ```
 
 현재 상태:
