@@ -1,6 +1,6 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 KST**
+Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-02 KST**
 
 이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + user-local 결과 + 현재 `dsl-live-studio` 상태가 stale 문서보다 우선한다.
 
@@ -18,7 +18,7 @@ Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 
 PREVIOUS REMEDIATION = Steps 1 through 15 COMPLETE / USER-LOCAL PASS
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-STATUS = EXHAUSTIVE RUNTIME AUDIT AUTO PASS / REAL UI REVALIDATION REQUIRED
+STATUS = WHOLE-RESTORE FIX PINNED / USER-LOCAL AUTO + REAL UI REVALIDATION REQUIRED
 ```
 
 ## JSON 상태 권한
@@ -31,70 +31,102 @@ vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart
 
 한 문서에 workspace/display/addons/layout/geometry를 함께 보존한다.
 
-그러나 단일 JSON 파일 존재만으로 SSOT PASS로 인정하지 않는다. 저장된 의미 상태가 실제 재기동 차트 전체 projection과 동일해야 한다.
+단일 JSON 파일 존재만으로 SSOT PASS로 인정하지 않는다. 저장된 의미 상태가 실제 재기동 차트 전체 projection과 동일해야 한다.
 
-## 최신 사용자 결정
+## 최신 실제 UI failure evidence
 
-기능별 복구 패치를 계속 추가하지 않는다.
-
-```text
-current live chart state
- -> one JSON
-restart
- -> restore JSON
- -> capture complete live runtime state
- -> exhaustive compare
-```
-
-전수 비교 범위:
+전수복원 gate가 다음을 함께 보고했다.
 
 ```text
-primary instrument
-compare subjects
-timeframe / base date / adjusted
-viewport / visible range
-price display mode
-all active registered Add-ons
-all persisted Add-on properties/private state
-primary price + volume pane heights
-all persisted Add-on pane heights
+workspace.layout.primaryPanes.priceHeight mismatch
+workspace.viewport logicalRange one-bar shift
+workspace.visibleCount one-count mismatch
+persisted compare-1 / compare-2 / compare-3 pane missing
 ```
+
+이 결과는 이전 자동검증 PASS보다 우선한다.
+
+## 이번 구조 수정
+
+### 1. Compare subject startup
+
+저장된 비교종목은 primary chart request가 생기기 전에는 만들지 않는다. primary가 준비된 뒤 복원하며, 생성 실패는 pane별 실제 오류로 노출한다.
+
+### 2. Whole-chart pane layout
+
+개별 pane 픽셀 높이를 순차 적용하지 않는다. lightweight chart가 각 `setHeight` 때 다른 pane을 다시 배분하므로 exact restore가 구조적으로 불안정하다.
+
+현재 복원 방식:
+
+```text
+persisted primary + add-on + compare pane heights
+ -> one ordered whole-chart relative weight vector
+ -> native pane stretch factors bulk apply
+ -> proportional runtime audit
+```
+
+전체 window/canvas 높이가 달라져 픽셀값이 비례 변경될 수는 있다. 저장된 pane 누락은 계속 hard FAIL이다.
+
+### 3. Startup viewport authority
+
+최초 JSON viewport/visibleCount를 startup authority로 별도 보존하고, 전체 layout 안정화 전후에 다시 적용한다. startup 중 임시 viewport event가 persisted authority를 바꾸지 못하게 한다.
 
 ## Restore gate
 
 ```text
 hydrate
- -> runtime construction
- -> Add-on/subject/layout restore
+ -> primary runtime construction
+ -> registered Add-ons
+ -> primary request ready
+ -> compare subjects
+ -> whole-chart ratio layout restore
+ -> startup viewport reassert
  -> live runtime snapshot
  -> persisted-vs-live exhaustive audit
  -> PASS: persistence attach
- -> FAIL: persistence detached, existing JSON preserved, mismatch paths reported together
+ -> FAIL: persistence detached, existing JSON preserved, mismatches reported
 ```
 
-불완전하게 복원된 화면이 기존 `chart-state.json`을 덮어쓰지 못하게 한다.
+## 자동검증 범위
 
-관련 evidence:
+`verify.bat`에 다음 회귀가 포함되어 있다.
 
 ```text
-UIA1_FULL_RUNTIME_STATE_AUDIT_2026-09-01.md
+whole-chart ratio restore
+missing persisted pane fail-closed
+compare-subject deferred restore
+compare concrete failure propagation
+startup viewport authority reassert
+exhaustive runtime audit
+single JSON persistence
+workspace/product restart
+console policy
+frozen core guard
 ```
 
-## 최신 자동검증
-
-2026-09-01 user-local:
+## 다음 사용자 실행
 
 ```text
-[PASS] current verification passed
+git pull --ff-only origin dsl-live-studio
+git submodule update --init --recursive
+verify.bat
 ```
 
-자동검증 단계는 완료했다.
+`[PASS] current verification passed`가 나오면 `start.bat`으로 실제 UI 재기동 검증을 한다.
 
-## 다음 실제 UI 검증
+검증 상태 예:
 
-종목/비교종목/Add-on 속성/거래량 및 서브차트 높이/timeframe/viewport/display mode를 한 번에 변경한 뒤 종료·재기동한다.
+```text
+primary 종목
+비교 종목 3개 이상
+SuperTrend / 기타 Add-on 속성
+메인/거래량/여러 서브 pane 배치
+timeframe
+viewport / 표시갯수
+가격/수익률 표시모드
+```
 
-정상은 전부 동일하게 복원되는 것이다. 실패 시 `STATE RESTORE ERROR`의 mismatch 목록을 받아 해당 경로를 한 번에 수정한다.
+브라우저 종료·재실행 뒤 위 의미 상태가 모두 동일하고 `STATE RESTORE ERROR`, `PERSISTENCE ERROR`가 없어야 UIA-1 PASS다.
 
 ## 계층 분리
 
