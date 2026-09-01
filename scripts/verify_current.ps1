@@ -71,8 +71,13 @@ try {
     Invoke-QuietCheck 'syntax-state-store' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\server\chart\ChartAddonJsonStore.mjs')
     Invoke-QuietCheck 'syntax-state-model' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\runtime\chart\ChartAddonState.mjs')
     Invoke-QuietCheck 'syntax-state-http' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\shell\index-wysiwyg\ChartAddonPersistenceHttpHost.mjs')
+    Invoke-QuietCheck 'syntax-state-client' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\runtime\chart\ChartAddonJsonPersistenceClient.mjs')
+    Invoke-QuietCheck 'syntax-pane-layout' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\runtime\chart\ChartPaneLayoutManager.mjs')
+    Invoke-QuietCheck 'syntax-primary-layout' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\adapters\chart\PrimaryPaneLayoutSurface.mjs')
+    Invoke-QuietCheck 'syntax-live-ssot-test' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\chart-state-live-ssot.test.mjs')
 
     Invoke-QuietCheck 'chart-state' $node @('--test', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\chart-single-json-state.test.mjs')
+    Invoke-QuietCheck 'chart-state-live-ssot' $node @('--test', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\chart-state-live-ssot.test.mjs')
     Invoke-QuietCheck 'workspace-startup' $node @('--test', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\market-chart-workspace-initial-load.test.mjs')
     Invoke-QuietCheck 'product-state-restart' $node @('--test', 'chart_bridge\chart_single_json_state.test.mjs')
     Invoke-QuietCheck 'chart-bridge' $node @('--test', 'chart_bridge\chart_platform_server.test.mjs')
