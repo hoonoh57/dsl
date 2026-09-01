@@ -5,6 +5,8 @@ Set-Location $Root
 $RuntimeDir = Join-Path $Root '.runtime\verification'
 $CheckTimeoutMs = 180000
 New-Item -ItemType Directory -Path $RuntimeDir -Force | Out-Null
+$RunLogDir = Join-Path $RuntimeDir ("run-{0}-{1}" -f $PID, ([Guid]::NewGuid().ToString('N')))
+New-Item -ItemType Directory -Path $RunLogDir -Force | Out-Null
 
 function Resolve-Executable([string]$Name) {
     $command = Get-Command $Name -ErrorAction SilentlyContinue
@@ -42,11 +44,14 @@ function Show-FailedCommandOutput([string[]]$LogPaths) {
     }
 }
 
+function Write-VerificationLog([string]$Path, [string]$Content) {
+    [System.IO.File]::WriteAllText($Path, $Content, [System.Text.UTF8Encoding]::new($false))
+}
+
 function Invoke-QuietCheck([string]$Label, [string]$Executable, [string[]]$Arguments) {
     $safe = ($Label -replace '[^A-Za-z0-9._-]', '_')
-    $outLog = Join-Path $RuntimeDir "$safe.out.log"
-    $errLog = Join-Path $RuntimeDir "$safe.err.log"
-    Remove-Item $outLog, $errLog -Force -ErrorAction SilentlyContinue
+    $outLog = Join-Path $RunLogDir "$safe.out.log"
+    $errLog = Join-Path $RunLogDir "$safe.err.log"
 
     foreach ($argument in $Arguments) {
         if ([string]$argument -match '\s') {
@@ -78,8 +83,8 @@ function Invoke-QuietCheck([string]$Label, [string]$Executable, [string[]]$Argum
             try { $process.WaitForExit() } catch {}
             $stdout = if ($null -ne $stdoutTask) { [string]$stdoutTask.Result } else { '' }
             $stderr = if ($null -ne $stderrTask) { [string]$stderrTask.Result } else { '' }
-            [System.IO.File]::WriteAllText($outLog, $stdout)
-            [System.IO.File]::WriteAllText($errLog, $stderr)
+            Write-VerificationLog $outLog $stdout
+            Write-VerificationLog $errLog $stderr
             Write-Host "[ERROR] $Label - timed out" -ForegroundColor Red
             Show-FailedCommandOutput @($errLog, $outLog)
             throw "$Label timed out."
@@ -89,8 +94,8 @@ function Invoke-QuietCheck([string]$Label, [string]$Executable, [string[]]$Argum
         $stdout = [string]$stdoutTask.Result
         $stderr = [string]$stderrTask.Result
         $exitCode = [int]$process.ExitCode
-        [System.IO.File]::WriteAllText($outLog, $stdout)
-        [System.IO.File]::WriteAllText($errLog, $stderr)
+        Write-VerificationLog $outLog $stdout
+        Write-VerificationLog $errLog $stderr
     } catch {
         if ($_.Exception.Message -notmatch 'timed out') {
             Write-Host "[ERROR] $Label - $($_.Exception.Message)" -ForegroundColor Red
