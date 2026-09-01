@@ -81,15 +81,52 @@ class AuthoringManifest:
 
     @property
     def supported_function_names(self) -> tuple[str, ...]:
-        names = []
+        return tuple(sorted({item["name"] for item in self.function_contracts}))
+
+    @property
+    def function_contracts(self) -> tuple[dict[str, Any], ...]:
+        result: list[dict[str, Any]] = []
         for item in self.capabilities:
             if item.get("kind") != "function" or item.get("status") not in SUPPORTED_STATUSES:
                 continue
             details = item.get("details") or {}
             name = str(details.get("name") or "").strip()
-            if name:
-                names.append(name)
-        return tuple(sorted(set(names)))
+            if not name:
+                continue
+            result.append(
+                {
+                    "capability_id": str(item["capability_id"]),
+                    "name": name,
+                    "mode": str(details.get("mode") or ""),
+                    "signature": str(details.get("signature") or item.get("support_scope") or ""),
+                    "output_names": list(details.get("output_names") or ()),
+                    "output_types": list(details.get("output_types") or ()),
+                    "lookback": details.get("lookback"),
+                    "warmup": details.get("warmup"),
+                    "nan_policy": details.get("nan_policy"),
+                    "causality": details.get("causality"),
+                    "limitations": list(item.get("limitations") or ()),
+                }
+            )
+        return tuple(sorted(result, key=lambda value: (value["name"], value["mode"])))
+
+    @property
+    def feature_capability_contracts(self) -> tuple[dict[str, Any], ...]:
+        result: list[dict[str, Any]] = []
+        for item in self.capabilities:
+            if item.get("kind") == "function":
+                continue
+            result.append(
+                {
+                    "capability_id": str(item["capability_id"]),
+                    "kind": str(item.get("kind") or ""),
+                    "status": str(item.get("status") or ""),
+                    "summary": str(item.get("summary") or ""),
+                    "support_scope": str(item.get("support_scope") or ""),
+                    "limitations": list(item.get("limitations") or ()),
+                }
+            )
+        return tuple(sorted(result, key=lambda value: value["capability_id"]))
 
     def public_dict(self) -> dict[str, Any]:
         return {
@@ -97,7 +134,8 @@ class AuthoringManifest:
             "capability_registry_hash": self.capability_registry_hash,
             "supported_capability_ids": list(self.supported_capability_ids),
             "unavailable_capability_ids": list(self.unavailable_capability_ids),
-            "supported_function_names": list(self.supported_function_names),
+            "function_contracts": list(self.function_contracts),
+            "feature_capability_contracts": list(self.feature_capability_contracts),
             "feature_ids": list(self.feature_ids),
             "data_source_ids": list(self.data_source_ids),
             "context_feature_types": dict(self.context_feature_types),
