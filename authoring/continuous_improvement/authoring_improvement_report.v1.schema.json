@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "authoring_improvement_report/v1",
+  "title": "Authoring Improvement Report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "review_id",
+    "analysis_policy",
+    "event_set_hash",
+    "event_count",
+    "request_count",
+    "metrics",
+    "breakdowns",
+    "recommendations",
+    "deferred_candidates",
+    "report_hash"
+  ],
+  "properties": {
+    "schema_version": {"const": "authoring_improvement_report/v1"},
+    "review_id": {"type": "string", "minLength": 1},
+    "analysis_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min_recurrence", "min_independent_intents_for_dsl", "automatic_mutation", "human_approval_required"],
+      "properties": {
+        "min_recurrence": {"type": "integer", "minimum": 1},
+        "min_independent_intents_for_dsl": {"type": "integer", "minimum": 1},
+        "automatic_mutation": {"const": false},
+        "human_approval_required": {"const": true}
+      }
+    },
+    "event_set_hash": {"type": "string", "minLength": 1},
+    "event_count": {"type": "integer", "minimum": 1},
+    "request_count": {"type": "integer", "minimum": 1},
+    "metrics": {"type": "object"},
+    "breakdowns": {"type": "object"},
+    "recommendations": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/recommendation"}
+    },
+    "deferred_candidates": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {"$ref": "#/$defs/recommendation"},
+          {
+            "type": "object",
+            "required": ["defer_reason"],
+            "properties": {
+              "defer_reason": {
+                "enum": ["BELOW_RECURRENCE_THRESHOLD", "INSUFFICIENT_INDEPENDENT_INTENTS_FOR_DSL_CHANGE"]
+              }
+            }
+          }
+        ]
+      }
+    },
+    "report_hash": {"type": "string", "minLength": 1}
+  },
+  "$defs": {
+    "recommendation": {
+      "type": "object",
+      "required": [
+        "root_cause_class",
+        "action_class",
+        "target",
+        "evidence_count",
+        "request_count",
+        "independent_intent_count",
+        "error_codes",
+        "requires_human_approval",
+        "automatic_mutation"
+      ],
+      "properties": {
+        "root_cause_class": {"type": "string", "minLength": 1},
+        "action_class": {"type": "string", "minLength": 1},
+        "target": {"type": "string", "minLength": 1},
+        "evidence_count": {"type": "integer", "minimum": 1},
+        "request_count": {"type": "integer", "minimum": 1},
+        "independent_intent_count": {"type": "integer", "minimum": 1},
+        "error_codes": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "requires_human_approval": {"const": true},
+        "automatic_mutation": {"const": false},
+        "defer_reason": {"type": "string"}
+      }
+    }
+  }
+}
