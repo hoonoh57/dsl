@@ -11,7 +11,7 @@ import math
 from numbers import Integral, Real
 from typing import Any, Mapping
 
-from bridges.contracts.common import BridgeResponseMeta, json_safe
+from bridges.contracts.common import BridgeContractError, BridgeResponseMeta, json_safe
 from bridges.contracts.axis1_execution import Axis1ExecutionRequest, Axis1ExecutionResponse, AXIS1_OPERATION
 from axes.axis1_dsl.core.capability_diagnostic_registry import registry_hash
 from axes.axis1_dsl.execution.axis1_backtest import Axis1BacktestEngine
@@ -73,7 +73,10 @@ class Axis1ExecutionBridge:
         )
         supplied_hash = payload.get("binding_hash")
         if supplied_hash is not None and str(supplied_hash) != binding.binding_hash:
-            raise ValueError("parent_context binding_hash does not match prepared binding")
+            raise BridgeContractError(
+                "parent_context binding_hash does not match prepared binding",
+                "BRIDGE_CONTEXT_BINDING_HASH_MISMATCH",
+            )
         return binding
 
     @staticmethod
@@ -116,7 +119,7 @@ class Axis1ExecutionBridge:
         the contract parser.  Once a request is structurally valid, deterministic
         AXIS 1 validation/execution failures return a structured REJECTED response.
         """
-        request = cls.preflight(raw_request)
+        request = Axis1ExecutionRequest.from_dict(raw_request)
         capability_hash = registry_hash()
         response_meta = lambda status: BridgeResponseMeta(
             request_id=request.meta.request_id,
@@ -126,13 +129,15 @@ class Axis1ExecutionBridge:
             status=status,
         )
         try:
+            market = cls._market(request)
+            context_binding = cls._context_binding(request)
             result = Axis1BacktestEngine.run(
                 request.dsl_code,
-                market=cls._market(request),
+                market=market,
                 data_timeframe=request.timeframe,
                 settings=dict(request.settings),
                 entry_gate=None if request.entry_gate is None else list(request.entry_gate),
-                parent_context_binding=cls._context_binding(request),
+                parent_context_binding=context_binding,
             )
             safe_result = _result_json_safe(
                 {
@@ -159,7 +164,7 @@ class Axis1ExecutionBridge:
                 request_hash=request.request_hash,
                 capability_registry_hash=capability_hash,
                 error={
-                    "code": "AXIS1_EXECUTION_REJECTED",
+                    "code": str(getattr(exc, "code", "AXIS1_EXECUTION_REJECTED")),
                     "type": type(exc).__name__,
                     "message": str(exc),
                 },
