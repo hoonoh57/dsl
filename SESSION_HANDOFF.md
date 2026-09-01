@@ -18,7 +18,7 @@ Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-02 
 PREVIOUS REMEDIATION = Steps 1 through 15 COMPLETE / USER-LOCAL PASS
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-STATUS = WHOLE-RESTORE FIX PINNED / USER-LOCAL AUTO + REAL UI REVALIDATION REQUIRED
+STATUS = MIXED NATIVE PANE FIX PINNED / USER-LOCAL AUTO + REAL UI REVALIDATION REQUIRED
 ```
 
 ## JSON 상태 권한
@@ -35,41 +35,59 @@ vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart
 
 ## 최신 실제 UI failure evidence
 
-전수복원 gate가 다음을 함께 보고했다.
+최신 전수복원 gate가 다음을 보고했다.
 
 ```text
-workspace.layout.primaryPanes.priceHeight mismatch
-workspace.viewport logicalRange one-bar shift
-workspace.visibleCount one-count mismatch
-persisted compare-1 / compare-2 / compare-3 pane missing
+workspace.layout.primaryPanes.priceHeight expected 435 actual 195
+addons.research.compare-subjects.state.__layout.panes.compare-1.height actual missing
+addons.research.compare-subjects.state.__layout.panes.compare-2.height actual missing
+addons.research.compare-subjects.state.__layout.panes.compare-3.height actual missing
 ```
 
-이 결과는 이전 자동검증 PASS보다 우선한다.
+viewport / visibleCount mismatch는 이번 실패에서는 재발하지 않았다.
+
+## 최신 root cause
+
+whole-chart ratio 복원 코드가 다음을 암묵적으로 가정했다.
+
+```text
+native pane count = primary 2 + persistence manager owned panes
+```
+
+실제 chart에는 persistence manager 밖에서 생성된 native pane도 존재할 수 있다. 이 경우 bulk ratio 계획을 만들지 못하고 개별 `setHeight` fallback으로 내려가며, 각 높이 적용 때 chart engine이 다른 pane을 다시 배분해 primary가 435 -> 195처럼 변했다.
+
+runtime audit도 전체 native pane vector/index를 모르므로 mixed pane 구조에서 복원 비율을 정확히 검증하지 못했다.
 
 ## 이번 구조 수정
 
-### 1. Compare subject startup
+### 1. Stable native pane identity
 
-저장된 비교종목은 primary chart request가 생기기 전에는 만들지 않는다. primary가 준비된 뒤 복원하며, 생성 실패는 pane별 실제 오류로 노출한다.
+모든 add-on pane은 생성/삭제에 따라 현재 native index를 안정적으로 조회할 수 있다.
 
-### 2. Whole-chart pane layout
-
-개별 pane 픽셀 높이를 순차 적용하지 않는다. lightweight chart가 각 `setHeight` 때 다른 pane을 다시 배분하므로 exact restore가 구조적으로 불안정하다.
-
-현재 복원 방식:
+### 2. Complete native pane vector restore
 
 ```text
-persisted primary + add-on + compare pane heights
- -> one ordered whole-chart relative weight vector
- -> native pane stretch factors bulk apply
- -> proportional runtime audit
+snapshot every native pane height
+ -> persisted primary/add-on/compare weight를 exact native index에 덮어씀
+ -> manager 밖 pane은 현재 weight 유지
+ -> complete vector를 stretch factor로 한 번에 적용
 ```
 
-전체 window/canvas 높이가 달라져 픽셀값이 비례 변경될 수는 있다. 저장된 pane 누락은 계속 hard FAIL이다.
+더 이상 `native pane 수 == manager record 수 + 2`를 요구하지 않는다.
 
-### 3. Startup viewport authority
+### 3. Runtime audit
 
-최초 JSON viewport/visibleCount를 startup authority로 별도 보존하고, 전체 layout 안정화 전후에 다시 적용한다. startup 중 임시 viewport event가 persisted authority를 바꾸지 못하게 한다.
+live runtime snapshot에 전체 native pane height vector와 persisted pane의 native index를 포함한다. audit은 이 전체 vector 기준 비율을 검사한다.
+
+저장된 pane 자체가 없다면 여전히 hard FAIL이다.
+
+### 4. Compare private state
+
+비교종목 semantic state 갱신 시 기존 private persisted state를 병합하여 `__layout` 등 generic private state를 보존한다.
+
+### 5. Startup viewport authority
+
+최초 JSON viewport/visibleCount를 startup authority로 별도 보존하고 전체 layout 안정화 전후에 다시 적용한다.
 
 ## Restore gate
 
@@ -79,9 +97,10 @@ hydrate
  -> registered Add-ons
  -> primary request ready
  -> compare subjects
- -> whole-chart ratio layout restore
+ -> stable native pane identity
+ -> complete native pane ratio restore
  -> startup viewport reassert
- -> live runtime snapshot
+ -> live runtime snapshot including native pane vector
  -> persisted-vs-live exhaustive audit
  -> PASS: persistence attach
  -> FAIL: persistence detached, existing JSON preserved, mismatches reported
@@ -93,11 +112,13 @@ hydrate
 
 ```text
 whole-chart ratio restore
+mixed managed/unmanaged native pane restore
+stable native pane identity after pane removal
+complete native pane vector audit
 missing persisted pane fail-closed
+compare private layout preservation
 compare-subject deferred restore
-compare concrete failure propagation
 startup viewport authority reassert
-exhaustive runtime audit
 single JSON persistence
 workspace/product restart
 console policy
