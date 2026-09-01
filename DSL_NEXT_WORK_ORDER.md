@@ -8,8 +8,8 @@ Status: **UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 KST**
 
 ```text
 CURRENT_WORK = UI-ACCEPTANCE
-CURRENT_SUBSTEP = UIA-1 migrated DSL feature-by-feature UI consistency verification
-SUBSTEP_STATUS = READY / USER-DRIVEN UI TESTING
+CURRENT_SUBSTEP = UIA-1 startup restore -> automatic primary chart load
+SUBSTEP_STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
 기준 정책:
@@ -27,7 +27,65 @@ Final checkpoint = STEP15_REPO_WIDE_COMPLIANCE_CHECKPOINT_2026-09-01.md
 
 이 완료 상태는 UI 검증 중 임의로 되돌리거나 검증을 약화하지 않는다.
 
-## UIA-1 실행 순서
+## UIA-1 현재 결함과 수정
+
+사용자 UI 증상:
+
+```text
+프로그램 시작 직후 toolbar/state는 보이지만 primary candle chart는 빈 화면
+수동으로 조회를 눌러야 최초 candle/indicator render 시작
+조회 후 1일 chart vs persisted DSL 1m mismatch는 별도 Add-on validation error
+```
+
+분류:
+
+```text
+Bridge / Runtime UI startup ordering defect
+```
+
+원인:
+
+```text
+MarketChartWorkspace.mount()
+ -> persistence hydrate
+ -> UI/runtime wiring
+ -> READY 반환
+```
+
+기존에는 manual 조회와 동일한 `loadInitial()` 경로를 startup에서 호출하지 않았다.
+
+수정:
+
+```text
+persistence hydrate / UI wiring 완료
+ -> 기존 manual 조회와 동일한 loadInitial() 자동 1회 await
+ -> READY
+```
+
+경계:
+
+```text
+DSL/Core 계산 변경 없음
+Add-on 전략/timeframe 검증 변경 없음
+JSON schema/state 의미 변경 없음
+root frozen core 변경 없음
+```
+
+외부 chart-platform submodule에 최소 1-line runtime startup 수정과 focused source-contract test를 추가하고, DSL branch는 그 검증 버전을 pin한다.
+
+## UIA-1 user-local 완료 조건
+
+```text
+focused startup-load test PASS
+chart bridge server regression PASS
+frozen core guard PASS
+UI 시작 직후 조회 클릭 없이 candle chart 표시
+Add-on 오류가 있어도 base candle chart는 표시
+```
+
+위 조건 PASS 전 다음 UI 기능으로 넘어가지 않는다.
+
+## 이후 UI 기능 검증 순서
 
 각 UI 기능을 하나씩 다음 순서로 검증한다.
 
@@ -42,8 +100,6 @@ Final checkpoint = STEP15_REPO_WIDE_COMPLIANCE_CHECKPOINT_2026-09-01.md
 8. frozen core guard
 9. 같은 UI 동작 재확인
 ```
-
-한 기능이 안정적으로 PASS되기 전 다음 기능으로 넘어가지 않는 것을 기본으로 한다.
 
 ## 수정 분리 원칙
 
@@ -66,48 +122,4 @@ Axis 1/2/3 책임 혼합 금지
 검증완화/skip/compatibility exception 금지
 ```
 
-`Core` 수정이 실제로 필요한 경우에도 신규 변경 위치는 `axes/axis1_dsl/`이며, 특정 UI/전략 특례가 아니라 모든 전략에 적용되는 generic capability여야 한다.
-
-## 실패 분류
-
-수정 전에 반드시 다음 중 하나로 분류한다.
-
-```text
-UI defect
-Bridge / Runtime defect
-Core semantic defect
-Add-on defect
-Persistence/schema defect
-Test defect
-Environment issue
-Authority drift
-Unknown
-```
-
-분류가 불명확하면 먼저 재현과 evidence를 확보한다.
-
-## PASS 정의
-
-기능별 PASS:
-
-```text
-UI 입력 의미 == contract 입력 의미
-engine 결과 == UI 실행 결과
-화면 표시 == supplied result/projection
-저장/복원 == 동일 선언/버전/해시 의미
-다른 계층으로 제품 특례 누수 없음
-관련 regression PASS
-frozen legacy core guard PASS
-```
-
-## 기존 최종 제품 권한
-
-```text
-AXIS 1 = deterministic single-instrument DSL/runtime/execution
-AXIS 2 = immutable exact-PIT selection semantics + evidence
-AXIS 3 = versioned Condition/Strategy lifecycle + orchestration
-Bridge = versioned Request -> Response composition
-Chart/UI = 입력/관찰 surface, 계산 authority 아님
-```
-
-UI acceptance는 이 경계를 우회하는 별도 계산경로를 만들지 않는다.
+실패는 수정 전에 UI defect / Bridge-Runtime defect / Core semantic defect / Add-on defect / Persistence-schema defect / Test defect / Environment issue / Authority drift / Unknown 중 하나로 먼저 분류한다.
