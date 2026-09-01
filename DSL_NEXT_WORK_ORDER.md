@@ -9,7 +9,7 @@ Status: **UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 KST**
 ```text
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-SUBSTEP_STATUS = SELECTIVE RESTORE FAILURE CONFIRMED / EXHAUSTIVE AUDIT WRITTEN / REVALIDATION REQUIRED
+SUBSTEP_STATUS = EXHAUSTIVE AUDIT AUTO PASS / REAL UI REVALIDATION REQUIRED
 ```
 
 ## 현재 SSOT 원칙
@@ -61,17 +61,19 @@ all persisted Add-on pane heights
 
 불완전한 재기동 상태가 기존 JSON을 덮어쓰는 것을 금지한다.
 
-## 검증
+## 자동검증
 
-먼저:
+2026-09-01 user-local:
 
 ```text
-git pull --ff-only origin dsl-live-studio
-git submodule update --init --recursive
-verify.bat
+[PASS] current verification passed
 ```
 
-자동검증 PASS 후 실제 UI에서 다음을 한 번에 변경하고 재기동한다.
+자동검증은 완료했다. 실제 UI가 최종 authority다.
+
+## 다음 실제 UI 검증
+
+한 번에 다음을 변경한 뒤 종료·재기동한다.
 
 ```text
 primary 종목
