@@ -16,6 +16,7 @@ SUBSTEP_STATUS = WRITTEN / REMOTE_UNVALIDATED
 
 ```text
 DSL_UI_CONSISTENCY_ACCEPTANCE_POLICY.md
+DSL_HUMAN_COMMUNICATION_OUTPUT_POLICY.md
 ```
 
 ## 현재 영속성 SSOT
@@ -76,6 +77,16 @@ _chart.json + addon별 *.json
 
 은 unified file이 없는 기존 환경에서 한 번 migration한 뒤 제거한다. 정상 운영 중 semantic state write는 full-document atomic rewrite만 사용한다.
 
+4. 콘솔 과다 출력:
+
+```text
+정상 기동/검증 -> 최종 PASS 한 줄
+실패            -> 실패한 항목 + 실제 오류 구간만 bounded 출력
+전체 raw output -> .runtime 내부 로그에 보존
+```
+
+성공한 test case/TAP/단계별 INFO/PASS를 콘솔에 연속 출력하여 실제 오류를 밀어내는 것을 금지한다.
+
 ## 수정 경계
 
 ```text
@@ -96,16 +107,42 @@ JSON persistence에서 계산/의미판정 금지
 기능별 persistent side-store 추가 금지
 localStorage를 제품 상태 authority로 사용 금지
 검증 assertion 약화/skip 금지
+성공 로그로 오류 로그를 밀어내는 콘솔 출력 금지
 ```
 
 ## UIA-1 user-local 완료 조건
+
+사용자 명령은 다음으로 통일한다.
+
+```text
+git pull --ff-only origin dsl-live-studio
+git submodule update --init --recursive
+verify.bat
+```
+
+`verify.bat` 내부 완료 조건:
 
 ```text
 single JSON chart-state focused test PASS
 startup automatic-load regression PASS
 product server restart roundtrip PASS
 chart bridge regression PASS
+console output policy guard PASS
 frozen core guard PASS
+```
+
+성공 시 콘솔 acceptance:
+
+```text
+[PASS] current verification passed
+```
+
+실패 시 콘솔 acceptance:
+
+```text
+성공한 테스트 상세 출력 없음
+실패한 check 이름 표시
+실제 failure/traceback/assertion 구간만 제한된 길이로 표시
 ```
 
 UI acceptance:
