@@ -9,7 +9,7 @@ Status: **UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 KST**
 ```text
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-SUBSTEP_STATUS = REAL UI FAIL / ORDERING FIX WRITTEN / REVALIDATION REQUIRED
+SUBSTEP_STATUS = AUTO USER-LOCAL PASS / REAL UI REVALIDATION REQUIRED
 ```
 
 기준 정책:
@@ -75,9 +75,15 @@ latest close-state POST
  -> latest SuperTrend/layout/workspace must remain
 ```
 
+2026-09-01 사용자 로컬 자동 재검증:
+
+```text
+verify.bat -> [PASS] current verification passed
+```
+
 ## UIA-1 완료 조건
 
-자동검증과 실제 UI 모두 통과해야 한다.
+이제 남은 조건은 실제 UI 재검증이다.
 
 ```text
 SuperTrend 삽입
