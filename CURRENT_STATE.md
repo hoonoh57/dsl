@@ -112,8 +112,6 @@ startup 조립 중 발생하는 임시 logical range는 persisted authority를 �
 
 ## Verification scope now pinned
 
-`dsl-live-studio`는 위 수정이 포함된 chart submodule을 가리킨다.
-
 자동검증 범위:
 
 ```text
@@ -131,7 +129,7 @@ single JSON SSOT / persistence / console / frozen-core guards
 
 ```text
 LATEST REAL UI FAILURE = CONFIRMED
-UNMANAGED-PANE AUDIT DEFECT = FIXED / PINNED
+UNMANAGED-PANE AUDIT DEFECT = FIXED
 USER-LOCAL AUTO REVALIDATION = REQUIRED
 REAL UI REVALIDATION = REQUIRED
 UIA-1 = NOT PASS YET
