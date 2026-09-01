@@ -1,114 +1,113 @@
 # DSL Strict Sequential Next-Work Order
 
-Status: **ALL PLANNED STEPS COMPLETE / USER-LOCAL PASS / 2026-09-01 KST**
+Status: **UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 KST**
 
-이 문서는 프로젝트의 strict sequential 작업 순서 SSOT다.
+기존 remediation Steps 1~15는 모두 USER-LOCAL PASS로 완료되었다. 현재부터는 새 제품 검증 tranche인 UI 일관성 검증을 수행한다.
 
 ## 현재 포인터
 
 ```text
-CURRENT_STEP = COMPLETE
-CURRENT_STEP_NAME = Steps 1 through 15 complete
-CURRENT_SUBSTEP = NONE
-SUBSTEP_STATUS = USER-LOCAL PASS / FINAL CHECKPOINT WRITTEN
+CURRENT_WORK = UI-ACCEPTANCE
+CURRENT_SUBSTEP = UIA-1 migrated DSL feature-by-feature UI consistency verification
+SUBSTEP_STATUS = READY / USER-DRIVEN UI TESTING
 ```
 
-최종 checkpoint:
+기준 정책:
 
 ```text
-STEP15_REPO_WIDE_COMPLIANCE_CHECKPOINT_2026-09-01.md
+DSL_UI_CONSISTENCY_ACCEPTANCE_POLICY.md
 ```
 
-## 완료된 순서
+## 완료된 기반
 
 ```text
-Step 1  legacy capability audit
-Step 2  AXIS 1 migration manifest/boundaries
-Step 3  frozen legacy core guard
-Step 4  AXIS 1 migration parity
-Step 5  AXIS 1 additive DSL/execution capabilities + verification
-Step 6  capability/diagnostic registry
-Step 7  common Bridge + AXIS 1 execution contract
-Step 8  AXIS 2 exact-as-of snapshot contract
-Step 9  AXIS 2 deterministic selection engine
-Step 10 AXIS 3 Condition/Strategy CRUD + orchestration
-Step 11 AXIS 2 -> AXIS 3 -> AXIS 1 versioned E2E Bridge
-Step 12 External LLM proposal-only authoring lane
-Step 13 Continuous Improvement evidence-analysis tooling
-Step 14 representative natural-language E2E acceptance
-Step 15 legacy docs disposition + repo-wide compliance audit
+Steps 1~15 = COMPLETE / USER-LOCAL PASS
+Final checkpoint = STEP15_REPO_WIDE_COMPLIANCE_CHECKPOINT_2026-09-01.md
 ```
 
-모든 Step은 required focused/regression/frozen-core user-local 검증을 통과했고 각 완료 tranche의 checkpoint/evidence가 보존되어 있다.
+이 완료 상태는 UI 검증 중 임의로 되돌리거나 검증을 약화하지 않는다.
 
-## 최종 제품 권한
+## UIA-1 실행 순서
+
+각 UI 기능을 하나씩 다음 순서로 검증한다.
+
+```text
+1. UI에서 기능 선택/작성
+2. 실행
+3. 화면 결과와 deterministic engine 결과 확인
+4. 실패 시 원인 계층 분류
+5. 해당 계층에서만 최소 수정
+6. focused regression
+7. 관련 cross-layer regression
+8. frozen core guard
+9. 같은 UI 동작 재확인
+```
+
+한 기능이 안정적으로 PASS되기 전 다음 기능으로 넘어가지 않는 것을 기본으로 한다.
+
+## 수정 분리 원칙
+
+```text
+Core
+ -> Bridge / Runtime
+ -> Add-ons
+ -> JSON persistence
+```
+
+절대 규칙:
+
+```text
+repository-root core/ 수정 금지
+UI를 맞추기 위해 engine 결과 덮어쓰기 금지
+Bridge/Runtime에서 지표/전략/선별 재계산 금지
+Add-on 문제를 Core 특례로 흡수 금지
+JSON persistence에서 계산/보정 금지
+Axis 1/2/3 책임 혼합 금지
+검증완화/skip/compatibility exception 금지
+```
+
+`Core` 수정이 실제로 필요한 경우에도 신규 변경 위치는 `axes/axis1_dsl/`이며, 특정 UI/전략 특례가 아니라 모든 전략에 적용되는 generic capability여야 한다.
+
+## 실패 분류
+
+수정 전에 반드시 다음 중 하나로 분류한다.
+
+```text
+UI defect
+Bridge / Runtime defect
+Core semantic defect
+Add-on defect
+Persistence/schema defect
+Test defect
+Environment issue
+Authority drift
+Unknown
+```
+
+분류가 불명확하면 먼저 재현과 evidence를 확보한다.
+
+## PASS 정의
+
+기능별 PASS:
+
+```text
+UI 입력 의미 == contract 입력 의미
+engine 결과 == UI 실행 결과
+화면 표시 == supplied result/projection
+저장/복원 == 동일 선언/버전/해시 의미
+다른 계층으로 제품 특례 누수 없음
+관련 regression PASS
+frozen legacy core guard PASS
+```
+
+## 기존 최종 제품 권한
 
 ```text
 AXIS 1 = deterministic single-instrument DSL/runtime/execution
-AXIS 2 = immutable exact-PIT selection semantics + filter/rank/top-N/evidence
-AXIS 3 = immutable versioned Condition/Strategy lifecycle + orchestration
-Bridge = versioned Request -> Response cross-axis composition
-External LLM = proposal only
-Continuous Improvement = evidence analysis only; automatic mutation 없음
-Chart = supplied result/projection presentation only
+AXIS 2 = immutable exact-PIT selection semantics + evidence
+AXIS 3 = versioned Condition/Strategy lifecycle + orchestration
+Bridge = versioned Request -> Response composition
+Chart/UI = 입력/관찰 surface, 계산 authority 아님
 ```
 
-Condition 책임:
-
-```text
-selection semantics = AXIS 2
-artifact lifecycle  = AXIS 3
-```
-
-최종 실행 순서:
-
-```text
-AXIS 2 CandidateSet
- -> AXIS 3 promoted exact artifacts + RunPlan
- -> Bridge all-candidate preflight
- -> AXIS 1 deterministic one-symbol execution
-```
-
-## 최종 user-local 검증
-
-```text
-test_repo_wide_compliance.py = OK
-test_final_natural_language_e2e.py = OK
-test_three_axis_e2e_bridge.py = OK
-test_axis1_execution_bridge_contract.py = OK
-test_axis1_full_engine_parity.py = OK
-test_axis2_exact_asof_snapshot.py = OK
-test_axis2_selection_engine.py = OK
-test_axis3_crud_orchestration.py = OK
-test_external_llm_authoring_lane.py = OK
-test_authoring_continuous_improvement.py = OK
-test_frozen_legacy_core_guard.py = OK
-```
-
-## Frozen legacy Core
-
-```text
-path = core/
-freeze source commit = 20b963749052f0d0e42506024a02e4e218a4d05a
-frozen core tree     = 8b3f081de926f5c9f69e9cdbc158b81b2275176c
-```
-
-영구 금지:
-
-```text
-core/ 수정/이동/추가/삭제
-AXIS 1/2/3 권한 혼합
-cross-axis direct internal state/import dependency
-future / nearest / fill-forward / interpolation / default synthesis
-특정 전략 Core shortcut
-External LLM execution authority
-Continuous Improvement automatic mutation
-검증완화/skip/compatibility exception
-historical 문서를 current SSOT로 부활
-```
-
-## 이후 작업 규칙
-
-현재 계획된 remediation sequence는 종료되었다. 이후 기능 추가·버그 수정·제품 변경은 **새 작업**으로 시작하며, 기존 final checkpoints를 재해석하거나 검증을 약화하지 않는다.
-
-새 작업은 현재 active authority를 먼저 확인하고 작은 tranche + focused verification + regression 방식으로 진행한다.
+UI acceptance는 이 경계를 우회하는 별도 계산경로를 만들지 않는다.
