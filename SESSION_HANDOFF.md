@@ -46,32 +46,50 @@ state hydrate
  -> READY
 ```
 
-### 2. 1분봉 재시작 시 일봉으로 복귀
+### 2. 선택 timeframe 재기동 복원 실패
 
-사용자가 1분봉을 선택하고 화면을 다시 열면 timeframe이 다시 일봉으로 초기화되는 문제가 이어서 확인됐다.
+1분봉/5분봉을 실제로 띄운 뒤 브라우저를 종료하고 재기동해도 다시 일봉으로 시작하는 문제가 확인됐다.
+
+초기 localStorage preference 방식은 현재 managed browser 재기동 경로에서 제품 수준의 durable restore를 보장하지 못했으므로 최종 영속성 권한으로 사용하지 않는다.
 
 분류:
 
 ```text
-UI workspace persistence defect
+JSON persistence boundary defect
 ```
 
-원인은 chart workspace가 최근 종목/표시 봉 수는 기억하지만 timeframe은 항상 `day`로 초기화하던 것이다.
-
-최소 수정:
+수정:
 
 ```text
-chart timeframe(period + interval) workspace preference 저장
- -> 시작 시 strict validation
- -> 유효한 저장값을 default day보다 먼저 적용
- -> 그 timeframe으로 startup loadInitial() 실행
+UI timeframe 선택
+ -> chart shell preference port
+ -> Bridge의 versioned JSON file persistence
+ -> 다음 bootstrap에서 JSON을 먼저 hydrate
+ -> 기존 MarketChartWorkspace mount
+ -> 복원된 timeframe으로 startup loadInitial()
 ```
 
-월/주/일, 현재 지원되는 모든 분봉 interval, 모든 tick interval을 같은 규칙으로 처리한다. 잘못된 저장값은 사용하지 않고 기본 일봉으로 돌아간다.
+제품 영속 파일:
 
-이 workspace preference는 전략/지표 Add-on JSON과 별개의 UI 상태다. 이를 전략 JSON schema에 섞거나 DSL Core/Bridge에서 timeframe을 자동 보정하지 않는다.
+```text
+.runtime/dsl-stack/chart-workspace-timeframe.json
+```
 
-수정 소유 위치는 chart-platform shell/UI state이며 DSL Core, Add-on 계산, frozen legacy core는 변경하지 않았다.
+파일은 schemaVersion + timeframe(period/interval)만 저장한다. 월/주/일과 현재 지원되는 분봉/틱 interval만 허용하며 지원되지 않는 값은 저장 단계에서 fail-closed한다.
+
+브라우저 종료 직전에는 최신값을 beacon으로 같은 JSON route에 다시 전송한다. 정상 선택 변경도 ordered PUT queue로 즉시 저장한다.
+
+chart-platform standalone에서는 기존 localStorage fallback을 유지하지만, DSL 제품에서는 주입된 JSON persistence port가 우선권을 가진다. 따라서 전략/지표 Add-on JSON이나 DSL Core에 workspace timeframe을 혼입하지 않는다.
+
+경계:
+
+```text
+DSL/Core 계산 변경 없음
+Add-on 전략/timeframe 검증 변경 없음
+Chart workspace preference와 strategy/add-on JSON 분리 유지
+Bridge는 저장/복원만 수행하고 timeframe 의미를 재계산하지 않음
+root frozen core 변경 없음
+```
 
 ## UIA-1 다음 검증
 
@@ -82,17 +100,20 @@ git pull --ff-only origin dsl-live-studio
 git submodule update --init --recursive
 node --test vendor\kiwoom-condition\condition1516\chart-platform\tests\market-chart-workspace-initial-load.test.mjs
 node --test vendor\kiwoom-condition\condition1516\chart-platform\tests\workspace-timeframe-preference.test.mjs
+node --test chart_bridge\browser\WorkspaceTimeframeJsonPersistence.test.mjs
+node --test chart_bridge\workspace_timeframe_persistence.test.mjs
 node --test chart_bridge\chart_platform_server.test.mjs
 python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py" -v
 ```
 
-그 뒤 UI 재시작 후:
+그 뒤 UI에서:
 
 ```text
-조회 클릭 없이 시작 직후 candle chart 표시
-분 -> 1 선택 후 화면 재시작
-재시작 직후 1분봉 그대로 유지
-저장된 1분봉으로 candle chart 자동 조회
+분 -> 5 -> 조회
+5분봉 표시 확인
+브라우저 종료
+start.bat 또는 restart.bat로 재기동
+조회 클릭 없이 5분봉 + candle 자동 복원
 ```
 
 을 확인한다. PASS 전 다음 기능으로 넘어가지 않는다.
