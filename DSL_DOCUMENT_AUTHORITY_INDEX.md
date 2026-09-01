@@ -79,10 +79,10 @@ ADAPTIVE_*.md
 특히 정적 Feature Catalog 문서의 과거 개수는 현재 기능 지원 SSOT가 아니다.
 
 ```text
-현재 기능 지원 여부 = axes/axis1_dsl/core/capability_diagnostic_registry.py
-현재 축 경계       = DSL_THREE_AXIS_MODULE_BOUNDARY.md
-현재 실행 순서     = DSL_NEXT_WORK_ORDER.md
-현재 완료상태       = CURRENT_STATE.md + latest checkpoint
+current support SSOT = axes/axis1_dsl/core/capability_diagnostic_registry.py
+현재 축 경계         = DSL_THREE_AXIS_MODULE_BOUNDARY.md
+현재 실행 순서       = DSL_NEXT_WORK_ORDER.md
+현재 완료상태         = CURRENT_STATE.md + latest checkpoint
 ```
 
 ## 5. 최종 권한 분리
