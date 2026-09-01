@@ -12,6 +12,20 @@ CURRENT_SUBSTEP = UIA-1 unified chart state restore
 SUBSTEP_STATUS = ARCHITECTURE VIOLATION CONFIRMED / RUNTIME OWNERSHIP REFACTOR REQUIRED
 ```
 
+## CURRENT_IMPLEMENTATION_CONTRACT
+
+모든 production 수정 전에 이 계약을 먼저 확정하며, 구현 중 소유권이 바뀌면 코드를 멈추고 계약부터 다시 작성한다.
+
+```text
+OWNER_BOUNDARY = Add-on + generic Chart Runtime capability
+STATE_SSOT = chart-state.json / addons.research.compare-subjects
+LIFECYCLE_AUTHORITY = Compare Runtime Add-on through generic subjectViews
+FORBIDDEN_NEIGHBORS = UI persistent pane creation; feature logic in persistence; Core special-case
+ALTERNATE_PATHS = NONE
+FAILURE_MODE = fail-closed; persisted JSON preserved
+ARCH_INVARIANT = JSON compare node alone must create/dispose/visible the same runtime panes without UI view factory
+```
+
 ## 구현 전 강제 게이트
 
 모든 production 코드 수정 전에 `DSL_IMPLEMENTATION_COMPLIANCE_GATE.md`를 적용한다.
@@ -83,6 +97,7 @@ architecture-compliance FAIL은 behavior PASS로 덮지 않는다.
 현재 architecture gate는 다음을 직접 검사한다.
 
 ```text
+current implementation contract 존재
 axis sibling direct import 금지
 Bridge contract data-only
 UI shell의 compare persistent pane 직접 생성 금지
