@@ -1,137 +1,119 @@
 # DSL Strict Sequential Next-Work Order
 
-Status: **UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-02 KST**
+Status: **UI CONSISTENCY ACCEPTANCE ACTIVE / ARCHITECTURE GATE ENFORCED / 2026-09-02 KST**
 
-기존 remediation Steps 1~15는 모두 USER-LOCAL PASS로 완료되었다. 현재는 실제 UI 경로에서 차트 상태의 완전 복원을 검증한다.
+기존 remediation Steps 1~15는 USER-LOCAL PASS로 완료되었다. 현재 UIA-1은 기능 패치가 아니라 구조 위반 제거를 먼저 수행한다.
 
 ## 현재 포인터
 
 ```text
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-SUBSTEP_STATUS = UNMANAGED-PANE AUDIT FIX PINNED / USER-LOCAL REVALIDATION REQUIRED
+SUBSTEP_STATUS = ARCHITECTURE VIOLATION CONFIRMED / RUNTIME OWNERSHIP REFACTOR REQUIRED
 ```
 
-## 현재 SSOT 원칙
+## 구현 전 강제 게이트
+
+모든 production 코드 수정 전에 `DSL_IMPLEMENTATION_COMPLIANCE_GATE.md`를 적용한다.
 
 ```text
-의미 있는 화면 변경
- -> one logical Chart State
- -> one JSON serialization/restore path
- -> one atomic runtime JSON file
+1. owner boundary 확정
+2. existing generic engine path end-to-end 추적
+3. state SSOT 확정
+4. persistent object lifecycle authority 확정
+5. forbidden adjacent-layer behavior 명시
+6. architecture invariant test로 위반구조를 먼저 FAIL시킴
+7. 그 뒤 production 구현
 ```
 
-canonical runtime state:
+하나라도 unknown이면 구현하지 않고 감사/추적을 계속한다.
+
+## 현재 확인된 compare 위반
+
+```text
+JSON research.compare-subjects
+ -> Runtime Add-on은 state normalize만 수행
+ -> MarketChartWorkspace / ShellController가 pane을 별도 생성
+```
+
+이 이중경로 때문에 JSON에 저장된 `compare-1/2/3`가 정상이어도 재기동 Runtime object graph에는 pane이 없을 수 있었다.
+
+## 이번 수정의 유일한 목표 구조
+
+```text
+Chart State JSON
+ -> Runtime registration/reconcile
+ -> Compare Runtime Add-on
+ -> generic subjectViews capability
+ -> compare pane create/dispose/visibility/property/layout
+```
+
+UI shell:
+
+```text
+add / replace / remove / select 명령
+ -> state-port write only
+```
+
+UI shell의 persistent pane 직접 생성은 금지한다.
+
+## 현재 SSOT
 
 ```text
 vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart-state.json
 ```
 
-`단일 파일 존재`만으로 PASS하지 않는다.
+`enabled / visible / state`가 같은 JSON이면 재기동 후 동일한 Add-on object graph가 만들어져야 한다.
 
-## 최신 실제 UI 실패
+## 자동검증 순서
 
-전수검사에서 다음이 확인됐다.
-
-```text
-메인 price pane 상대배치 불일치
-저장된 compare-1 / compare-2 / compare-3 pane 누락
-```
-
-viewport 1봉 이동 문제는 이후 수정으로 제거됐다.
-
-## 최신 자동검증 실패와 수정
-
-`chart-state-runtime-audit` 회귀에서 저장 대상이 아닌 native pane 높이를 비율 분모에 넣어 false failure가 발생했다.
-
-수정 기준:
+`verify.bat`:
 
 ```text
-persisted managed panes만 상대비율 비교
-unmanaged native panes는 비율 분모에서 제외
-persisted pane missing은 hard FAIL 유지
+architecture-compliance
+ -> syntax
+ -> focused chart/runtime regression
+ -> single JSON persistence
+ -> console policy
+ -> frozen core
 ```
 
-같은 계산을 runtime audit과 layout stabilizer에 적용했다.
+architecture-compliance FAIL은 behavior PASS로 덮지 않는다.
 
-## UIA-1 restore gate
+현재 architecture gate는 다음을 직접 검사한다.
 
 ```text
-1. chart-state.json hydrate
-2. primary chart/runtime construction
-3. registered Add-ons restore
-4. primary request ready
-5. persisted compare subjects restore
-6. persisted pane layout restore as managed-pane ratio vector
-7. persisted startup viewport reassert
-8. actual live runtime snapshot capture
-9. persisted JSON vs live runtime exhaustive comparison
-10. PASS -> persistence attach
-11. FAIL -> persistence detached + all mismatch paths reported
+axis sibling direct import 금지
+Bridge contract data-only
+UI shell의 compare persistent pane 직접 생성 금지
+Compare Runtime Add-on의 generic subjectViews 사용 필수
+persistence layer feature-specific authority 금지
+frozen legacy core dependency 금지
 ```
 
-## Pane layout 규칙
+## 다음 구현 작업
 
 ```text
-saved managed pane heights
- -> managed-pane relative weights
- -> stable native pane index mapping
- -> bulk stretch-factor application
- -> managed-pane proportional audit
+1. Compare Runtime Add-on이 JSON subjects를 generic subjectViews로 reconcile
+2. ShellController에서 persistent view factory/pane 생성 authority 제거
+3. Workspace에서 compare pane 직접 생성 코드 제거
+4. JSON -> Runtime Add-on -> pane 생성/삭제/표시 회귀검증
+5. 기존 compare UI 명령은 state-port write만 수행하도록 유지
+6. architecture-compliance PASS
+7. 전체 verify PASS
+8. 실제 UI 재기동 검증
 ```
 
-저장되지 않은 native pane이 화면 높이를 소비해도 저장 대상 pane들 사이의 비율 판정에는 영향을 주지 않는다.
+이 구조 수정이 끝나기 전에는 높이/비율/타이밍 보정을 추가하지 않는다.
 
-저장된 pane이 실제 runtime에서 누락되면 계속 hard FAIL이다.
-
-## 자동검증 범위
-
-`verify.bat`는 다음을 포함한다.
-
-```text
-single JSON SSOT
-live state/persistence path
-exhaustive runtime audit
-managed-pane ratio layout restore
-unmanaged native pane coexistence
-persisted pane missing fail-closed
-compare-subject startup restore
-startup viewport authority
-workspace startup
-product restart
-chart bridge
-console policy
-frozen core guard
-```
-
-## 다음 사용자 검증
-
-```text
-git pull --ff-only origin dsl-live-studio
-git submodule update --init --recursive
-verify.bat
-```
-
-자동검증 PASS 후 실제 UI 재기동을 다시 확인한다.
-
-실제 UI PASS 전 UIA-1 완료 처리 금지.
-
-## 수정 경계
-
-```text
-Core
- -> Bridge / Runtime
- -> Add-ons
- -> JSON persistence
-```
-
-절대 규칙:
+## 절대 규칙
 
 ```text
 repository-root core/ 수정 금지
-기능별 persistent side-store 추가 금지
-localStorage를 product state authority로 사용 금지
-검증 assertion 약화/skip 금지
-startup incomplete state가 persisted JSON을 overwrite하는 것 금지
-실제 UI PASS 전 UIA-1 완료 처리 금지
+기능별 persistent side-store 금지
+localStorage product-state authority 금지
+UI controller의 Add-on lifecycle 우회 금지
+동일 기능의 두 번째 restore path 금지
+assertion 완화/skip/allowlist 금지
+실제 UI PASS 전 UIA-1 완료 금지
 ```
