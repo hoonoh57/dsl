@@ -9,7 +9,7 @@ Status: **UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-02 KST**
 ```text
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-SUBSTEP_STATUS = MIXED NATIVE PANE FIX PINNED / USER-LOCAL REVALIDATION REQUIRED
+SUBSTEP_STATUS = UNMANAGED-PANE AUDIT FIX PINNED / USER-LOCAL REVALIDATION REQUIRED
 ```
 
 ## 현재 SSOT 원칙
@@ -31,37 +31,30 @@ vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart
 
 ## 최신 실제 UI 실패
 
-최신 전수검사에서 다음이 확인됐다.
+전수검사에서 다음이 확인됐다.
 
 ```text
-메인 price pane: expected 435 / actual 195
-compare-1 / compare-2 / compare-3 persisted pane layout: actual missing
+메인 price pane 상대배치 불일치
+저장된 compare-1 / compare-2 / compare-3 pane 누락
 ```
 
-이 오류에서 viewport / visibleCount mismatch는 재발하지 않았다.
+viewport 1봉 이동 문제는 이후 수정으로 제거됐다.
 
-## 최신 owning-layer 수정
+## 최신 자동검증 실패와 수정
 
-기존 ratio restore는 모든 add-on pane이 persistence layout manager에 등록되어 있다고 가정했다. 실제 native chart에는 manager 밖의 pane도 존재할 수 있으므로 이 가정이 깨지면 bulk restore가 비활성화되고 순차 높이 적용으로 fallback됐다.
+`chart-state-runtime-audit` 회귀에서 저장 대상이 아닌 native pane 높이를 비율 분모에 넣어 false failure가 발생했다.
 
-현재는 각 pane에 stable native index를 부여하고 전체 native pane vector를 기준으로 복원한다.
+수정 기준:
 
 ```text
-all native panes snapshot
- -> persisted pane을 stable native index로 매핑
- -> unmanaged pane은 현재 weight 유지
- -> one complete stretch-factor vector
- -> one bulk apply
- -> whole-native-vector runtime audit
+persisted managed panes만 상대비율 비교
+unmanaged native panes는 비율 분모에서 제외
+persisted pane missing은 hard FAIL 유지
 ```
 
-저장된 pane이 실제 runtime에 없으면 계속 hard FAIL이다.
-
-비교종목 semantic state 쓰기는 기존 private persisted state를 병합하여 `__layout` 등 generic private state를 보존한다.
+같은 계산을 runtime audit과 layout stabilizer에 적용했다.
 
 ## UIA-1 restore gate
-
-재기동은 반드시 다음 순서를 통과해야 한다.
 
 ```text
 1. chart-state.json hydrate
@@ -69,14 +62,27 @@ all native panes snapshot
 3. registered Add-ons restore
 4. primary request ready
 5. persisted compare subjects restore
-6. stable native pane identity resolution
-7. complete native pane ratio restore
-8. persisted startup viewport reassert
-9. actual live runtime snapshot capture
-10. persisted JSON vs live runtime exhaustive comparison
-11. PASS -> persistence attach
-12. FAIL -> persistence detached + all mismatch paths reported
+6. persisted pane layout restore as managed-pane ratio vector
+7. persisted startup viewport reassert
+8. actual live runtime snapshot capture
+9. persisted JSON vs live runtime exhaustive comparison
+10. PASS -> persistence attach
+11. FAIL -> persistence detached + all mismatch paths reported
 ```
+
+## Pane layout 규칙
+
+```text
+saved managed pane heights
+ -> managed-pane relative weights
+ -> stable native pane index mapping
+ -> bulk stretch-factor application
+ -> managed-pane proportional audit
+```
+
+저장되지 않은 native pane이 화면 높이를 소비해도 저장 대상 pane들 사이의 비율 판정에는 영향을 주지 않는다.
+
+저장된 pane이 실제 runtime에서 누락되면 계속 hard FAIL이다.
 
 ## 자동검증 범위
 
@@ -86,11 +92,9 @@ all native panes snapshot
 single JSON SSOT
 live state/persistence path
 exhaustive runtime audit
-whole-chart ratio layout restore
-mixed managed/unmanaged native pane restore
-stable native pane identity
+managed-pane ratio layout restore
+unmanaged native pane coexistence
 persisted pane missing fail-closed
-compare private layout state preservation
 compare-subject startup restore
 startup viewport authority
 workspace startup
@@ -102,39 +106,13 @@ frozen core guard
 
 ## 다음 사용자 검증
 
-먼저:
-
 ```text
 git pull --ff-only origin dsl-live-studio
 git submodule update --init --recursive
 verify.bat
 ```
 
-자동검증 PASS 후 `start.bat`으로 실제 UI를 확인한다.
-
-기존 `chart-state.json` 상태를 그대로 사용해 재기동해도 되며, 필요하면 한 번 다시 다음 상태를 만든 뒤 종료·재기동한다.
-
-```text
-primary 종목
-비교 종목 3개 이상
-SuperTrend 등 Add-on + 속성
-거래량 pane 높이
-여러 서브차트 pane 높이
-timeframe
-viewport / 표시갯수
-가격/수익률 표시모드
-```
-
-PASS 기준:
-
-```text
-재기동 후 의미 상태 전부 동일
-모든 비교 pane 복원
-전체 pane 상대 배치 동일
-viewport / 표시갯수 동일
-STATE RESTORE ERROR 없음
-PERSISTENCE ERROR 없음
-```
+자동검증 PASS 후 실제 UI 재기동을 다시 확인한다.
 
 실제 UI PASS 전 UIA-1 완료 처리 금지.
 
