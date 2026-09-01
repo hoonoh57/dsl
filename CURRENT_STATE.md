@@ -25,65 +25,65 @@ dsl-live-studio
 
 ## Completed baseline
 
-기존 strict remediation Steps 1~15는 모두 **COMPLETE / USER-LOCAL PASS**다. Final baseline checkpoint는 `STEP15_REPO_WIDE_COMPLIANCE_CHECKPOINT_2026-09-01.md`다.
+기존 strict remediation Steps 1~15는 모두 **COMPLETE / USER-LOCAL PASS**다.
 
-## Current active work — UI consistency acceptance
+## Current active work — UIA-1
 
-현재 UIA-1은 시작상태와 영속상태의 일관성을 검증한다.
+현재 목표:
 
 ```text
-UI semantic state
+모든 의미 있는 UI 변경
  -> one logical Chart State
- -> Bridge/Runtime state port
- -> one JSON serialization/restore path
- -> next-session UI restore
+ -> one JSON persistence path
+ -> next-session exact restore
 ```
 
-사용자 최신 권한에 따라 timeframe만 별도로 저장하거나 localStorage를 제품 상태 SSOT로 사용하는 방식은 폐기했다.
-
-canonical runtime state file:
+canonical runtime state:
 
 ```text
 vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart-state.json
 ```
 
-runtime state document:
+## Latest real-UI result
+
+이전 자동검증 PASS 이후 실제 UI에서 다음 실패가 확인됐다.
 
 ```text
-schemaVersion
-visualsVisible
-display
-workspace
-addons
+SuperTrend 삽입
++ 메인/서브 패널 높이 변경
++ browser restart
+ -> state restore FAIL
 ```
 
-`workspace`는 종목, timeframe, 기준일, 표시 봉 수, price/return mode, viewport, 최근 종목 등 다음 세션에 의미가 있는 화면 상태를 보존한다.
+화면에 `PERSISTENCE ERROR · Failed to fetch`가 나타났으며, 자동검증만으로 UIA-1을 PASS 처리할 수 없다는 것이 확인됐다.
 
-`addons[*].state`는 지표/전략/비교차트 파라미터와 layout, exact geometry/point coordinates를 JSON-compatible state로 보존한다.
-
-이 파일은 full-document atomic write를 사용한다. 기존 `_chart.json` + Add-on별 shard는 unified file이 없을 때 한 번 migration한 뒤 제거한다.
-
-## Startup restore
+확인된 구현 누락:
 
 ```text
-single chart state hydrate
- -> chart/runtime wiring
- -> workspace state projection
- -> existing loadInitial() automatic run
- -> Add-on/layout/geometry restore
- -> READY
+primary price/volume pane layout persistence 없음
+persistence load failure 후 defaults로 계속 진행 가능
+regression이 live UI state-event path를 검증하지 않음
 ```
 
-2026-09-01 사용자 로컬 `verify.bat`는 `[PASS] current verification passed`로 완료됐다. 따라서 자동 회귀검증은 **USER-LOCAL PASS**다.
-
-UIA-1 전체 상태:
+현재 수정:
 
 ```text
-AUTOMATED = USER-LOCAL PASS
-MANUAL UI RESTORE = PENDING
+persistence transient fetch retry
+JSON authority unavailable -> mutable state attach blocked
+primary pane resize -> workspace.layout.primaryPanes
+add-on pane resize -> addons[*].state.__layout
+latest state coalesced save + unload full-state flush
+live SuperTrend/layout SSOT regression added
 ```
 
-실제 브라우저 종료/재기동 후 5분봉, 종목, 표시범위, 수익률 모드, 지표 설정 등 동일 semantic state 복원 확인 전에는 UIA-1 전체 PASS로 닫지 않는다.
+현재 상태:
+
+```text
+FIX = WRITTEN
+AUTO REVALIDATION = REQUIRED
+REAL UI REVALIDATION = REQUIRED
+UIA-1 = NOT PASS YET
+```
 
 ## Layer authority
 
@@ -95,7 +95,7 @@ Core
 ```
 
 - Core = deterministic DSL/parser/runtime/indicator/execution meaning. UI 복원 특례 금지.
-- Bridge/Runtime = lifecycle/routing/state-port adaptation. feature calculation 금지.
+- Bridge/Runtime = lifecycle/routing/state observation. feature calculation 금지.
 - Add-ons = feature-specific behavior/private state.
 - JSON persistence = state serialization/hydrate/atomic write only.
 
