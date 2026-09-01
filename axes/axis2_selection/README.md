@@ -1,39 +1,38 @@
-# AXIS 2 — Semi-Condition Selection
+# AXIS 2 — Exact-PIT Selection
 
-Status: **NEW IMPLEMENTATION ROOT / SNAPSHOT-FIRST**
+Status: **ACTIVE IMPLEMENTATION ROOT / SNAPSHOT-FIRST / SELECTION ENGINE VALIDATED**
 
-This directory owns cross-sectional candidate selection, not Instrument DSL execution.
+This directory owns cross-sectional selection semantics, not single-instrument DSL execution and not product artifact lifecycle.
 
-Core rule:
+Core flow:
 
 ```text
-precompute -> freeze point-in-time snapshot -> filter/rank/top-N -> CandidateSetResponse
+precompute
+ -> immutable exact point-in-time snapshot
+ -> filter / rank / top-N
+ -> CandidateSet + evidence
 ```
 
-Primary development targets include:
+Primary feature evidence may include market regime, beta/high-beta universe membership, sector/leader relations, EMA120 events, normalized MACD Histogram strength/rank, relative strength, turnover and capital-flow data.
 
-- market regime snapshots;
-- beta/high-beta universe snapshots;
-- sector strength and constituent snapshots;
-- normalized MACD Histogram per-symbol snapshots;
-- cross-symbol and within-sector Histogram rankings;
-- relative-strength / turnover / capital-flow features;
-- generic Condition CRUD and reproducible candidate evidence.
+Boundary:
 
-Do not calculate these by repeatedly invoking AXIS 1 DSL during a selection request. Do not import frozen repository-root `core/`.
+- AXIS 2 owns Condition **selection semantics**: feature identities, exact snapshot requirements, filter/rank/top-N rules and candidate evidence.
+- AXIS 3 owns Condition **artifact lifecycle**: immutable versions, lineage, promotion/rejection/archive state.
+- AXIS 2 does not place orders or execute Strategy DSL.
+- AXIS 2 must not import AXIS 1/3 internals or repository-root frozen `core/`.
+- Selection consumes already-precomputed exact-PIT evidence; no future values, nearest-time lookup, fill-forward, interpolation or missing-value default synthesis.
 
-Planned internal layout:
+Current layout:
 
 ```text
-providers/
 snapshots/
 engine/
-conditions/
-ranking/
-tests/
 ```
 
 See:
 
 - `DSL_AXIS2_PRECOMPUTED_SELECTION_POLICY.md`
+- `DSL_THREE_AXIS_FINAL_TARGET.md`
 - `DSL_THREE_AXIS_MODULE_BOUNDARY.md`
+- `DSL_DOCUMENT_AUTHORITY_INDEX.md`
