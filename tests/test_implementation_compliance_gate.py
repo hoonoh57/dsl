@@ -35,6 +35,21 @@ class ImplementationComplianceGateTest(unittest.TestCase):
         self.assertIn("JSON compare node", policy)
         self.assertIn("DSL_IMPLEMENTATION_COMPLIANCE_GATE.md", authority)
 
+    def test_current_work_declares_ownership_before_implementation(self):
+        work_order = (ROOT / "DSL_NEXT_WORK_ORDER.md").read_text(encoding="utf-8")
+        required = [
+            "CURRENT_IMPLEMENTATION_CONTRACT",
+            "OWNER_BOUNDARY =",
+            "STATE_SSOT =",
+            "LIFECYCLE_AUTHORITY =",
+            "FORBIDDEN_NEIGHBORS =",
+            "ALTERNATE_PATHS = NONE",
+            "FAILURE_MODE =",
+            "ARCH_INVARIANT =",
+        ]
+        missing = [item for item in required if item not in work_order]
+        self.assertEqual(missing, [], f"implementation contract is incomplete: {missing}")
+
     def test_axis_packages_do_not_import_sibling_axes_or_legacy_core(self):
         roots = {
             "axis1_dsl": {"axes.axis2_selection", "axes.axis3_monetization"},
