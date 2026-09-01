@@ -116,6 +116,8 @@ verify 성공             -> 최종 PASS 한 줄
 전체 stdout/stderr       -> .runtime 내부 로그 파일에 유지
 ```
 
+PowerShell 5.1에서는 Python `unittest`의 정상 진행표시 `..`가 stderr로 출력될 수 있으므로 stderr 발생 자체를 실패로 판정하지 않는다. `verify.bat`는 각 하위 프로세스의 stdout/stderr를 별도 파일로 캡처하고 **process exit code만 성공/실패 권한으로 사용**한다. stderr/stdout 내용은 exit code가 실패일 때만 bounded error context로 콘솔에 표시한다.
+
 현재 검증은 raw `node --test ...` 묶음을 사용자에게 직접 실행시키지 않고 `verify.bat` 하나로 수행한다.
 
 ## 계층 분리
