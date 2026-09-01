@@ -125,6 +125,7 @@ try {
     Invoke-QuietCheck 'syntax-state-client' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\runtime\chart\ChartAddonJsonPersistenceClient.mjs')
     Invoke-QuietCheck 'syntax-pane-layout' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\runtime\chart\ChartPaneLayoutManager.mjs')
     Invoke-QuietCheck 'syntax-primary-layout' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\adapters\chart\PrimaryPaneLayoutSurface.mjs')
+    Invoke-QuietCheck 'syntax-stable-pane' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\adapters\chart\StablePaneIdentitySurface.mjs')
     Invoke-QuietCheck 'syntax-runtime-audit' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\runtime\chart\ChartStateRuntimeAudit.mjs')
     Invoke-QuietCheck 'syntax-market-chart' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\composition\MarketChart.mjs')
     Invoke-QuietCheck 'syntax-compare-controller' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\addons\research\CompareSubjectsShellController.mjs')
@@ -132,6 +133,7 @@ try {
     Invoke-QuietCheck 'syntax-live-ssot-test' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\chart-state-live-ssot.test.mjs')
     Invoke-QuietCheck 'syntax-runtime-audit-test' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\chart-state-runtime-audit.test.mjs')
     Invoke-QuietCheck 'syntax-pane-ratio-test' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\chart-pane-layout-ratio-restore.test.mjs')
+    Invoke-QuietCheck 'syntax-stable-pane-test' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\stable-pane-identity.test.mjs')
     Invoke-QuietCheck 'syntax-compare-startup-test' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\compare-subject-startup-restore.test.mjs')
     Invoke-QuietCheck 'syntax-viewport-authority-test' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\market-chart-startup-viewport-authority.test.mjs')
 
@@ -139,6 +141,7 @@ try {
     Invoke-QuietCheck 'chart-state-live-ssot' $node @('--test', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\chart-state-live-ssot.test.mjs')
     Invoke-QuietCheck 'chart-state-runtime-audit' $node @('--test', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\chart-state-runtime-audit.test.mjs')
     Invoke-QuietCheck 'chart-pane-layout-ratio' $node @('--test', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\chart-pane-layout-ratio-restore.test.mjs')
+    Invoke-QuietCheck 'stable-pane-identity' $node @('--test', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\stable-pane-identity.test.mjs')
     Invoke-QuietCheck 'compare-subject-startup' $node @('--test', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\compare-subject-startup-restore.test.mjs')
     Invoke-QuietCheck 'viewport-authority' $node @('--test', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\market-chart-startup-viewport-authority.test.mjs')
     Invoke-QuietCheck 'workspace-startup' $node @('--test', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\market-chart-workspace-initial-load.test.mjs')
