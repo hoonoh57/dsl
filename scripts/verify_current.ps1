@@ -64,6 +64,7 @@ try {
     Invoke-QuietCheck 'workspace-startup' $node @('--test', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\market-chart-workspace-initial-load.test.mjs')
     Invoke-QuietCheck 'product-state-restart' $node @('--test', 'chart_bridge\chart_single_json_state.test.mjs')
     Invoke-QuietCheck 'chart-bridge' $node @('--test', 'chart_bridge\chart_platform_server.test.mjs')
+    Invoke-QuietCheck 'console-policy' $python @('-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_console_output_policy.py')
     Invoke-QuietCheck 'frozen-core' $python @('-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_frozen_legacy_core_guard.py')
 
     Write-Host '[PASS] current verification passed' -ForegroundColor Green
