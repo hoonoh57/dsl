@@ -40,7 +40,7 @@ test('workspace timeframe JSON store is versioned, explicit, and fail-closed', a
       schemaVersion: 1,
       timeframe: { period: 'minute', interval: '5' },
     });
-    assert.throws(() => store.save({ period: 'minute', interval: '999' }), /unsupported/);
+    await assert.rejects(store.save({ period: 'minute', interval: '999' }), /unsupported/);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
