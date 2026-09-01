@@ -29,73 +29,85 @@ Final checkpoint = STEP15_REPO_WIDE_COMPLIANCE_CHECKPOINT_2026-09-01.md
 
 ## UIA-1 현재 결함과 수정
 
-사용자 UI에서 연속으로 두 가지 시작상태 복원 결함이 확인됐다.
-
-첫 번째:
+첫 번째 시작 결함:
 
 ```text
-프로그램 시작 직후 toolbar/state는 보이지만 primary candle chart는 빈 화면
-수동으로 조회를 눌러야 최초 candle/indicator render 시작
+프로그램 시작 직후 primary candle chart 빈 화면
+수동 조회가 최초 load trigger
 ```
 
 분류:
 
 ```text
-Bridge / Runtime UI startup ordering defect
+Bridge / Runtime startup ordering defect
 ```
 
 수정:
 
 ```text
-persistence hydrate / UI wiring 완료
- -> 기존 manual 조회와 동일한 loadInitial() 자동 1회 await
+persistence hydrate / UI wiring
+ -> 기존 loadInitial() 자동 1회
  -> READY
 ```
 
-두 번째:
+두 번째 시작상태 결함:
 
 ```text
-1분봉을 선택한 뒤 화면을 다시 열면 차트가 다시 일봉으로 시작
+5분봉을 실제 표시한 뒤 브라우저 종료/재기동
+ -> 다시 일봉으로 시작
 ```
+
+초기 localStorage-only 보존 방식은 managed browser lifecycle에서 durable product state로 충분하지 않았다.
 
 분류:
 
 ```text
-UI workspace persistence defect
+JSON persistence boundary defect
 ```
-
-원인은 chart workspace가 표시 봉 수와 최근 종목만 기억하고 timeframe은 매번 `day`로 하드 초기화하던 것이다.
 
 수정:
 
 ```text
-사용자가 선택한 chart timeframe(period + interval)을 workspace preference로 저장
- -> 시작 시 저장값을 strict validation
- -> 저장값이 유효하면 default day보다 먼저 복원
- -> 복원된 timeframe으로 기존 loadInitial() 자동 실행
+chart timeframe(period + interval)
+ -> shell preference port
+ -> Bridge JSON persistence
+ -> .runtime/dsl-stack/chart-workspace-timeframe.json
+ -> 다음 browser bootstrap에서 hydrate
+ -> MarketChartWorkspace가 복원값으로 자동 loadInitial()
 ```
 
-지원 주기는 현재 chart source가 허용하는 월/주/일, 모든 지원 분봉 interval, 모든 지원 tick interval만 그대로 허용한다. 손상되거나 지원되지 않는 저장값은 기본 일봉으로 fail-closed fallback한다.
+영속성 규칙:
+
+```text
+schemaVersion 명시
+지원 월/주/일 + 지원 분봉/틱 interval만 허용
+지원되지 않는 값 저장 거부
+ordered PUT save
+browser unload 시 latest state beacon POST
+DSL 제품 JSON port가 localStorage fallback보다 우선
+```
 
 경계:
 
 ```text
 DSL/Core 계산 변경 없음
-Add-on 전략/timeframe 검증 변경 없음
-전략/지표 JSON schema에 workspace UI preference를 혼입하지 않음
+Add-on 전략/timeframe validation 변경 없음
+strategy/add-on JSON과 workspace JSON 분리
+Bridge/JSON 계층은 계산/보정 없음
 root frozen core 변경 없음
 ```
 
 ## UIA-1 user-local 완료 조건
 
 ```text
-focused startup-load test PASS
-workspace timeframe persistence test PASS
+startup-load focused test PASS
+chart shell timeframe preference test PASS
+browser JSON persistence port test PASS
+server JSON persistence restart test PASS
 chart bridge server regression PASS
 frozen core guard PASS
-UI 시작 직후 조회 클릭 없이 candle chart 표시
-1분봉 선택 후 재시작해도 1분봉 유지 + 자동 candle load
-Add-on 오류가 있어도 base candle chart는 표시
+UI: 분 -> 5 -> 조회 -> browser 종료 -> 재기동
+UI: 조회 클릭 없이 5분봉과 candle 자동 복원
 ```
 
 위 조건 PASS 전 다음 UI 기능으로 넘어가지 않는다.
