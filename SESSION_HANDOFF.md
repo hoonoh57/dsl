@@ -8,6 +8,8 @@ Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 
 
 > 사용자 진행보고는 기본적으로 `한 일 / 할 일`만 사람이 이해하는 용어로 짧게 한다.
 
+> 정상 콘솔은 최종 `[PASS]` 한 줄만, 실패 시에는 실패한 부분의 오류 구간만 제한된 길이로 출력한다. 전체 원시 로그는 내부 파일에 유지한다.
+
 > 현재 단계는 지금까지 이식한 DSL 기능을 실제 UI 경로에서 하나씩 일관성 검증하는 단계다.
 
 ## 현재 상태
@@ -23,6 +25,7 @@ STATUS = WRITTEN / REMOTE_UNVALIDATED
 
 ```text
 DSL_UI_CONSISTENCY_ACCEPTANCE_POLICY.md
+DSL_HUMAN_COMMUNICATION_OUTPUT_POLICY.md
 ```
 
 ## 사용자 최신 영속성 권한
@@ -100,6 +103,21 @@ single Chart State hydrate
 
 기존 `_chart.json` + Add-on별 JSON shard가 남아 있는 환경은 unified state가 없을 때 한 번 읽어 `chart-state.json`으로 migration한 뒤 shard를 제거한다. 이후 모든 semantic change는 full document atomic rewrite로 같은 파일 하나에 저장한다.
 
+## 콘솔 출력 수정
+
+기존 raw test output과 startup 단계별 INFO/PASS가 오류를 밀어내는 문제가 있었다.
+
+현재 규칙:
+
+```text
+start/restart/stop 성공 -> 최종 PASS 한 줄
+verify 성공             -> 최종 PASS 한 줄
+실패                     -> 실패한 명령/서비스 + 오류 구간만 출력
+전체 stdout/stderr       -> .runtime 내부 로그 파일에 유지
+```
+
+현재 검증은 raw `node --test ...` 묶음을 사용자에게 직접 실행시키지 않고 `verify.bat` 하나로 수행한다.
+
 ## 계층 분리
 
 ```text
@@ -121,12 +139,16 @@ Core
 ```text
 git pull --ff-only origin dsl-live-studio
 git submodule update --init --recursive
-node --test vendor\kiwoom-condition\condition1516\chart-platform\tests\chart-single-json-state.test.mjs
-node --test vendor\kiwoom-condition\condition1516\chart-platform\tests\market-chart-workspace-initial-load.test.mjs
-node --test chart_bridge\chart_single_json_state.test.mjs
-node --test chart_bridge\chart_platform_server.test.mjs
-python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py" -v
+verify.bat
 ```
+
+정상이면 콘솔은 다음 한 줄만 보여야 한다.
+
+```text
+[PASS] current verification passed
+```
+
+실패하면 성공한 테스트 출력은 숨기고 실패한 명령의 오류 구간만 보여야 한다.
 
 UI에서는 5분봉뿐 아니라 종목/표시범위/수익률 모드/지표 파라미터 등 의미 있는 상태를 바꾼 뒤 브라우저를 종료·재기동하여 동일하게 복원되는지 확인한다.
 
