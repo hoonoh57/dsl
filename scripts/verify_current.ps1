@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Stop'
 
 $Root = Split-Path -Parent $PSScriptRoot
+Set-Location $Root
 $RuntimeDir = Join-Path $Root '.runtime\verification'
 New-Item -ItemType Directory -Path $RuntimeDir -Force | Out-Null
 
