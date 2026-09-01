@@ -97,3 +97,14 @@ test('unload beacon POST uses the same validation and cannot persist unsupported
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('workspace JSON persistence remains a one-way data layer dependency', async () => {
+  const persistenceSource = await readFile(new URL('../persistence/chart_workspace/timeframe_json.mjs', import.meta.url), 'utf8');
+  const bridgeSource = await readFile(new URL('./chart_platform_server.mjs', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(persistenceSource, /axes\//);
+  assert.doesNotMatch(persistenceSource, /addons\//);
+  assert.doesNotMatch(persistenceSource, /core\//);
+  assert.match(bridgeSource, /\.\.\/persistence\/chart_workspace\/timeframe_json\.mjs/);
+  assert.doesNotMatch(bridgeSource, /\.\/workspace_timeframe_persistence\.mjs/);
+});
