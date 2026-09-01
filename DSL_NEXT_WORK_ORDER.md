@@ -9,7 +9,7 @@ Status: **UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 KST**
 ```text
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-SUBSTEP_STATUS = AUTO USER-LOCAL PASS / REAL UI REVALIDATION REQUIRED
+SUBSTEP_STATUS = SUPERTrend REAL UI PASS / PANE HEIGHT FAIL / FIX WRITTEN / REVALIDATION REQUIRED
 ```
 
 기준 정책:
@@ -48,50 +48,55 @@ addons
   add-on pane layout / geometry points
 ```
 
-## 실제 UI 실패에서 추가 확인된 원인
+## 최신 실제 UI 결과
 
 ```text
-older queued full-state save
-latest browser-close full-state save
- -> request completion/order inversion
- -> older document may overwrite latest document
+SuperTrend 재기동 복원 = PASS
+거래량 pane 높이 복원 = FAIL
+서브차트 지표 pane 높이 복원 = FAIL
 ```
+
+현재 원인 분류:
+
+```text
+JSON persistence = height state authority 보유
+startup projection = FAIL
+```
+
+startup 동안 native chart/add-on pane 생성이 저장 높이를 다시 배치하며, 그 자동 배치값이 사용자 상태처럼 관찰될 수 있었다.
 
 수정:
 
 ```text
-every semantic state mutation -> stateRevision +1
-full JSON -> stateRevision persisted
-JSON writes -> serialized
-stale lower-revision write -> rejected
+startup auto-layout observation -> 저장 금지
+JSON persisted heights -> startup authority 유지
+all add-ons idle -> primary/add-on pane 높이 재적용
+multiple layout frames -> 재적용 반복
+stabilization complete -> 이후 사용자 resize만 저장
 ```
 
-회귀검증은 실제 실패 순서를 포함한다.
+회귀검증:
 
 ```text
-latest close-state POST
- -> delayed older PUT
- -> restore
- -> latest SuperTrend/layout/workspace must remain
-```
-
-2026-09-01 사용자 로컬 자동 재검증:
-
-```text
-verify.bat -> [PASS] current verification passed
+persisted volume/sub-pane heights
+ -> native startup auto-layout changes actual heights
+ -> persisted state must remain unchanged
+ -> stabilization
+ -> actual panes must equal persisted heights
+ -> later user resize must persist normally
 ```
 
 ## UIA-1 완료 조건
 
-이제 남은 조건은 실제 UI 재검증이다.
+자동검증과 실제 UI 모두 통과해야 한다.
 
 ```text
 SuperTrend 삽입
-메인/서브 패널 높이 변경
+거래량/서브 패널 높이 변경
 브라우저 종료
 재기동
  -> SuperTrend 복원
- -> 메인/서브 높이 복원
+ -> 거래량/서브 높이 복원
  -> 기존 timeframe/workspace 유지
  -> PERSISTENCE ERROR 없음
 ```
@@ -118,7 +123,7 @@ JSON persistence에서 계산/지표 의미판정 금지
 기능별 persistent side-store 추가 금지
 localStorage를 제품 상태 authority로 사용 금지
 검증 assertion 약화/skip 금지
-older state가 latest revision을 overwrite하는 것 금지
+startup 자동 레이아웃이 persisted pane state를 authority처럼 덮어쓰는 것 금지
 ```
 
 ## 이후 UI 기능 검증 순서
