@@ -9,7 +9,7 @@ Status: **UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 KST**
 ```text
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-SUBSTEP_STATUS = WRITTEN / REMOTE_UNVALIDATED
+SUBSTEP_STATUS = AUTOMATED USER-LOCAL PASS / MANUAL UI RESTORE PENDING
 ```
 
 기준 정책:
@@ -85,17 +85,34 @@ _chart.json + addon별 *.json
 전체 raw output -> .runtime 내부 로그에 보존
 ```
 
-성공한 test case/TAP/단계별 INFO/PASS를 콘솔에 연속 출력하여 실제 오류를 밀어내는 것을 금지한다.
-
 5. PowerShell 5.1 native stderr 판정 결함:
 
-Python unittest는 정상 진행표시도 stderr로 쓸 수 있으므로 stderr 존재 자체를 실패로 취급하지 않는다.
+Python unittest의 정상 stderr 출력은 실패 근거가 아니다.
 
 ```text
 child stdout -> internal .out.log
 child stderr -> internal .err.log
 success/failure authority -> child process exit code only
 failure console -> failed check + bounded stderr/stdout context
+```
+
+## 현재 검증 상태
+
+2026-09-01 사용자 로컬:
+
+```text
+verify.bat -> [PASS] current verification passed
+```
+
+따라서 다음 자동 항목은 USER-LOCAL PASS다.
+
+```text
+single JSON chart-state focused test
+startup automatic-load regression
+product server restart roundtrip
+chart bridge regression
+console output policy guard
+frozen core guard
 ```
 
 ## 수정 경계
@@ -122,42 +139,9 @@ localStorage를 제품 상태 authority로 사용 금지
 stderr 존재만으로 native command 실패 판정 금지
 ```
 
-## UIA-1 user-local 완료 조건
+## UIA-1 남은 완료 조건
 
-사용자 명령은 다음으로 통일한다.
-
-```text
-git pull --ff-only origin dsl-live-studio
-git submodule update --init --recursive
-verify.bat
-```
-
-`verify.bat` 내부 완료 조건:
-
-```text
-single JSON chart-state focused test PASS
-startup automatic-load regression PASS
-product server restart roundtrip PASS
-chart bridge regression PASS
-console output policy guard PASS
-frozen core guard PASS
-```
-
-성공 시 콘솔 acceptance:
-
-```text
-[PASS] current verification passed
-```
-
-실패 시 콘솔 acceptance:
-
-```text
-성공한 테스트 상세 출력 없음
-실패한 check 이름 표시
-실제 failure/traceback/assertion 구간만 제한된 길이로 표시
-```
-
-UI acceptance:
+실제 UI acceptance만 남아 있다.
 
 ```text
 5분봉 + 종목/표시범위/수익률 모드/지표 설정 등 변경
@@ -174,7 +158,7 @@ runtime chart state directory의 JSON state file = chart-state.json 하나
 Add-on instance state의 exact point coordinates roundtrip 가능
 ```
 
-위 조건 PASS 전 다음 UI 기능으로 넘어가지 않는다.
+위 실제 UI 복원까지 PASS 전 다음 UI 기능으로 넘어가지 않는다.
 
 ## 이후 UI 기능 검증 순서
 
