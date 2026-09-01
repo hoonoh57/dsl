@@ -1,6 +1,6 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / ACTIVE / FINAL STEP 15 / 2026-09-01 KST**
+Status: **PRIMARY HUMAN HANDOFF / FINAL STABLE / ALL PLANNED STEPS COMPLETE / 2026-09-01 KST**
 
 이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + user-local PASS + 현재 `dsl-live-studio` 상태가 stale 문서보다 우선한다.
 
@@ -10,86 +10,46 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / FINAL STEP 15 / 2026-09-01 KST**
 
 > 세 축의 계산 권한을 섞지 않는다. Historical 문서는 evidence로 보존하되 current authority가 아니다.
 
----
-
-## 현재 작업
+## 현재 상태
 
 ```text
-CURRENT_STEP = 15
-CURRENT_SUBSTEP = 15-1 legacy docs disposition + deterministic repo-wide compliance audit
-STATUS = WRITTEN / REMOTE_UNVALIDATED
+CURRENT_STEP = COMPLETE
+STATUS = FINAL USER-LOCAL PASS
+PLANNED SEQUENCE = Steps 1 through 15 complete
+NEXT ACTION = none until a new user-requested tranche begins
 ```
 
-완료:
+최종 checkpoint:
 
 ```text
-Step 1~13 = COMPLETE / USER-LOCAL PASS
-Step 14 Final natural-language E2E acceptance = COMPLETE / USER-LOCAL PASS
+STEP15_REPO_WIDE_COMPLIANCE_CHECKPOINT_2026-09-01.md
 ```
 
-최근 checkpoint:
+문서 authority:
 
 ```text
-STEP14_FINAL_NATURAL_LANGUAGE_E2E_CHECKPOINT_2026-09-01.md
+1. SESSION_HANDOFF.md
+2. DSL_NEXT_WORK_ORDER.md
+3. CURRENT_STATE.md
+4. DSL_DOCUMENT_AUTHORITY_INDEX.md
+5. active architecture/policy documents
+6. checkpoints/evidence
+7. historical documents
 ```
 
-Step 14 user-local evidence:
+## 최종 구조
 
 ```text
-test_final_natural_language_e2e.py = OK
-test_three_axis_e2e_bridge.py = OK
-test_axis1_execution_bridge_contract.py = OK
-test_external_llm_authoring_lane.py = OK
-test_authoring_continuous_improvement.py = OK
-test_frozen_legacy_core_guard.py = OK
-```
-
-Step 14 중 tamper test가 immutable tuple을 직접 수정한 test defect가 1건 있었고 test fixture만 수정 후 focused + regression이 모두 PASS했다.
-
----
-
-## 현재 Step 15 구현
-
-### 문서 authority 정리
-
-신규:
-
-```text
-DSL_DOCUMENT_AUTHORITY_INDEX.md
-```
-
-지위:
-
-```text
-ACTIVE AUTHORITY
-FROZEN AUDIT / MIGRATION EVIDENCE
-HISTORICAL / NON-AUTHORITATIVE
-```
-
-과거 `DSL_LIVE_STUDIO_FEATURE_CATALOG_V2/V3/V4`, `CTX*.md`, `E*.md`, `H*.md`, `ADAPTIVE_*.md` 등은 삭제하지 않고 historical evidence로 보존한다. 현재 기능지원/아키텍처 SSOT로 사용하지 않는다.
-
-정렬한 active 문서:
-
-```text
-CURRENT_STATE.md
-DSL_THREE_AXIS_FINAL_TARGET.md
-DSL_THREE_AXIS_MODULE_BOUNDARY.md
-axes/axis1_dsl/README.md
-axes/axis2_selection/README.md
-```
-
-현재 exact 책임:
-
-```text
-AXIS 1 = single-instrument DSL/runtime/execution
-AXIS 2 = exact-PIT selection semantics / filter / rank / top-N / evidence
+AXIS 1 = deterministic single-instrument DSL/runtime/execution
+AXIS 2 = immutable exact-PIT selection semantics / filter / rank / top-N / evidence
 AXIS 3 = Condition/Strategy immutable version lifecycle + orchestration
-Bridge = versioned Request -> Response composition
-External LLM = proposal-only
-Continuous Improvement = analysis-only / no automatic mutation
+Bridge = versioned Request -> Response cross-axis composition
+External LLM = proposal-only authoring
+Continuous Improvement = evidence analysis only / no automatic mutation
+Chart = supplied result/projection display only
 ```
 
-Condition:
+Condition 권한:
 
 ```text
 selection semantics = AXIS 2
@@ -100,41 +60,50 @@ artifact lifecycle  = AXIS 3
 
 ```text
 AXIS 2 CandidateSet
- -> AXIS 3 promoted exact artifacts + RunPlan
+ -> AXIS 3 promoted exact Condition/Strategy + RunPlan
  -> Bridge all-candidate preflight
- -> AXIS 1 one-symbol execution
+ -> AXIS 1 deterministic one-symbol execution
 ```
 
-### Repo compliance audit
-
-신규:
+## 완료 범위
 
 ```text
-compliance/__init__.py
-compliance/repo_audit.py
-tests/test_repo_wide_compliance.py
+Step 1  legacy capability audit
+Step 2  migration manifest/boundaries
+Step 3  frozen core guard
+Step 4  AXIS 1 migration parity
+Step 5  additive DSL/execution features + verification
+Step 6  capability/diagnostic registry
+Step 7  common Bridge + AXIS 1 execution contract
+Step 8  AXIS 2 exact-as-of snapshot
+Step 9  AXIS 2 selection engine
+Step 10 AXIS 3 CRUD + orchestration
+Step 11 three-axis E2E Bridge
+Step 12 External LLM authoring lane
+Step 13 Continuous Improvement analysis
+Step 14 final natural-language E2E acceptance
+Step 15 repo-wide compliance + legacy-document disposition
 ```
 
-read-only deterministic audit:
+## 최종 user-local evidence
+
+사용자가 마지막 요청된 전체 회귀 세트를 모두 `OK`로 확인했다.
 
 ```text
-axis sibling direct imports
-frozen root core runtime imports
-Bridge contract data-only
-Bridge composition allowlist
-External authoring execution authority leak
-Continuous Improvement axis/Bridge authority leak
-critical regression skip/expectedFailure
-active document ownership/order
-legacy document disposition
-stable report hash
+test_repo_wide_compliance.py = OK
+test_final_natural_language_e2e.py = OK
+test_three_axis_e2e_bridge.py = OK
+test_axis1_execution_bridge_contract.py = OK
+test_axis1_full_engine_parity.py = OK
+test_axis2_exact_asof_snapshot.py = OK
+test_axis2_selection_engine.py = OK
+test_axis3_crud_orchestration.py = OK
+test_external_llm_authoring_lane.py = OK
+test_authoring_continuous_improvement.py = OK
+test_frozen_legacy_core_guard.py = OK
 ```
 
-Frozen core tree exact 검증은 기존 guard test를 그대로 사용한다.
-
----
-
-## Frozen legacy Core — 절대 보존
+## Frozen legacy Core — 영구 보존
 
 ```text
 path: core/
@@ -142,24 +111,21 @@ freeze source: 20b963749052f0d0e42506024a02e4e218a4d05a
 core tree: 8b3f081de926f5c9f69e9cdbc158b81b2275176c
 ```
 
----
+수정/이동/추가/삭제 금지.
 
-## 다음 exact action
+## 새 작업 시작 규칙
 
-사용자 local에서 최신 branch pull 후:
+현재 strict remediation sequence는 종료되었다. 새 세션에서 사용자가 기능 추가나 수정 요청을 하면 과거 Step을 임의로 다시 열지 말고 **새 tranche**로 시작한다.
+
+새 tranche는:
 
 ```text
-python -m unittest discover -s tests -p "test_repo_wide_compliance.py" -v
-python -m unittest discover -s tests -p "test_final_natural_language_e2e.py" -v
-python -m unittest discover -s tests -p "test_three_axis_e2e_bridge.py" -v
-python -m unittest discover -s tests -p "test_axis1_execution_bridge_contract.py" -v
-python -m unittest discover -s tests -p "test_axis2_selection_engine.py" -v
-python -m unittest discover -s tests -p "test_axis3_crud_orchestration.py" -v
-python -m unittest discover -s tests -p "test_external_llm_authoring_lane.py" -v
-python -m unittest discover -s tests -p "test_authoring_continuous_improvement.py" -v
-python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py" -v
+현재 authority 확인
+ -> 필요한 최소 경계 정의
+ -> 구현
+ -> focused verification
+ -> 관련 regression
+ -> frozen-core guard 유지
 ```
-
-모두 PASS하면 Step 15 final checkpoint를 만들고 모든 계획된 작업을 COMPLETE로 닫는다.
 
 실패 시 test defect / feature defect / authority drift / environment issue / unknown으로 먼저 분류하고 assertion/contract를 약화하지 않는다.
