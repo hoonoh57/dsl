@@ -9,7 +9,7 @@ Status: **UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 KST**
 ```text
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-SUBSTEP_STATUS = REAL UI FAILURE FIX WRITTEN / USER-LOCAL REVALIDATION REQUIRED
+SUBSTEP_STATUS = LIVE STATE RACE FIX WRITTEN / USER-LOCAL REVALIDATION REQUIRED
 ```
 
 기준 정책:
@@ -59,12 +59,15 @@ SuperTrend 삽입
  -> 상태 복원 실패
 ```
 
-원인:
+확인된 원인:
 
 ```text
 transient persistence fetch 실패 후 기본상태 운영 가능
 primary pane 높이의 SSOT 연결 누락
 기존 test가 실제 UI state-event path를 검증하지 않음
+primary pane observer 초기 예약값이 최신 resize를 뒤늦게 덮어쓸 수 있음
+검증 실패 시 observer timer가 남아 node test가 종료되지 않을 수 있음
+verify wrapper에 child timeout이 없음
 ```
 
 수정:
@@ -74,6 +77,10 @@ transient persistence load -> retry
 JSON authority unavailable -> mutable chart state attach 차단
 primary pane resize -> workspace.layout.primaryPanes
 add-on pane resize -> addons[*].state.__layout
+primary pane initial notification -> delivery 시점 latest snapshot만 사용
+node fallback observer timer -> process exit를 막지 않음
+live-state regression cleanup -> finally 보장
+verify child check -> bounded timeout + failure location 출력
 rapid changes -> latest full document coalesced save
 unload -> latest full document flush
 ```
@@ -97,6 +104,8 @@ SuperTrend enable
 + timeframe 유지
  -> same full state document
 ```
+
+검증이 비정상 대기하면 무한정 멈추지 않고 해당 check를 timeout 실패로 출력해야 한다.
 
 성공 콘솔:
 
@@ -142,6 +151,7 @@ JSON persistence에서 계산/의미판정 금지
 localStorage를 제품 상태 authority로 사용 금지
 검증 assertion 약화/skip 금지
 JSON authority를 읽지 못한 상태에서 defaults를 새 authority처럼 저장 금지
+검증 child process 무한 대기 허용 금지
 ```
 
 ## 이후 UI 기능 검증 순서
