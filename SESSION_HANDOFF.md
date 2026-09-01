@@ -63,10 +63,17 @@ JSON persistence boundary defect
 ```text
 UI timeframe 선택
  -> chart shell preference port
- -> Bridge의 versioned JSON file persistence
+ -> Bridge / Runtime route
+ -> 별도 JSON persistence layer
  -> 다음 bootstrap에서 JSON을 먼저 hydrate
  -> 기존 MarketChartWorkspace mount
  -> 복원된 timeframe으로 startup loadInitial()
+```
+
+실제 JSON 저장 로직은 Bridge 내부가 아니라 다음 물리 계층에 분리한다.
+
+```text
+persistence/chart_workspace/timeframe_json.mjs
 ```
 
 제품 영속 파일:
@@ -87,7 +94,8 @@ chart-platform standalone에서는 기존 localStorage fallback을 유지하지�
 DSL/Core 계산 변경 없음
 Add-on 전략/timeframe 검증 변경 없음
 Chart workspace preference와 strategy/add-on JSON 분리 유지
-Bridge는 저장/복원만 수행하고 timeframe 의미를 재계산하지 않음
+Bridge / Runtime = route/adaptation only
+JSON persistence = schema validation + atomic file read/write only
 root frozen core 변경 없음
 ```
 
