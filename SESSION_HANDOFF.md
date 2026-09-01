@@ -15,7 +15,7 @@ Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / 2026-09-01 
 ```text
 PREVIOUS REMEDIATION = Steps 1 through 15 COMPLETE / USER-LOCAL PASS
 CURRENT_WORK = UI-ACCEPTANCE
-CURRENT_SUBSTEP = UIA-1 startup restore / automatic primary chart load
+CURRENT_SUBSTEP = UIA-1 startup/workspace state restore
 STATUS = WRITTEN / REMOTE_UNVALIDATED
 ```
 
@@ -27,15 +27,15 @@ DSL_UI_CONSISTENCY_ACCEPTANCE_POLICY.md
 
 ## UIA-1 현재 수정
 
-사용자 화면에서 시작 직후 KOSPI 001 / 일봉 UI는 복원됐지만 candle chart가 비어 있고, `조회`를 눌러야 최초 화면이 렌더되는 문제가 확인됐다.
+### 1. 시작 직후 빈 차트
 
-원인 분류:
+사용자 화면에서 시작 직후 UI는 보이지만 candle chart가 비어 있고 `조회`를 눌러야 최초 화면이 렌더되는 문제가 확인됐다.
+
+분류:
 
 ```text
 Bridge / Runtime startup ordering defect
 ```
-
-코드상 `MarketChartWorkspace.mount()`는 persistence hydrate와 UI/runtime 연결까지만 수행하고 기존 manual `loadInitial()` 호출 없이 READY를 반환했다.
 
 최소 수정:
 
@@ -46,18 +46,32 @@ state hydrate
  -> READY
 ```
 
-수정 소유 위치는 chart-platform shell/runtime이며 DSL Core, Add-on 계산, JSON schema는 변경하지 않았다.
+### 2. 1분봉 재시작 시 일봉으로 복귀
 
-같은 chart-platform에 focused regression을 추가했고 `dsl-live-studio`는 수정된 submodule revision을 pin한다.
+사용자가 1분봉을 선택하고 화면을 다시 열면 timeframe이 다시 일봉으로 초기화되는 문제가 이어서 확인됐다.
 
-별도 관찰:
+분류:
 
 ```text
-현재 chart = 1일
-persisted DSL strategy timeframe = 1m
+UI workspace persistence defect
 ```
 
-이 mismatch는 기존 fail-closed Add-on 검증이며 base candle startup defect와 분리한다. 이를 해결한다는 이유로 Core/Bridge에서 timeframe을 자동 변조하지 않는다.
+원인은 chart workspace가 최근 종목/표시 봉 수는 기억하지만 timeframe은 항상 `day`로 초기화하던 것이다.
+
+최소 수정:
+
+```text
+chart timeframe(period + interval) workspace preference 저장
+ -> 시작 시 strict validation
+ -> 유효한 저장값을 default day보다 먼저 적용
+ -> 그 timeframe으로 startup loadInitial() 실행
+```
+
+월/주/일, 현재 지원되는 모든 분봉 interval, 모든 tick interval을 같은 규칙으로 처리한다. 잘못된 저장값은 사용하지 않고 기본 일봉으로 돌아간다.
+
+이 workspace preference는 전략/지표 Add-on JSON과 별개의 UI 상태다. 이를 전략 JSON schema에 섞거나 DSL Core/Bridge에서 timeframe을 자동 보정하지 않는다.
+
+수정 소유 위치는 chart-platform shell/UI state이며 DSL Core, Add-on 계산, frozen legacy core는 변경하지 않았다.
 
 ## UIA-1 다음 검증
 
@@ -67,6 +81,7 @@ persisted DSL strategy timeframe = 1m
 git pull --ff-only origin dsl-live-studio
 git submodule update --init --recursive
 node --test vendor\kiwoom-condition\condition1516\chart-platform\tests\market-chart-workspace-initial-load.test.mjs
+node --test vendor\kiwoom-condition\condition1516\chart-platform\tests\workspace-timeframe-preference.test.mjs
 node --test chart_bridge\chart_platform_server.test.mjs
 python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py" -v
 ```
@@ -75,7 +90,9 @@ python -m unittest discover -s tests -p "test_frozen_legacy_core_guard.py" -v
 
 ```text
 조회 클릭 없이 시작 직후 candle chart 표시
-Add-on 오류가 있더라도 base candle chart 유지
+분 -> 1 선택 후 화면 재시작
+재시작 직후 1분봉 그대로 유지
+저장된 1분봉으로 candle chart 자동 조회
 ```
 
 을 확인한다. PASS 전 다음 기능으로 넘어가지 않는다.
