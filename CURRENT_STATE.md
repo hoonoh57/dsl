@@ -10,9 +10,10 @@ Updated: 2026-09-02 KST
 2. DSL_NEXT_WORK_ORDER.md
 3. CURRENT_STATE.md
 4. DSL_DOCUMENT_AUTHORITY_INDEX.md
-5. active architecture/policy documents
-6. checkpoints/evidence
-7. historical documents
+5. DSL_IMPLEMENTATION_COMPLIANCE_GATE.md
+6. active architecture/policy documents
+7. checkpoints/evidence
+8. historical documents
 ```
 
 ## Current branch
@@ -23,8 +24,6 @@ dsl-live-studio
 
 `main`은 현재 작업 권한이 아니다.
 
-## Completed baseline
-
 기존 strict remediation Steps 1~15는 모두 **COMPLETE / USER-LOCAL PASS**다.
 
 ## Current active work — UIA-1
@@ -32,9 +31,10 @@ dsl-live-studio
 목표:
 
 ```text
-모든 의미 있는 UI 변경
+meaningful UI state
  -> one logical Chart State
  -> one JSON persistence path
+ -> Runtime-owned object graph
  -> next-session semantic exact restore
 ```
 
@@ -46,96 +46,70 @@ vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart
 
 ## Latest real-UI failure
 
-실제 UI 전수복원 gate가 다음 실패를 함께 검출했다.
-
 ```text
-primary price pane layout mismatch
 persisted compare-1 / compare-2 / compare-3 pane missing
 ```
 
-viewport one-bar shift는 이후 수정으로 제거되었다.
+이 오류는 저장 JSON이 틀렸다는 뜻이 아니라 JSON에 존재하는 persistent object가 Runtime에서 생성되지 않았다는 뜻이다.
 
-## Latest automated failure classification
+## Root cause now confirmed
 
-2026-09-02 user-local `verify.bat`에서 `chart-state-runtime-audit`가 실패했다.
-
-원인은 저장 대상이 아닌 native pane의 높이까지 비율 분모에 포함시킨 **검증 계산 결함**이었다.
-
-수정 원칙:
+기본 차트 엔진을 다시 추적한 결과 `research.compare-subjects`만 일반 Add-on lifecycle을 우회하고 있었다.
 
 ```text
-persisted managed panes = restore authority
-unmanaged native panes  = 비율 분모에서 제외
-persisted pane missing  = hard FAIL 유지
+현재 위반 구조
+JSON compare node
+ -> registered Runtime Add-on: state normalize only
+ -> UI Workspace / ShellController: compare pane 직접 생성
 ```
 
-동일 계산을 runtime audit과 layout stabilizer 양쪽에 적용했다.
+따라서 JSON state authority와 object lifecycle authority가 둘로 갈라져 선택적 복원 실패가 발생했다.
 
-## Corrected restore authority
+정상 구조는 다음 하나뿐이다.
 
 ```text
-hydrate chart-state.json
- -> construct primary chart
- -> restore registered Add-ons
- -> primary request becomes ready
- -> restore compare subjects
- -> restore complete persisted pane layout as one ratio vector
- -> reassert persisted startup viewport
- -> capture actual live runtime snapshot
- -> exhaustive compare against persisted JSON
- -> PASS: persistence attach
- -> FAIL: persistence remains detached + all mismatches reported
+JSON compare node
+ -> Runtime registration/reconcile
+ -> Compare Runtime Add-on
+ -> generic subjectViews capability
+ -> compare pane create/dispose/visible/state
 ```
 
-### Pane layout semantic
+UI shell은 add/replace/remove/select를 state-port에 기록하는 역할만 갖는다.
 
-저장된 각 pane 높이는 **저장 대상 pane들 사이의 상대 배치 비율**의 근거다.
+## Implementation compliance gate
 
-저장 대상이 아닌 native pane은 전체 canvas 높이를 소비할 수 있으므로 persisted ratio의 분모가 아니다.
+`DSL_IMPLEMENTATION_COMPLIANCE_GATE.md`를 신규 active authority로 추가했다.
+
+모든 production 수정 전에 반드시:
 
 ```text
-saved managed pane heights
- -> managed-pane relative weights
- -> native pane indices에 bulk 적용
- -> managed-pane proportional runtime audit
+owner boundary 확정
+existing generic engine end-to-end 추적
+state SSOT 확정
+persistent object lifecycle authority 확정
+금지 인접계층 명시
+architecture invariant test 선행
 ```
 
-저장된 pane 자체가 누락되면 계속 hard FAIL이다.
+을 수행한다.
 
-### Viewport semantic
+`verify.bat`은 이제 기능 테스트보다 먼저 `architecture-compliance`를 실행한다. 구조 위반이면 후속 behavior test가 PASS여도 전체 검증은 FAIL이다.
 
-startup 조립 중 발생하는 임시 logical range는 persisted authority를 바꾸지 않는다. 최종 layout 안정화 전후에 저장된 viewport를 다시 적용하고 workspace 문서도 원래 viewport/visibleCount로 복구한 뒤 audit한다.
+현재 compare 구현은 새 architecture gate가 의도적으로 차단해야 하는 known violation이다. 이 위반을 제거하기 전 추가 높이/비율/타이밍 보정은 금지한다.
 
-### Compare subject semantic
+## Four-boundary authorities
 
-저장된 비교종목은 primary request가 준비된 뒤 생성한다. 생성 실패는 `missing`으로 숨기지 않고 실제 pane별 원인을 restore failure로 노출한다.
-
-## Verification scope now pinned
-
-자동검증 범위:
+제품 실행:
 
 ```text
-whole-chart ratio layout restore
-unmanaged native pane coexistence
-missing persisted pane fail-closed
-compare-subject deferred startup restore
-concrete compare restore error propagation
-startup viewport authority reassertion
-existing exhaustive runtime audit
-single JSON SSOT / persistence / console / frozen-core guards
+AXIS 1
+AXIS 2
+AXIS 3
+Bridge
 ```
 
-현재 상태:
-
-```text
-LATEST REAL UI FAILURE = CONFIRMED
-UNMANAGED-PANE AUDIT DEFECT = FIXED
-USER-LOCAL AUTO REVALIDATION = REQUIRED
-REAL UI REVALIDATION = REQUIRED
-UIA-1 = NOT PASS YET
-```
-
-## Layer authority
+UI/Chart:
 
 ```text
 Core
@@ -144,10 +118,19 @@ Core
  -> JSON persistence
 ```
 
-- Core = deterministic DSL/parser/runtime/indicator/execution meaning. UI 복원 특례 금지.
-- Bridge/Runtime = lifecycle/routing/state observation/layout projection/runtime audit. feature calculation 금지.
-- Add-ons = feature-specific behavior/private state.
-- JSON persistence = serialization/hydrate/atomic write/stale-write rejection only.
+두 경계를 모두 통과해야 구현 가능하다.
+
+## Current status
+
+```text
+LATEST REAL UI FAILURE = CONFIRMED
+COMPARE OBJECT-LIFECYCLE AUTHORITY VIOLATION = CONFIRMED
+IMPLEMENTATION COMPLIANCE POLICY = ACTIVE
+ARCHITECTURE GATE = INSTALLED
+NEXT = REFACTOR COMPARE TO RUNTIME-OWNED JSON ATTACH/DETACH
+USER-LOCAL REVALIDATION = NOT REQUESTED YET
+UIA-1 = NOT PASS YET
+```
 
 ## Frozen legacy Core
 
