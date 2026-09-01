@@ -13,6 +13,56 @@ PROMPT_TEMPLATE_VERSION = "external_authoring_prompt/v1"
 CORRECTION_TEMPLATE_VERSION = "external_authoring_correction_prompt/v1"
 SKILL_VERSION = "dsl-external-authoring-skill/v2-generated-manifest"
 
+DSL_SYNTAX_REFERENCE = r'''AXIS 1 DSL syntax reference (use an advanced form only when its capability is SUPPORTED):
+
+strategy "NAME" {
+    timeframe = "15m"
+    input threshold = 1.0
+    basis = ta.ema(close, 20)
+    state armed = false
+
+    on_bar {
+        if (close > basis) {
+            set armed = true
+        }
+        else {
+            set armed = false
+        }
+    }
+
+    enter = armed and ta.crossover(close, basis)
+    on(enter) { order.buy(type = "MARKET") }
+}
+
+Pure user function:
+function centered(source, period) {
+    basis = ta.sma(source, period)
+    return source - basis
+}
+
+Bounded loop (inside a supported user function; compile-time constant range only):
+for i in range(0, 3) {
+    total = total + source[i]
+}
+
+Registered multi-output destructuring:
+upper, middle, lower = ta.bbands(close, 20, 2)
+
+Intrabar state handlers:
+on_tick {
+    if (tick.price > peak) {
+        set peak = tick.price
+    }
+}
+on_fill {
+    set fill_count = fill_count + 1
+}
+
+Read-only context uses exact manifest IDs only:
+reference_hist = ctx.selection.reference_hist
+
+Do not invent syntax for partial fills, pyramiding, universe search, peer ranking, provider calls, or persistence. Those are separate execution/product capabilities, not implied DSL grammar.'''
+
 
 class PromptBuildError(ValueError):
     pass
@@ -58,6 +108,9 @@ def build_initial_prompt(*, request_id: str, user_request: str, manifest: Author
             "REQUEST_METADATA",
             _dump(envelope),
             "",
+            "DSL_SYNTAX_REFERENCE",
+            DSL_SYNTAX_REFERENCE,
+            "",
             "VERBATIM_USER_REQUEST",
             request_text,
             "",
@@ -102,6 +155,9 @@ def build_correction_prompt(
             "",
             "CORRECTION_METADATA",
             _dump(correction),
+            "",
+            "DSL_SYNTAX_REFERENCE",
+            DSL_SYNTAX_REFERENCE,
             "",
             "ORIGINAL_USER_REQUEST",
             str(user_request),
