@@ -8,7 +8,8 @@ import { ChartAddonJsonStore } from '../vendor/kiwoom-condition/condition1516/ch
 import { MySqlDailyMarketDataRepository } from '../vendor/kiwoom-condition/condition1516/chart-platform/src/server/market-data/MySqlDailyMarketDataRepository.mjs';
 import { createChartAddonPersistenceMiddleware } from '../vendor/kiwoom-condition/condition1516/chart-platform/src/shell/index-wysiwyg/ChartAddonPersistenceHttpHost.mjs';
 import { createIndexWysiwygProxy, createIndexWysiwygProxyMiddleware } from '../vendor/kiwoom-condition/condition1516/chart-platform/src/shell/index-wysiwyg/IndexWysiwygHttpHost.mjs';
-import { WorkspaceTimeframeJsonStore, createWorkspaceTimeframePersistenceMiddleware } from '../persistence/chart_workspace/timeframe_json.mjs';
+import { WorkspaceTimeframeJsonStore } from '../persistence/chart_workspace/timeframe_json.mjs';
+import { createWorkspaceTimeframePersistenceMiddleware } from './workspace_timeframe_route.mjs';
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_PROJECT_ROOT = path.resolve(moduleDir, '..');
