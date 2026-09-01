@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import hashlib
+import json
 from typing import Any, Mapping, Sequence
 
 from authoring.external_llm.manifest import AuthoringManifest
@@ -72,14 +73,26 @@ class HumanMediatedAuthoringSession:
             accepted_assumption_ids=tuple(sorted(self.accepted_assumption_ids)),
         )
         correction: str | None = None
-        if report.final_status == "REQUIRES_CORRECTION" and report.draft is not None:
-            correction = build_correction_prompt(
-                request_id=self.request_id,
-                user_request=self.user_request,
-                previous_draft=report.draft,
-                errors=validation_errors(report),
-                manifest=self.manifest,
-            )
+        if report.final_status == "REQUIRES_CORRECTION":
+            errors = validation_errors(report)
+            if report.draft is not None:
+                correction = build_correction_prompt(
+                    request_id=self.request_id,
+                    user_request=self.user_request,
+                    previous_draft=report.draft,
+                    errors=errors,
+                    manifest=self.manifest,
+                )
+            else:
+                correction = "\n".join(
+                    [
+                        self.initial_prompt(),
+                        "",
+                        "VALIDATION_ERRORS",
+                        json.dumps(errors, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False),
+                        "The previous response could not be ingested as a structured draft. Return corrected JSON only.",
+                    ]
+                )
         self.history.append(
             AuthoringIteration(
                 iteration=len(self.history),
