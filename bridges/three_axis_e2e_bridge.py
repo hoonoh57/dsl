@@ -20,7 +20,7 @@ from bridges.contracts.three_axis_e2e import (
     ThreeAxisE2ERequest,
     ThreeAxisE2EResponse,
 )
-from bridges.axis1_execution_bridge import execute_axis1_request
+from bridges.axis1_execution_bridge import execute_axis1_request, preflight_axis1_request
 from axes.axis2_selection.snapshots.exact_asof import (
     ExactAsOfSnapshotError,
     PointInTimeSnapshot,
@@ -154,12 +154,13 @@ class ThreeAxisE2EBridge:
             plan_payload = run_plan.public_dict()
             trace["axis3_run_plan"] = plan_payload
 
-            # Preflight every selected candidate before starting AXIS 1 calls so
-            # a missing/bad later market input cannot create a partial pipeline.
-            axis1_requests = [
-                cls._axis1_request(request, intent.public_dict())
-                for intent in run_plan.intents
-            ]
+            # Build and fully preflight every selected candidate before starting
+            # any AXIS 1 call.  This includes exact prepared-context binding hash
+            # validation, so a bad later candidate cannot create a partial run.
+            axis1_requests: list[Axis1ExecutionRequest] = []
+            for intent in run_plan.intents:
+                prepared = cls._axis1_request(request, intent.public_dict())
+                axis1_requests.append(preflight_axis1_request(prepared.public_dict()))
 
             rejected_symbols: list[str] = []
             execution_trace: list[dict[str, Any]] = []
