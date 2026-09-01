@@ -19,11 +19,16 @@ class ConsoleOutputPolicyTest(unittest.TestCase):
         self.assertEqual(source.count("Write-Pass 'Chart restarted'"), 1)
         self.assertEqual(source.count("Write-Pass 'DSL chart stack stopped'"), 1)
 
-    def test_verification_hides_success_detail_and_shows_only_failed_command_output(self):
+    def test_verification_hides_success_detail_and_preserves_failure_source_context(self):
         source = (ROOT / "scripts" / "verify_current.ps1").read_text(encoding="utf-8")
         self.assertIn("> $log 2>&1", source)
         self.assertIn("Show-FailedCommandOutput", source)
         self.assertIn("Get-Content -Path $LogPath -Tail 120", source)
+        self.assertIn("$matchIndex - 3", source)
+        self.assertIn("SyntaxError", source)
+        self.assertIn("'syntax-product-state-test'", source)
+        self.assertIn("'syntax-chart-server'", source)
+        self.assertIn("@('--check'", source)
         self.assertIn("[PASS] current verification passed", source)
         self.assertNotIn("Write-Host \"[PASS] $Label", source)
 
