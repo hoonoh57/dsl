@@ -19,11 +19,19 @@ class ConsoleOutputPolicyTest(unittest.TestCase):
         self.assertEqual(source.count("Write-Pass 'Chart restarted'"), 1)
         self.assertEqual(source.count("Write-Pass 'DSL chart stack stopped'"), 1)
 
+    def test_verification_uses_exit_code_not_stderr_as_failure_authority(self):
+        source = (ROOT / "scripts" / "verify_current.ps1").read_text(encoding="utf-8")
+        self.assertIn("Start-Process -FilePath $Executable", source)
+        self.assertIn("RedirectStandardOutput $outLog", source)
+        self.assertIn("RedirectStandardError $errLog", source)
+        self.assertIn("-Wait -PassThru", source)
+        self.assertIn("$process.ExitCode -ne 0", source)
+        self.assertNotIn("& $Executable @Arguments > $log 2>&1", source)
+
     def test_verification_hides_success_detail_and_preserves_failure_source_context(self):
         source = (ROOT / "scripts" / "verify_current.ps1").read_text(encoding="utf-8")
-        self.assertIn("> $log 2>&1", source)
         self.assertIn("Show-FailedCommandOutput", source)
-        self.assertIn("Get-Content -Path $LogPath -Tail 120", source)
+        self.assertIn("Get-Content -Path $path -Tail 120", source)
         self.assertIn("$matchIndex - 3", source)
         self.assertIn("SyntaxError", source)
         self.assertIn("'syntax-product-state-test'", source)
