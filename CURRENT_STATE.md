@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **FINAL THREE-AXIS BASELINE PASS / UI CONSISTENCY ACCEPTANCE ACTIVE**  
+Status: **FINAL THREE-AXIS BASELINE PASS / UI CONSISTENCY ACCEPTANCE ACTIVE / COMPARE RUNTIME OWNERSHIP REMOTE PASS / USER-LOCAL REVALIDATION PENDING**  
 Updated: 2026-09-02 KST
 
 ## Recovery authority
@@ -44,93 +44,100 @@ canonical runtime state:
 vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart-state.json
 ```
 
-## Latest real-UI failure
+## Confirmed prior real-UI failure
 
 ```text
 persisted compare-1 / compare-2 / compare-3 pane missing
 ```
 
-이 오류는 저장 JSON이 틀렸다는 뜻이 아니라 JSON에 존재하는 persistent object가 Runtime에서 생성되지 않았다는 뜻이다.
+원인은 JSON 손상이 아니라 `research.compare-subjects`의 object lifecycle이 일반 Add-on Runtime을 우회하고 UI에 존재했던 것이었다.
 
-## Root cause now confirmed
+## Current corrected architecture
 
-기본 차트 엔진을 다시 추적한 결과 `research.compare-subjects`만 일반 Add-on lifecycle을 우회하고 있었다.
-
-```text
-현재 위반 구조
-JSON compare node
- -> registered Runtime Add-on: state normalize only
- -> UI Workspace / ShellController: compare pane 직접 생성
-```
-
-따라서 JSON state authority와 object lifecycle authority가 둘로 갈라져 선택적 복원 실패가 발생했다.
-
-정상 구조는 다음 하나뿐이다.
+단일 경로:
 
 ```text
-JSON compare node
+Chart State JSON
  -> Runtime registration/reconcile
  -> Compare Runtime Add-on
- -> generic subjectViews capability
- -> compare pane create/dispose/visible/state
+ -> generic subjectViews / ChartSubjectViewManager
+ -> persistent compare pane
 ```
 
-UI shell은 add/replace/remove/select를 state-port에 기록하는 역할만 갖는다.
+UI shell:
+
+```text
+add / replace / remove / select / timeframe
+ -> state-port write only
+```
+
+금지된 alternate lifecycle path는 없다.
+
+## Active execution repository
+
+```text
+dsl-live-studio
+ -> vendor/kiwoom-condition
+ -> condition1516/chart-platform
+```
+
+현재 gitlink:
+
+```text
+vendor/kiwoom-condition = 1d7277eb2040c6d7c79a243573d2598bc5c8584c
+```
+
+원격 검증 evidence:
+
+```text
+kiwoom-condition Add-on boundary audit = PASS
+kiwoom-condition Chart platform npm test = 93 / 93 PASS
+```
 
 ## Implementation compliance gate
 
-`DSL_IMPLEMENTATION_COMPLIANCE_GATE.md`를 신규 active authority로 추가했다.
+`DSL_IMPLEMENTATION_COMPLIANCE_GATE.md`는 계속 active authority다.
 
-모든 production 수정 전에 반드시:
-
-```text
-owner boundary 확정
-existing generic engine end-to-end 추적
-state SSOT 확정
-persistent object lifecycle authority 확정
-금지 인접계층 명시
-architecture invariant test 선행
-```
-
-을 수행한다.
-
-`verify.bat`은 이제 기능 테스트보다 먼저 `architecture-compliance`를 실행한다. 구조 위반이면 후속 behavior test가 PASS여도 전체 검증은 FAIL이다.
-
-현재 compare 구현은 새 architecture gate가 의도적으로 차단해야 하는 known violation이다. 이 위반을 제거하기 전 추가 높이/비율/타이밍 보정은 금지한다.
-
-## Four-boundary authorities
-
-제품 실행:
+`verify.bat`은 다음 순서로 fail-closed 검증한다.
 
 ```text
-AXIS 1
-AXIS 2
-AXIS 3
-Bridge
+architecture-compliance
+ -> generic Add-on boundary audit
+ -> syntax
+ -> focused chart/runtime regression
+ -> compare runtime ownership regression
+ -> single JSON persistence
+ -> console policy
+ -> frozen core
 ```
 
-UI/Chart:
-
-```text
-Core
- -> Bridge / Runtime
- -> Add-ons
- -> JSON persistence
-```
-
-두 경계를 모두 통과해야 구현 가능하다.
+구조 위반은 behavior PASS로 덮지 않는다.
 
 ## Current status
 
 ```text
-LATEST REAL UI FAILURE = CONFIRMED
-COMPARE OBJECT-LIFECYCLE AUTHORITY VIOLATION = CONFIRMED
-IMPLEMENTATION COMPLIANCE POLICY = ACTIVE
-ARCHITECTURE GATE = INSTALLED
-NEXT = REFACTOR COMPARE TO RUNTIME-OWNED JSON ATTACH/DETACH
-USER-LOCAL REVALIDATION = NOT REQUESTED YET
-UIA-1 = NOT PASS YET
+LATEST REAL UI FAILURE = PREVIOUSLY CONFIRMED
+COMPARE OBJECT-LIFECYCLE AUTHORITY VIOLATION = REMOTE CODE REMEDIATED
+REMOTE STRUCTURE / CONTRACT VERIFICATION = PASS
+DSL SUBMODULE LINK = UPDATED TO VERIFIED CHART COMMIT
+USER-LOCAL REVALIDATION = READY / PENDING
+UIA-1 = NOT PASS YET UNTIL REAL UI RESTART ACCEPTANCE
+GLOBAL COMPLIANCE = REMEDIATION_REQUIRED
 ```
+
+## Next exact action
+
+사용자 로컬 `dsl-live-studio`에서 generated/state evidence를 지우지 않고:
+
+```text
+git pull --ff-only
+git submodule update --init --recursive
+verify.bat
+```
+
+자동검증 PASS 뒤 실제 UI 재기동으로 compare add/replace/select/delete, persisted auto-restore, pane height, TF sync, 동일지표를 확인한다.
+
+가장 중요한 acceptance는 저장된 compare pane이 재기동 후 재추가/재조회 없이 자동 복원되는 것이다.
 
 ## Frozen legacy Core
 
