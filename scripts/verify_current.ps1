@@ -118,6 +118,7 @@ try {
     $python = Resolve-Executable 'python.exe'
 
     Invoke-QuietCheck 'architecture-compliance' $python @('-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_implementation_compliance_gate.py')
+    Invoke-QuietCheck 'addon-boundaries' $node @('vendor\kiwoom-condition\condition1516\chart-platform\scripts\audit-addon-boundaries.mjs')
 
     Invoke-QuietCheck 'syntax-product-state-test' $node @('--check', 'chart_bridge\chart_single_json_state.test.mjs')
     Invoke-QuietCheck 'syntax-chart-server' $node @('--check', 'chart_bridge\chart_platform_server.mjs')
@@ -129,6 +130,8 @@ try {
     Invoke-QuietCheck 'syntax-primary-layout' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\adapters\chart\PrimaryPaneLayoutSurface.mjs')
     Invoke-QuietCheck 'syntax-stable-pane' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\adapters\chart\StablePaneIdentitySurface.mjs')
     Invoke-QuietCheck 'syntax-runtime-audit' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\runtime\chart\ChartStateRuntimeAudit.mjs')
+    Invoke-QuietCheck 'syntax-subject-view-manager' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\runtime\chart\ChartSubjectViewManager.mjs')
+    Invoke-QuietCheck 'syntax-compare-runtime-addon' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\addons\research\CompareSubjectsRuntimeAddon.mjs')
     Invoke-QuietCheck 'syntax-market-chart' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\composition\MarketChart.mjs')
     Invoke-QuietCheck 'syntax-compare-controller' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\addons\research\CompareSubjectsShellController.mjs')
     Invoke-QuietCheck 'syntax-workspace' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\src\shell\index-wysiwyg\MarketChartWorkspace.mjs')
@@ -137,6 +140,7 @@ try {
     Invoke-QuietCheck 'syntax-pane-ratio-test' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\chart-pane-layout-ratio-restore.test.mjs')
     Invoke-QuietCheck 'syntax-stable-pane-test' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\stable-pane-identity.test.mjs')
     Invoke-QuietCheck 'syntax-compare-startup-test' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\compare-subject-startup-restore.test.mjs')
+    Invoke-QuietCheck 'syntax-compare-ownership-test' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\compare-subject-runtime-ownership.test.mjs')
     Invoke-QuietCheck 'syntax-viewport-authority-test' $node @('--check', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\market-chart-startup-viewport-authority.test.mjs')
 
     Invoke-QuietCheck 'chart-state' $node @('--test', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\chart-single-json-state.test.mjs')
@@ -145,6 +149,7 @@ try {
     Invoke-QuietCheck 'chart-pane-layout-ratio' $node @('--test', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\chart-pane-layout-ratio-restore.test.mjs')
     Invoke-QuietCheck 'stable-pane-identity' $node @('--test', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\stable-pane-identity.test.mjs')
     Invoke-QuietCheck 'compare-subject-startup' $node @('--test', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\compare-subject-startup-restore.test.mjs')
+    Invoke-QuietCheck 'compare-runtime-ownership' $node @('--test', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\compare-subject-runtime-ownership.test.mjs')
     Invoke-QuietCheck 'viewport-authority' $node @('--test', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\market-chart-startup-viewport-authority.test.mjs')
     Invoke-QuietCheck 'workspace-startup' $node @('--test', 'vendor\kiwoom-condition\condition1516\chart-platform\tests\market-chart-workspace-initial-load.test.mjs')
     Invoke-QuietCheck 'product-state-restart' $node @('--test', 'chart_bridge\chart_single_json_state.test.mjs')
