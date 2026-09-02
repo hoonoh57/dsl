@@ -1,20 +1,18 @@
 # DSL Strict Sequential Next-Work Order
 
-Status: **UI CONSISTENCY ACCEPTANCE ACTIVE / ARCHITECTURE GATE ENFORCED / 2026-09-02 KST**
+Status: **UI CONSISTENCY ACCEPTANCE ACTIVE / COMPARE RUNTIME OWNERSHIP REMOTE PASS / USER-LOCAL REVALIDATION PENDING / 2026-09-02 KST**
 
-기존 remediation Steps 1~15는 USER-LOCAL PASS로 완료되었다. 현재 UIA-1은 기능 패치가 아니라 구조 위반 제거를 먼저 수행한다.
+기존 remediation Steps 1~15는 USER-LOCAL PASS로 완료되었다. 현재 UIA-1의 구조 위반 제거는 원격 구현/검증까지 완료되었고, 다음 단계는 user-local 자동검증 + 실제 UI 재기동 acceptance다.
 
 ## 현재 포인터
 
 ```text
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-SUBSTEP_STATUS = ARCHITECTURE VIOLATION CONFIRMED / RUNTIME OWNERSHIP REFACTOR REQUIRED
+SUBSTEP_STATUS = RUNTIME OWNERSHIP REMOTE PASS / USER-LOCAL REVALIDATION READY
 ```
 
 ## CURRENT_IMPLEMENTATION_CONTRACT
-
-모든 production 수정 전에 이 계약을 먼저 확정하며, 구현 중 소유권이 바뀌면 코드를 멈추고 계약부터 다시 작성한다.
 
 ```text
 OWNER_BOUNDARY = Add-on + generic Chart Runtime capability
@@ -26,50 +24,47 @@ FAILURE_MODE = fail-closed; persisted JSON preserved
 ARCH_INVARIANT = JSON compare node alone must create/dispose/visible the same runtime panes without UI view factory
 ```
 
-## 구현 전 강제 게이트
+이 계약은 구현 완료 후에도 regression authority로 유지한다.
 
-모든 production 코드 수정 전에 `DSL_IMPLEMENTATION_COMPLIANCE_GATE.md`를 적용한다.
-
-```text
-1. owner boundary 확정
-2. existing generic engine path end-to-end 추적
-3. state SSOT 확정
-4. persistent object lifecycle authority 확정
-5. forbidden adjacent-layer behavior 명시
-6. architecture invariant test로 위반구조를 먼저 FAIL시킴
-7. 그 뒤 production 구현
-```
-
-하나라도 unknown이면 구현하지 않고 감사/추적을 계속한다.
-
-## 현재 확인된 compare 위반
-
-```text
-JSON research.compare-subjects
- -> Runtime Add-on은 state normalize만 수행
- -> MarketChartWorkspace / ShellController가 pane을 별도 생성
-```
-
-이 이중경로 때문에 JSON에 저장된 `compare-1/2/3`가 정상이어도 재기동 Runtime object graph에는 pane이 없을 수 있었다.
-
-## 이번 수정의 유일한 목표 구조
+## 현재 구현된 구조
 
 ```text
 Chart State JSON
  -> Runtime registration/reconcile
  -> Compare Runtime Add-on
- -> generic subjectViews capability
+ -> generic subjectViews / ChartSubjectViewManager
  -> compare pane create/dispose/visibility/property/layout
 ```
 
 UI shell:
 
 ```text
-add / replace / remove / select 명령
+add / replace / remove / select / timeframe
  -> state-port write only
 ```
 
-UI shell의 persistent pane 직접 생성은 금지한다.
+UI shell의 persistent pane / bar-window / projection / legend 직접 생성은 제거되었다.
+
+## 실제 실행 연결
+
+```text
+dsl-live-studio
+ -> vendor/kiwoom-condition
+ -> condition1516/chart-platform
+```
+
+검증 완료 Chart commit:
+
+```text
+1d7277eb2040c6d7c79a243573d2598bc5c8584c
+```
+
+원격 evidence:
+
+```text
+Add-on boundary audit = PASS
+Chart platform npm test = 93 / 93 PASS
+```
 
 ## 현재 SSOT
 
@@ -77,7 +72,7 @@ UI shell의 persistent pane 직접 생성은 금지한다.
 vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart-state.json
 ```
 
-`enabled / visible / state`가 같은 JSON이면 재기동 후 동일한 Add-on object graph가 만들어져야 한다.
+`enabled / visible / state / layout`가 같은 JSON이면 재기동 후 같은 persistent object graph가 생성되어야 한다.
 
 ## 자동검증 순서
 
@@ -85,8 +80,10 @@ vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart
 
 ```text
 architecture-compliance
+ -> generic Add-on boundary audit
  -> syntax
  -> focused chart/runtime regression
+ -> compare runtime ownership regression
  -> single JSON persistence
  -> console policy
  -> frozen core
@@ -94,32 +91,23 @@ architecture-compliance
 
 architecture-compliance FAIL은 behavior PASS로 덮지 않는다.
 
-현재 architecture gate는 다음을 직접 검사한다.
+## 다음 작업 — user-local validation only
+
+사용자 작업 브랜치는 `dsl-live-studio`다. `origin/main`을 섞지 않는다.
 
 ```text
-current implementation contract 존재
-axis sibling direct import 금지
-Bridge contract data-only
-UI shell의 compare persistent pane 직접 생성 금지
-Compare Runtime Add-on의 generic subjectViews 사용 필수
-persistence layer feature-specific authority 금지
-frozen legacy core dependency 금지
+1. git pull --ff-only
+2. git submodule update --init --recursive
+3. verify.bat
+4. 자동검증 PASS면 실제 Market Chart 실행
+5. 비교종목 add / replace / select / delete 확인
+6. pane 높이 변경 후 재기동 높이 복원 확인
+7. 저장된 비교종목 pane이 재기동 후 재조회/재추가 없이 자동 복원되는지 확인
+8. TF동기 확인
+9. 동일지표 ON/OFF 확인
 ```
 
-## 다음 구현 작업
-
-```text
-1. Compare Runtime Add-on이 JSON subjects를 generic subjectViews로 reconcile
-2. ShellController에서 persistent view factory/pane 생성 authority 제거
-3. Workspace에서 compare pane 직접 생성 코드 제거
-4. JSON -> Runtime Add-on -> pane 생성/삭제/표시 회귀검증
-5. 기존 compare UI 명령은 state-port write만 수행하도록 유지
-6. architecture-compliance PASS
-7. 전체 verify PASS
-8. 실제 UI 재기동 검증
-```
-
-이 구조 수정이 끝나기 전에는 높이/비율/타이밍 보정을 추가하지 않는다.
+실제 UI 재기동 acceptance가 PASS하기 전에는 UIA-1을 완료로 승격하지 않는다.
 
 ## 절대 규칙
 
@@ -130,5 +118,8 @@ localStorage product-state authority 금지
 UI controller의 Add-on lifecycle 우회 금지
 동일 기능의 두 번째 restore path 금지
 assertion 완화/skip/allowlist 금지
+origin/main을 현재 작업브랜치에 pull하지 않음
+user-local strategies.db / artifact_history evidence를 destructive reset으로 삭제하지 않음
 실제 UI PASS 전 UIA-1 완료 금지
+repository-wide compliance PASS 선언 금지
 ```
