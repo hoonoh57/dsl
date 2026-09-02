@@ -1,6 +1,6 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / ARCHITECTURE GATE ENFORCED / 2026-09-02 KST**
+Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / COMPARE RUNTIME OWNERSHIP REMOTE PASS / USER-LOCAL REVALIDATION PENDING / 2026-09-02 KST**
 
 이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + user-local 결과 + 현재 `dsl-live-studio` 상태가 stale 문서보다 우선한다.
 
@@ -20,10 +20,10 @@ Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / ARCHITECTUR
 PREVIOUS REMEDIATION = Steps 1 through 15 COMPLETE / USER-LOCAL PASS
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-STATUS = COMPARE OBJECT-LIFECYCLE AUTHORITY VIOLATION CONFIRMED / RUNTIME REFACTOR REQUIRED
+STATUS = COMPARE RUNTIME OWNERSHIP REFACTOR REMOTE PASS / USER-LOCAL REVALIDATION PENDING
 ```
 
-## 이번에 확인된 근본 원인
+## 확정된 근본 원인
 
 저장 JSON 자체가 틀린 것이 아니었다.
 
@@ -32,47 +32,61 @@ JSON에는 compare-1 / compare-2 / compare-3 + layout 존재
 Runtime 실제 object graph에는 compare pane missing
 ```
 
-기본엔진을 재추적한 결과 비교종목만 일반 Add-on lifecycle을 우회하고 있었다.
+비교종목만 일반 Add-on lifecycle을 우회하여 JSON state authority와 persistent object lifecycle authority가 분리되어 있었다.
+
+구 위반 구조:
 
 ```text
-위반 구조
 JSON compare node
  -> registered Runtime Add-on: state normalize only
  -> UI Workspace / ShellController: persistent compare pane 직접 생성
 ```
 
-따라서 state authority와 object lifecycle authority가 둘로 갈라져 선택적 복원이 발생했다.
-
-## 정상 JSON 착탈 구조
+## 현재 구현된 단일 정상 경로
 
 ```text
-JSON add-on node
+chart-state JSON
  -> Runtime registration/reconcile
- -> Add-on instance
- -> Add-on-owned object/pane create/dispose/visible
- -> state/property/layout projection
+ -> Compare Runtime Add-on
+ -> generic subjectViews / ChartSubjectViewManager
+ -> persistent compare pane
 ```
 
-비교종목도 예외 없이:
+UI shell은 다음만 수행한다.
 
 ```text
-JSON compare node
- -> Compare Runtime Add-on
- -> generic subjectViews capability
- -> compare panes
+add / replace / remove / select / timeframe
+ -> state-port write
 ```
 
-이어야 한다.
+UI의 pane / bar-window / projection / legend 생성·복원 권한은 제거되었다.
 
-UI shell은 add/replace/remove/select를 state-port에 쓰는 역할만 갖는다.
+## 실제 실행 repo 연결
+
+```text
+dsl-live-studio
+ -> vendor/kiwoom-condition
+ -> condition1516/chart-platform
+```
+
+현재 `dsl-live-studio`의 `vendor/kiwoom-condition` gitlink는 다음 검증 완료 commit을 가리킨다.
+
+```text
+kiwoom-condition/main = 1d7277eb2040c6d7c79a243573d2598bc5c8584c
+```
+
+해당 Chart platform 원격 검증:
+
+```text
+Add-on boundary audit = PASS
+Chart platform npm test = 93 / 93 PASS
+```
+
+이는 이번 변경분 검증이며 repository-wide compliance clearance를 뜻하지 않는다.
 
 ## 신규 구현 준수 게이트
 
-신규 active authority:
-
-```text
-DSL_IMPLEMENTATION_COMPLIANCE_GATE.md
-```
+`DSL_IMPLEMENTATION_COMPLIANCE_GATE.md`가 active authority다.
 
 production 수정 전에 반드시:
 
@@ -87,55 +101,47 @@ architecture invariant regression
 
 을 확정한다.
 
-`verify.bat`은 이제 모든 기능 테스트보다 먼저 `architecture-compliance`를 실행한다.
+`verify.bat`은 기능 테스트보다 먼저 architecture-compliance와 generic Add-on boundary audit을 실행하고, compare runtime ownership 회귀검증도 포함한다.
 
-현재 gate는 특히 다음 구조를 금지한다.
+## 지금 사용자에게 요청할 검증
 
-```text
-axis sibling imports
-Bridge contract implementation import
-UI shell의 compare persistent pane 직접 생성
-Compare Runtime Add-on이 object lifecycle을 소유하지 않는 구조
-feature-specific persistence authority
-localStorage product state
-frozen legacy core dependency
-```
+사용자 작업 브랜치는 `main`이 아니라 `dsl-live-studio`다.
 
-## 현재 다음 작업
+로컬 dirty state (`strategies.db`, `artifact_history/...`)를 보존한 채 다음 순서만 사용한다.
 
 ```text
-1. Compare Runtime Add-on -> generic subjectViews로 JSON subjects reconcile
-2. Compare ShellController의 view factory/object creation authority 제거
-3. MarketChartWorkspace의 compare pane 직접 생성 제거
-4. JSON만으로 add/remove/visible/property/layout 재생성 검증
-5. architecture-compliance PASS
-6. 전체 verify PASS
-7. 실제 UI 재기동 검증
+git pull --ff-only
+git submodule update --init --recursive
+verify.bat
 ```
 
-구조 수정이 끝나기 전에는 pane 높이/비율/타이밍을 더 보정하지 않는다.
-
-## 분리 원칙
-
-제품 실행:
+그 뒤 실제 UI에서 다음을 확인한다.
 
 ```text
-AXIS 1
-AXIS 2
-AXIS 3
-Bridge
+비교종목 추가
+선택 비교종목 교체
+선택
+삭제
+pane 높이 변경 후 재기동 복원
+저장된 비교종목 pane의 재기동 자동 복원
+TF 동기
+동일지표 ON/OFF
 ```
 
-UI/Chart:
+가장 중요한 acceptance는 재기동 후 별도 재조회/재추가 없이 저장된 compare pane이 Runtime object graph에 자동 복원되는 것이다.
+
+## 절대 금지
 
 ```text
-Core
- -> Bridge / Runtime
- -> Add-ons
- -> JSON persistence
+origin/main pull로 현재 작업브랜치를 섞지 않는다.
+reset --hard로 user-local generated/state evidence를 지우지 않는다.
+UI-created persistent comparison panes를 되살리지 않는다.
+Runtime restore path와 UI restore path를 동시에 두지 않는다.
+Core/Runtime에 feature-specific compatibility branch를 넣지 않는다.
+test allowlist/assertion weakening/fallback으로 green을 만들지 않는다.
+실제 UI PASS 전 UIA-1 완료를 선언하지 않는다.
+repository-wide compliance PASS를 선언하지 않는다.
 ```
-
-둘 다 항상 준수한다.
 
 ## Frozen legacy Core
 
