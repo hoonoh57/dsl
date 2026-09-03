@@ -79,6 +79,24 @@ function Get-PythonPath {
     return $python
 }
 
+function Invoke-NativeCaptured([string]$FilePath, [string[]]$Arguments) {
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $output = & $FilePath @Arguments 2>&1
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+    return @{ Output=@($output); ExitCode=$exitCode }
+}
+
+function Get-NativeFailureTail([object[]]$Output) {
+    if ($null -eq $Output -or $Output.Count -eq 0) { return '' }
+    return ((@($Output) | Select-Object -Last 5) -join ' | ')
+}
+
 function Test-HttpMarker([string]$Url, [string]$Marker) {
     try {
         $response = Invoke-WebRequest -UseBasicParsing -Uri $Url -TimeoutSec 2
@@ -146,21 +164,39 @@ function Assert-Preflight {
 
     $node = Get-CommandPath 'node.exe'; if ($null -eq $node) { $node = Get-CommandPath 'node' }
     if ($null -eq $node) { Fail 'Node.js is required.' }
-    $nodeText = (& $node --version 2>&1 | Select-Object -First 1)
+    $nodeVersion = Invoke-NativeCaptured $node @('--version')
+    if ($nodeVersion.ExitCode -ne 0) { Fail 'Unable to read Node.js version.' }
+    $nodeText = [string]($nodeVersion.Output | Select-Object -First 1)
     $nodeMajorText = ([string]$nodeText).Trim().TrimStart('v').Split('.')[0]
     $nodeMajor = 0
     if (-not [int]::TryParse($nodeMajorText, [ref]$nodeMajor) -or $nodeMajor -lt 24) { Fail ('Chart SSOT requires Node.js >= 24; found ' + $nodeText) }
 
     $python = Get-PythonPath
     if ($null -eq $python) { Fail 'Python is required.' }
-    $pythonVersionText = (& $python --version 2>&1 | Select-Object -First 1)
-    & $python -c 'import fastapi,uvicorn,numpy,pydantic,pymysql; import tactical_main' 2>$null
-    if ($LASTEXITCODE -ne 0) {
-        if (-not $InstallDependencies) { Fail 'Tactical Python dependencies/imports are missing. Re-run with -InstallDependencies.' }
-        & $python -m pip install -r (Join-Path $DslRoot 'requirements.txt')
-        if ($LASTEXITCODE -ne 0) { Fail 'Python dependency installation failed.' }
-        & $python -c 'import fastapi,uvicorn,numpy,pydantic,pymysql; import tactical_main' 2>$null
-        if ($LASTEXITCODE -ne 0) { Fail 'tactical_main import failed after dependency installation.' }
+    $pythonVersion = Invoke-NativeCaptured $python @('--version')
+    if ($pythonVersion.ExitCode -ne 0) { Fail 'Unable to read Python version.' }
+    $pythonVersionText = [string]($pythonVersion.Output | Select-Object -First 1)
+
+    $importArgs = @('-c', 'import fastapi,uvicorn,numpy,pydantic,pymysql; import tactical_main')
+    $pythonImport = Invoke-NativeCaptured $python $importArgs
+    if ($pythonImport.ExitCode -ne 0) {
+        if (-not $InstallDependencies) {
+            $details = Get-NativeFailureTail $pythonImport.Output
+            if ([string]::IsNullOrWhiteSpace($details)) { Fail 'Tactical Python dependencies/imports are missing. Re-run with -InstallDependencies.' }
+            Fail ('Tactical Python dependencies/imports are missing. Re-run with -InstallDependencies. Details: ' + $details)
+        }
+        $install = Invoke-NativeCaptured $python @('-m', 'pip', 'install', '-r', (Join-Path $DslRoot 'requirements.txt'))
+        if ($install.ExitCode -ne 0) {
+            $details = Get-NativeFailureTail $install.Output
+            if ([string]::IsNullOrWhiteSpace($details)) { Fail 'Python dependency installation failed.' }
+            Fail ('Python dependency installation failed. Details: ' + $details)
+        }
+        $pythonImport = Invoke-NativeCaptured $python $importArgs
+        if ($pythonImport.ExitCode -ne 0) {
+            $details = Get-NativeFailureTail $pythonImport.Output
+            if ([string]::IsNullOrWhiteSpace($details)) { Fail 'tactical_main import failed after dependency installation.' }
+            Fail ('tactical_main import failed after dependency installation. Details: ' + $details)
+        }
     }
 
     $chartDependency = Join-Path $ChartRepo 'node_modules\lightweight-charts\package.json'
@@ -169,7 +205,14 @@ function Assert-Preflight {
         $npm = Get-CommandPath 'npm.cmd'; if ($null -eq $npm) { $npm = Get-CommandPath 'npm' }
         if ($null -eq $npm) { Fail 'npm is required.' }
         Push-Location $ChartRepo
-        try { & $npm install; if ($LASTEXITCODE -ne 0) { Fail 'Chart dependency installation failed.' } }
+        try {
+            $npmInstall = Invoke-NativeCaptured $npm @('install')
+            if ($npmInstall.ExitCode -ne 0) {
+                $details = Get-NativeFailureTail $npmInstall.Output
+                if ([string]::IsNullOrWhiteSpace($details)) { Fail 'Chart dependency installation failed.' }
+                Fail ('Chart dependency installation failed. Details: ' + $details)
+            }
+        }
         finally { Pop-Location }
     }
     return @{ Node=$node; Python=$python; NodeVersion=[string]$nodeText; PythonVersion=[string]$pythonVersionText }
