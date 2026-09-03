@@ -1,7 +1,7 @@
 # Quant DSL Current State
 
-Status: **FINAL THREE-AXIS BASELINE PASS / UI CONSISTENCY ACCEPTANCE ACTIVE / COMPARE RUNTIME OWNERSHIP REMOTE PASS / USER-LOCAL REVALIDATION PENDING**  
-Updated: 2026-09-02 KST
+Status: **FINAL THREE-AXIS BASELINE PASS / UI CONSISTENCY ACCEPTANCE ACTIVE / STARTUP RESTORE RACE FIX REMOTE PASS / USER-LOCAL REVALIDATION PENDING**  
+Updated: 2026-09-03 KST
 
 ## Recovery authority
 
@@ -44,14 +44,6 @@ canonical runtime state:
 vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart-state.json
 ```
 
-## Confirmed prior real-UI failure
-
-```text
-persisted compare-1 / compare-2 / compare-3 pane missing
-```
-
-원인은 JSON 손상이 아니라 `research.compare-subjects`의 object lifecycle이 일반 Add-on Runtime을 우회하고 UI에 존재했던 것이었다.
-
 ## Current corrected architecture
 
 단일 경로:
@@ -73,6 +65,50 @@ add / replace / remove / select / timeframe
 
 금지된 alternate lifecycle path는 없다.
 
+## Latest real-UI evidence — 2026-09-03
+
+사용자 로컬에서:
+
+```text
+dsl-live-studio = 3c4dcff
+vendor/kiwoom-condition = 1d7277e
+verify.bat = PASS
+```
+
+후 실제 재기동에서 fail-closed audit가 다음을 보고했다.
+
+```text
+compare-1/2/3 persisted height = expected
+live compare pane records = actual missing
+workspace instrument blank name -> resolved name mismatch
+```
+
+분류:
+
+```text
+compare missing = PRODUCT DEFECT / startup restore completion race
+name mismatch = runtime audit semantic drift / display metadata enrichment
+```
+
+## Current remediation
+
+Compare Runtime Add-on reconcile을 직렬화하여 같은 owner의 lifecycle 작업이 겹치지 않고 `whenIdle()`이 이전/현재 실제 restore 작업 전체를 포함하도록 수정했다.
+
+runtime-state audit은 instrument `name` 보강을 identity 변경으로 취급하지 않되 다음은 계속 엄격하다.
+
+```text
+instrument kind
+instrument code
+workspace/timeframe
+addon state
+pane existence
+layout proportions
+active Add-ons
+external compare pane ids
+```
+
+pane 높이 계산, Core, UI lifecycle authority는 수정하지 않았다.
+
 ## Active execution repository
 
 ```text
@@ -81,17 +117,18 @@ dsl-live-studio
  -> condition1516/chart-platform
 ```
 
-현재 gitlink:
+현재 검증 완료 Chart commit:
 
 ```text
-vendor/kiwoom-condition = 1d7277eb2040c6d7c79a243573d2598bc5c8584c
+vendor/kiwoom-condition target = b6ca51b5256349bf3f0dea2ede3c45449cd2e34a
 ```
 
-원격 검증 evidence:
+원격 evidence:
 
 ```text
-kiwoom-condition Add-on boundary audit = PASS
-kiwoom-condition Chart platform npm test = 93 / 93 PASS
+Add-on boundary audit = PASS
+Chart platform npm test = PASS (95 tests)
+kiwoom-condition/main push CI = PASS
 ```
 
 ## Implementation compliance gate
@@ -116,10 +153,11 @@ architecture-compliance
 ## Current status
 
 ```text
-LATEST REAL UI FAILURE = PREVIOUSLY CONFIRMED
-COMPARE OBJECT-LIFECYCLE AUTHORITY VIOLATION = REMOTE CODE REMEDIATED
+LATEST REAL UI FAILURE = CONFIRMED / NOT ACCEPTED
+COMPARE OBJECT-LIFECYCLE AUTHORITY VIOLATION = REMEDIATED
+STARTUP RESTORE COMPLETION RACE = REMOTE CODE REMEDIATED
+INSTRUMENT NAME AUDIT DRIFT = REMOTE CODE REMEDIATED
 REMOTE STRUCTURE / CONTRACT VERIFICATION = PASS
-DSL SUBMODULE LINK = UPDATED TO VERIFIED CHART COMMIT
 USER-LOCAL REVALIDATION = READY / PENDING
 UIA-1 = NOT PASS YET UNTIL REAL UI RESTART ACCEPTANCE
 GLOBAL COMPLIANCE = REMEDIATION_REQUIRED
@@ -127,17 +165,25 @@ GLOBAL COMPLIANCE = REMEDIATION_REQUIRED
 
 ## Next exact action
 
-사용자 로컬 `dsl-live-studio`에서 generated/state evidence를 지우지 않고:
+사용자 로컬 `dsl-live-studio`에서 generated/state evidence와 기존 chart-state JSON을 지우지 않고:
 
 ```text
 git pull --ff-only
 git submodule update --init --recursive
-verify.bat
+.\verify.bat
 ```
 
-자동검증 PASS 뒤 실제 UI 재기동으로 compare add/replace/select/delete, persisted auto-restore, pane height, TF sync, 동일지표를 확인한다.
+자동검증 PASS 뒤 동일한 저장 상태로 Market Chart를 완전 종료/재기동한다.
 
-가장 중요한 acceptance는 저장된 compare pane이 재기동 후 재추가/재조회 없이 자동 복원되는 것이다.
+가장 중요한 acceptance:
+
+```text
+compare-1/2/3가 재조회/재추가 없이 자동 복원
+persisted pane heights 복원
+STATE RESTORE ERROR 없음
+```
+
+그 후 add/replace/select/delete, TF sync, 동일지표 ON/OFF를 확인한다.
 
 ## Frozen legacy Core
 
