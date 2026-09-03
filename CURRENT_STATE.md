@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **FINAL THREE-AXIS BASELINE PASS / UI CONSISTENCY ACCEPTANCE ACTIVE / STARTUP RESTORE RACE FIX REMOTE PASS / USER-LOCAL REVALIDATION PENDING**  
+Status: **FINAL THREE-AXIS BASELINE PASS / UI CONSISTENCY ACCEPTANCE ACTIVE / GENERIC SUBJECT RESTORE ATOMICITY REMOTE PASS / USER-LOCAL REVALIDATION PENDING**  
 Updated: 2026-09-03 KST
 
 ## Recovery authority
@@ -22,9 +22,7 @@ Updated: 2026-09-03 KST
 dsl-live-studio
 ```
 
-`main`은 현재 작업 권한이 아니다.
-
-기존 strict remediation Steps 1~15는 모두 **COMPLETE / USER-LOCAL PASS**다.
+`main`은 현재 작업 권한이 아니다. 기존 strict remediation Steps 1~15는 모두 **COMPLETE / USER-LOCAL PASS**다.
 
 ## Current active work — UIA-1
 
@@ -44,9 +42,16 @@ canonical runtime state:
 vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart-state.json
 ```
 
-## Current corrected architecture
+## 4-axis invariant
 
-단일 경로:
+```text
+Core    = generic drawing/rendering SSOT and reusable primitives
+Runtime = feature-blind lifecycle/routing/capabilities
+Add-on  = feature-specific semantics/private state
+JSON    = persistence only
+```
+
+현재 compare 정상 경로:
 
 ```text
 Chart State JSON
@@ -56,58 +61,36 @@ Chart State JSON
  -> persistent compare pane
 ```
 
-UI shell:
-
-```text
-add / replace / remove / select / timeframe
- -> state-port write only
-```
-
-금지된 alternate lifecycle path는 없다.
+UI shell은 state command만 쓴다. alternate lifecycle path는 없다.
 
 ## Latest real-UI evidence — 2026-09-03
 
-사용자 로컬에서:
+startup reconcile serialization fix `b6ca51b` 적용 후에도 실제 재기동에서:
 
 ```text
-dsl-live-studio = 3c4dcff
-vendor/kiwoom-condition = 1d7277e
-verify.bat = PASS
+compare-1 height expected 52 actual missing
+compare-2 height expected 108 actual missing
+compare-3 height expected 327 actual missing
 ```
 
-후 실제 재기동에서 fail-closed audit가 다음을 보고했다.
+이 재현으로 이전 설명인 단순 idle race만으로는 부족함이 확인됐다.
 
-```text
-compare-1/2/3 persisted height = expected
-live compare pane records = actual missing
-workspace instrument blank name -> resolved name mismatch
-```
+## Additional root cause
 
-분류:
-
-```text
-compare missing = PRODUCT DEFECT / startup restore completion race
-name mismatch = runtime audit semantic drift / display metadata enrichment
-```
+generic `ChartSubjectViewManager.replace()`는 subject restore 실패 후 incomplete owner/signature를 남길 수 있었다. 다음 동일 signature reconcile이 incomplete owner를 settled로 오인하면 live pane records가 없는 상태가 고착된다.
 
 ## Current remediation
 
-Compare Runtime Add-on reconcile을 직렬화하여 같은 owner의 lifecycle 작업이 겹치지 않고 `whenIdle()`이 이전/현재 실제 restore 작업 전체를 포함하도록 수정했다.
-
-runtime-state audit은 instrument `name` 보강을 identity 변경으로 취급하지 않되 다음은 계속 엄격하다.
+feature-blind Runtime invariant로 수정했다.
 
 ```text
-instrument kind
-instrument code
-workspace/timeframe
-addon state
-pane existence
-layout proportions
-active Add-ons
-external compare pane ids
+same signature settled = signature 같음 + mounted views 수가 requested subjects 수와 같음
+restore failure = current owner 전체 rollback
+partial success panes = rollback
+retry same signature = complete rebuild
 ```
 
-pane 높이 계산, Core, UI lifecycle authority는 수정하지 않았다.
+Core, Compare Add-on semantics, JSON persistence, UI는 수정하지 않았다. height fallback도 없다.
 
 ## Active execution repository
 
@@ -120,14 +103,14 @@ dsl-live-studio
 현재 검증 완료 Chart commit:
 
 ```text
-vendor/kiwoom-condition target = b6ca51b5256349bf3f0dea2ede3c45449cd2e34a
+vendor/kiwoom-condition target = e272e18adbb4530f0edfe5046a19e3b7e0272606
 ```
 
 원격 evidence:
 
 ```text
-Add-on boundary audit = PASS
-Chart platform npm test = PASS (95 tests)
+PR #3 Add-on boundary audit = PASS
+PR #3 Chart platform npm test = PASS
 kiwoom-condition/main push CI = PASS
 ```
 
@@ -135,28 +118,16 @@ kiwoom-condition/main push CI = PASS
 
 `DSL_IMPLEMENTATION_COMPLIANCE_GATE.md`는 계속 active authority다.
 
-`verify.bat`은 다음 순서로 fail-closed 검증한다.
-
-```text
-architecture-compliance
- -> generic Add-on boundary audit
- -> syntax
- -> focused chart/runtime regression
- -> compare runtime ownership regression
- -> single JSON persistence
- -> console policy
- -> frozen core
-```
-
-구조 위반은 behavior PASS로 덮지 않는다.
+`verify.bat`은 architecture-compliance를 behavior보다 먼저 fail-closed 검증한다. 구조 위반은 기능 PASS로 덮지 않는다.
 
 ## Current status
 
 ```text
 LATEST REAL UI FAILURE = CONFIRMED / NOT ACCEPTED
 COMPARE OBJECT-LIFECYCLE AUTHORITY VIOLATION = REMEDIATED
-STARTUP RESTORE COMPLETION RACE = REMOTE CODE REMEDIATED
-INSTRUMENT NAME AUDIT DRIFT = REMOTE CODE REMEDIATED
+STARTUP RECONCILE SERIALIZATION = REMEDIATED
+GENERIC SUBJECT RESTORE ATOMICITY = REMOTE CODE REMEDIATED
+4-AXIS BOUNDARY VERIFICATION = PASS FOR THIS TRANCHE
 REMOTE STRUCTURE / CONTRACT VERIFICATION = PASS
 USER-LOCAL REVALIDATION = READY / PENDING
 UIA-1 = NOT PASS YET UNTIL REAL UI RESTART ACCEPTANCE
@@ -173,13 +144,13 @@ git submodule update --init --recursive
 .\verify.bat
 ```
 
-자동검증 PASS 뒤 동일한 저장 상태로 Market Chart를 완전 종료/재기동한다.
+자동검증 PASS 뒤 동일 저장 상태로 Market Chart를 완전 종료/재기동한다.
 
-가장 중요한 acceptance:
+최우선 acceptance:
 
 ```text
 compare-1/2/3가 재조회/재추가 없이 자동 복원
-persisted pane heights 복원
+persisted 52/108/327 pane heights 복원
 STATE RESTORE ERROR 없음
 ```
 
