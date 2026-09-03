@@ -34,7 +34,7 @@
   - 생성 실패는 그 item의 root handle만 rollback하며 unrelated item은 건드리지 않는다.
   - pane child는 pane가 소유하도록 root-handle ownership을 정리해 Runtime/pane 이중 dispose를 제거했다.
   - JSON action intent는 Runtime이 surface callback으로 번역해 `{itemId,primitiveId,event,intent}`로 generic dispatch한다. dispatch authority가 없으면 fail-closed다.
-  - surface capability는 Runtime 생성 시 일괄 강제하지 않고 primitive 사용 시점에만 검사하도록 수정했다. 따라서 target surface가 line/histogram/markers만 제공해도 pane를 쓰지 않는 item은 동일 Runtime을 사용할 수 있다.
+  - surface capability는 Runtime 생성 시 일괄 강제하지 않고 primitive 사용 시점에만 검사한다.
   - primary markers는 generic surface의 `createPriceMarkers()` 또는 `createMarkers()`를 동일 primitive로 수용한다.
 - **pure Add-on drawing definition 계약을 구현했다.**
   - `src/runtime/chart/ChartDrawingDefinition.mjs`.
@@ -52,7 +52,7 @@
   - dedicated pane: RSI / MACD / Disparity / DMI / OBV.
   - 각 descriptor data는 기존 `calculate*` 결과와 직접 equivalence test로 비교한다.
   - pane indicator는 `pane(height=130)` root 하나 + 고정 child id만 사용한다.
-  - VWAP은 show flag가 바뀌어도 5개 primitive id를 유지하고 hidden component만 빈 data로 만들어 shape/cardinality를 안정화했다.
+  - VWAP은 show flag가 바뀌어도 5개 primitive id를 유지하고 hidden component만 빈 data로 만든다.
   - **legacy `*AddonDefinition.create(context)` class는 아직 남아 있고 catalog도 legacy를 사용한다. 따라서 indicator active path 표준화 완료 선언은 아직 금지한다.**
 - **generic desired-item reconciler를 구현했다.**
   - `src/runtime/chart/ChartDrawingReconciler.mjs`.
@@ -62,12 +62,21 @@
   - 동일 item은 per-item signature로 skip하고 contextKey 변경 시 동일 ensure(item) path로 갱신한다.
   - 미등록 definition/계산 실패는 그 item만 fail-closed remove하고 unrelated item은 유지한다.
   - `surfaceId` 변경도 해당 item signature만 변경하므로 한 item만 재적용된다.
+  - `resolveContext(surfaceId)`를 추가해 target별 `{bars,workspace}`를 공급하며 같은 surface context는 reconcile 1회당 한 번만 resolve/cache한다.
 - **generic surface routing을 추가했다.**
   - `src/runtime/chart/ChartDrawingSurfaceRouter.mjs`.
   - default surface와 named surface 모두 동일 `ensure/remove(item)` API를 사용한다.
   - target 차이는 opaque `surfaceId` 문자열뿐이며 Runtime은 feature 의미를 해석하지 않는다.
   - 한 item의 `surfaceId` 이동은 그 item만 dispose/recreate하고 다른 surface/item handle은 유지한다.
   - 미등록 surface는 해당 item만 fail-closed한다.
+- **generic surface/context registry와 subject binder를 추가했다.**
+  - `ChartDrawingSurfaceContextRegistry`는 opaque `surfaceId -> {surface,getBars,getWorkspace}`만 관리한다.
+  - replacement unregister token은 newer registration을 지울 수 없도록 generation-safe하게 했다.
+  - `ChartSubjectDrawingSurfaceBinder`는 기존 `subjectViews.watch(target)` facade를 registry에 ref-counted로 연결한다.
+  - 같은 target을 여러 item이 사용해도 watch는 하나만 유지한다.
+  - target A facade 교체는 A registry entry만 교체하며 B는 유지한다.
+  - `watch()`가 동기 callback을 호출해도 binding 유실이 없도록 map 등록을 watch 호출보다 먼저 수행한다.
+  - binder는 **현 legacy `ChartSubjectViewManager`와 새 renderer 사이의 임시 generic bridge**이며 최종 독립 compare item/pane surface 전환 후 제거 대상이다.
 - **reconciler scale defect를 즉시 수정했다.**
   - 초기 구현의 item loop 내부 `runtime.ids().includes()`는 1000개에서 O(N²) 가능성이 있어 NONSTANDARD로 판단했다.
   - live ids를 reconcile 시작 시 한 번 `Set`으로 만들고 membership을 O(1) 평균으로 바꿔 전체 desired/live diff를 cardinality-linear하게 정리했다.
@@ -90,13 +99,16 @@
   - `tests/source-relative-import-integrity.test.mjs`가 `src/**/*.mjs`의 모든 relative static/dynamic import가 실제 파일로 resolve되는지 검사한다.
   - 이 gate가 `TrendRegimeModel -> core/chart/JmaSeries/MovingAverageSeries`와 `StrategyModel -> core/chart/JmaSeries` stale dependency를 실제로 적발했다.
   - 두 경로 모두 Add-on-owned `indicator/math/JmaMath.mjs`, `MovingAverageMath.mjs`로 교체했다.
-  - 수정 후 import-integrity gate PASS를 확인했다.
-- **Managed Strategy pure descriptor 표준화를 시작했다.**
-  - `strategy.managed`의 기존 `subjectViews.watch() -> target surface -> live series/markers` lifecycle을 조사했다.
+- **Managed Strategy pure descriptor 표준화를 완료 준비 상태로 만들었다.**
+  - 기존 `subjectViews.watch() -> target surface -> live series/markers` lifecycle을 조사했다.
   - 동일 계산 결과를 `fast line / slow line / signal markers` 3개 stable primitive로 투영하는 `managedStrategyDrawingDefinition`을 추가했다.
-  - target subject surface는 pane capability가 없다는 사실을 확인했고, 위 generic Runtime primitive-capability 계약으로 흡수했다.
-  - `normalizeManagedStrategy()`가 optional field를 `undefined`로 남겨 pure JSON contract를 위반하는 product defect를 발견해 optional key 자체를 생략하도록 수정했다.
-  - 최신 Chart head `01420c9279d25f5b714a900d2f4b470a849e7e60` CI는 현재 실행 중이며 결과 확정 전 PASS로 기록하지 않는다.
+  - `normalizeManagedStrategy()`가 optional field를 `undefined`로 남기던 JSON 계약 위반을 수정했다.
+  - pure descriptor equivalence와 insufficient-bars stable-shape 테스트가 PASS했다.
+- **최근 gate 결과를 확정했다.**
+  - per-surface context resolver head `d27ca7d9bef2ae7e28d73f3eae0f44121a67ca1f` workflow #57 PASS.
+  - subject binder head `5e661890...`에서 revision 증가량을 정확히 +1로 가정한 테스트 1건이 실패했다.
+  - 분류=`test defect`: registry replacement는 old unregister + new register의 두 mutation이므로 exact step count는 계약이 아니다.
+  - 테스트를 `A revision monotonic increase + B revision strict unchanged`로 수정했고 head `fbaddb6df575113b14729de4a2ff5f750050adab`, workflow #63 PASS.
 - 표준화 PR #5는 계속 draft/DO NOT MERGE다.
 - 추가 compare restore/height/timing 보정 패치는 중단 상태다.
 - 작업 branch는 dsl `dsl-live-studio`; `origin/main`을 섞지 않는다.
@@ -104,28 +116,26 @@
 
 ## 할 일
 
-- **최우선:** Chart head `01420c9279d25f5b714a900d2f4b470a849e7e60` CI를 확인한다. 실패 시 test 완화 없이 `test defect / product defect / authority drift / environment`로 분류해 수정한다.
-- Managed Strategy pure descriptor equivalence를 PASS로 닫은 뒤, target subject용 **generic context resolution**을 구현한다.
-  - desired item의 `surfaceId`와 같은 opaque identity로 target surface + target bars를 resolve한다.
-  - Runtime/Reconciler는 strategy/compare/subject 의미를 해석하지 않는다.
-  - target A 변경/재생성은 target A item만 다시 ensure하고 target B는 유지한다.
-- async research(`N_UP_COUNT`, MarketBetaCohort, ConditionSearch, SectorLeadership 등)는 Add-on-owned pane/bar-window lifecycle을 유지한 채 descriptor만 덧씌우지 않는다.
-  - generic per-item async data result 계약을 먼저 만든다.
-  - async fetch/cancel/generation authority는 Runtime이 item id별로 소유한다.
-  - Add-on은 data request/계산 의미와 pure `describe()`만 소유한다.
-  - 실패/취소는 해당 item만 fail-closed하며 unrelated item은 롤백하지 않는다.
+- **다음 micro-tranche: generic per-item async data-result 계약을 구현한다.**
+  - `N_UP_COUNT`, MarketBetaCohort, ConditionSearch, SectorLeadership 등 async research가 Add-on-owned pane/bar-window lifecycle을 유지한 채 descriptor만 덧씌우는 방식은 금지한다.
+  - Runtime이 item id별 request generation/pending/cancel/stale-result rejection을 소유한다.
+  - Add-on은 async data request 의미/계산과 JSON-only result, pure `describe()`만 소유한다.
+  - item A request 실패/취소/재시작이 item B drawing/data를 롤백하지 않는 locality를 테스트한다.
+  - restart/global OFF/item OFF는 별도 async restore branch 없이 같은 per-item start/cancel/remove path를 사용한다.
+- async 계약이 고정되면 `N_UP_COUNT`를 첫 실제 사례로 전환해 기존 `buildNUpCountRecords()` 결과와 새 data-result/descriptor를 equivalence 검증한다.
 - `CompareSubjects`는 기존 `subjects[] -> replace(owner)`를 유지한 채 descriptor layer를 덧씌우지 않는다.
   - JSON 자체를 independent subject desired items로 이행한다.
-  - 각 compare subject는 stable item id + generic subject/surface declaration으로 변환한다.
+  - 각 compare subject는 stable item id + generic data request + pane/candlestick/legend descriptor로 변환한다.
+  - compare subject의 pane surface가 opaque surfaceId authority가 되면 현재 `ChartSubjectDrawingSurfaceBinder`는 삭제한다.
   - `subjects[]` whole signature/revision/pending/replace lifecycle을 제거한다.
-- 모든 drawing feature가 pure definition/reducer/data-result 계약으로 준비된 뒤 **RuntimeHost를 한 번의 경계 변경으로** desired item → definition.describe → reconciler → surface router → drawing runtime 단일 path로 전환한다.
+- 모든 drawing feature가 pure definition/reducer/data-result 계약으로 준비된 뒤 **RuntimeHost를 한 번의 경계 변경으로** desired item → data result → definition.describe → reconciler → surface router → drawing runtime 단일 path로 전환한다.
   - Add-on에 raw `surface`, `layout`, drawing handle을 넘기지 않는다.
   - `.create`/`.describe` 자동 fallback 같은 이중 active path를 만들지 않는다.
   - 전환과 동시에 legacy `definition.create(context)` drawing implementation을 제거한다.
 - 이후 `ChartSubjectViewManager` owner whole-replace/collection signature를 제거하고, compare/condition/sector child item도 독립 lifecycle로 통일한다.
 - JSON/Persistence에서 compare `subjects[]` collection authority와 restore-only `__layout`을 제거/마이그레이션한다.
 - `MarketChart.whenAddonsIdle()`의 별도 layout restore/stabilize path를 제거해 restart/global/item ON/OFF가 모두 같은 normal apply path를 사용하도록 한다.
-- 최종 semantic gate에서 1/10/1000 cardinality, locality, global/item visibility equivalence, surface routing locality, restart==normal apply, idempotence, single-path를 전체 제품경로로 검증한다.
+- 최종 semantic gate에서 1/10/1000 cardinality, locality, global/item visibility equivalence, surface routing locality, async request locality, restart==normal apply, idempotence, single-path를 전체 제품경로로 검증한다.
 - semantic gate는 제품에 맞춰 완화하지 않는다.
 - 전체 4축 baseline이 STANDARD가 되기 전 UIA-1/Chart 구조 PASS를 선언하지 않는다.
 - 각 tranche 종료 시 새 문서를 만들지 않고 이 `todo.md`만 갱신한다.
