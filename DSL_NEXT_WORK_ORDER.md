@@ -1,28 +1,31 @@
 # DSL Strict Sequential Next-Work Order
 
-Status: **UI CONSISTENCY ACCEPTANCE ACTIVE / STARTUP RESTORE RACE FIX REMOTE PASS / USER-LOCAL REVALIDATION PENDING / 2026-09-03 KST**
+Status: **UI CONSISTENCY ACCEPTANCE ACTIVE / GENERIC SUBJECT RESTORE ATOMICITY REMOTE PASS / USER-LOCAL REVALIDATION PENDING / 2026-09-03 KST**
 
-기존 remediation Steps 1~15는 USER-LOCAL PASS로 완료되었다. UIA-1은 Runtime ownership 구조 수정 후 실제 재기동에서 startup restore completion race가 추가 확인되었고, 해당 원격 수정/검증까지 완료되었다. 다음 단계는 동일 저장 상태로 user-local 재검증이다.
+기존 remediation Steps 1~15는 USER-LOCAL PASS로 완료되었다. UIA-1은 Runtime ownership 수정과 startup reconcile serialization 후에도 실제 재기동에서 compare pane `actual missing`이 재현되었고, 추가 generic Runtime atomicity 결함을 수정/검증했다. 다음 단계는 동일 저장 상태 user-local 재검증이다.
 
 ## 현재 포인터
 
 ```text
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-SUBSTEP_STATUS = STARTUP RESTORE RACE REMOTE PASS / USER-LOCAL REVALIDATION READY
+SUBSTEP_STATUS = GENERIC SUBJECT RESTORE ATOMICITY REMOTE PASS / USER-LOCAL REVALIDATION READY
 ```
 
 ## CURRENT_IMPLEMENTATION_CONTRACT
 
 ```text
-OWNER_BOUNDARY = Add-on + generic Chart Runtime capability
+CORE_OWNER = generic drawing/rendering primitives only
+RUNTIME_OWNER = feature-blind subject lifecycle + pane service
+ADDON_OWNER = compare semantics/state mapping only
+JSON_OWNER = persistence only
 STATE_SSOT = chart-state.json / addons.research.compare-subjects
-LIFECYCLE_AUTHORITY = Compare Runtime Add-on through generic subjectViews
-FORBIDDEN_NEIGHBORS = UI persistent pane creation; feature logic in persistence; Core special-case
+LIFECYCLE_AUTHORITY = Compare Add-on -> generic subjectViews Runtime
+FORBIDDEN_NEIGHBORS = UI persistent pane creation; compare branch in Runtime/Core; JSON live authority
 ALTERNATE_PATHS = NONE
 FAILURE_MODE = fail-closed; persisted JSON preserved
-ARCH_INVARIANT = JSON compare node alone must create/dispose/visible the same runtime panes without UI view factory
-IDLE_INVARIANT = Runtime whenIdle must not resolve before all prior/in-flight compare lifecycle work completes
+ATOMICITY_INVARIANT = failed subject replace leaves no partial owner panes and same-signature retry must rebuild
+IDLE_INVARIANT = Runtime whenIdle must not resolve before all queued/in-flight Add-on lifecycle work completes
 ```
 
 ## 현재 구현된 구조
@@ -31,47 +34,54 @@ IDLE_INVARIANT = Runtime whenIdle must not resolve before all prior/in-flight co
 Chart State JSON
  -> Runtime registration/reconcile
  -> Compare Runtime Add-on
- -> serialized generic subjectViews reconciliation
- -> ChartSubjectViewManager
- -> compare pane create/dispose/visibility/property/layout
+ -> serialized subjectViews requests
+ -> generic ChartSubjectViewManager atomic replace
+ -> generic pane create/dispose/layout
 ```
 
-UI shell:
+UI shell은 add / replace / remove / select / timeframe state command만 수행한다.
+
+## Latest WYSIWYG failure and new root cause
+
+실제 재기동에서 여전히:
 
 ```text
-add / replace / remove / select / timeframe
- -> state-port write only
+compare-1 height expected 52 actual missing
+compare-2 height expected 108 actual missing
+compare-3 height expected 327 actual missing
 ```
 
-UI shell의 persistent pane / bar-window / projection / legend 직접 생성은 금지 상태를 유지한다.
-
-## Latest WYSIWYG failure and remediation
-
-실제 재기동에서:
+추가 확인된 원인:
 
 ```text
-compare-1/2/3 persisted height expected, runtime actual missing
-primary/recent instrument blank name expected, resolved name actual
-```
-
-확인된 원인:
-
-```text
-1. Compare Runtime의 연속 reconcile이 겹쳐 최신 pending이 이전 실제 pane restore보다 먼저 완료될 수 있음
-2. runtime audit가 startup name enrichment를 identity mismatch로 과잉 판정
+subject restore 중 하나가 실패
+ -> 실패 view pane dispose
+ -> owner signature/부분 성공 views 잔존 가능
+ -> 다음 동일 signature replace가 settled로 오인 가능
+ -> Runtime pane records missing 상태 고착
 ```
 
 수정 후 강제 계약:
 
 ```text
-same-owner compare reconcile overlap = forbidden
-whenIdle = all prior/in-flight lifecycle work 포함
-instrument identity = kind + code strict
-instrument display name enrichment = audit identity 아님
-pane existence/layout audit = strict 유지
+same signature no-op = signature 동일 + requested subject 수만큼 views 완성
+하나라도 restore 실패 = 이번 owner의 모든 view/pane rollback
+동일 signature retry = 전체 rebuild
 ```
 
-pane 높이 계산이나 Core는 수정하지 않았다.
+generic 회귀테스트는 첫 시도 partial success + transient failure 후 active pane 0, 두 번째 동일 signature 시 전체 재생성까지 검증한다.
+
+## 4축 준수
+
+```text
+Core = 변경 없음
+Runtime = generic lifecycle atomicity만 수정
+Add-on = 변경 없음
+JSON = 변경 없음
+UI = 변경 없음
+feature-specific Runtime/Core branch = 없음
+height workaround = 없음
+```
 
 ## 실제 실행 연결
 
@@ -84,14 +94,14 @@ dsl-live-studio
 현재 검증 완료 Chart commit:
 
 ```text
-b6ca51b5256349bf3f0dea2ede3c45449cd2e34a
+e272e18adbb4530f0edfe5046a19e3b7e0272606
 ```
 
 원격 evidence:
 
 ```text
-PR #2 Add-on boundary audit = PASS
-PR #2 Chart platform npm test = PASS (95 tests)
+PR #3 Add-on boundary audit = PASS
+PR #3 npm test = PASS
 kiwoom-condition/main push CI = PASS
 ```
 
@@ -103,24 +113,6 @@ vendor/kiwoom-condition/condition1516/chart-platform/.runtime/chart-addons/chart
 
 기존 저장 JSON을 삭제/초기화하지 않고 복원해야 한다.
 
-## 자동검증 순서
-
-`verify.bat`:
-
-```text
-architecture-compliance
- -> generic Add-on boundary audit
- -> syntax
- -> focused chart/runtime regression
- -> compare runtime ownership / serialized idle regression
- -> runtime state audit regression
- -> single JSON persistence
- -> console policy
- -> frozen core
-```
-
-architecture-compliance FAIL은 behavior PASS로 덮지 않는다.
-
 ## 다음 작업 — 동일 상태 user-local revalidation only
 
 사용자 작업 브랜치는 `dsl-live-studio`다. `origin/main`을 섞지 않는다.
@@ -131,7 +123,7 @@ architecture-compliance FAIL은 behavior PASS로 덮지 않는다.
 3. .\verify.bat
 4. 기존 chart-state JSON을 지우지 않고 Market Chart 완전 종료/재기동
 5. compare-1/2/3 자동 복원 확인
-6. persisted pane heights 복원 확인
+6. persisted 52/108/327 pane heights 복원 확인
 7. STATE RESTORE ERROR가 없는지 확인
 8. 통과 후 add / replace / select / delete 확인
 9. TF동기 확인
@@ -148,6 +140,7 @@ repository-root core/ 수정 금지
 localStorage product-state authority 금지
 UI controller의 Add-on lifecycle 우회 금지
 동일 기능의 두 번째 restore path 금지
+Runtime/Core의 compare-specific compatibility branch 금지
 pane height workaround로 missing pane 문제 은폐 금지
 assertion 완화/skip/allowlist 금지
 origin/main을 현재 작업브랜치에 pull하지 않음
