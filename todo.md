@@ -27,19 +27,21 @@
 - generic `scope:'session'` persistence/restart gate PASS.
 - Add-on-owned `StandardDrawingRegistry`: active drawing registration pure definition 커버; `strategy.manager`만 Shell/UI 전용.
 - one-time `StandardDrawingStateMigration`: legacy collections -> actual child nodes, parent drawing collection 제거, existing child authority 우선, schemaVersion=2 lock, second migration change 0.
-- explicit generic `order`: State/JSON/Projection roundtrip; Compare/Sector migration이 child order를 명시.
-- **Compare independent state planner 완료**: gate #141 FAIL -> product `bf8e65477d3178b47383a810b75c5e369b283500`, #142 PASS. append/replace/timeframe/remove/select locality, parent collection 제거.
-- **MarketBeta independent state planner 완료**: gate #143 FAIL -> product `a52d07254290888bac00b3b547b97f633af3970e`, #144 PASS. selected set diff, #537 remove locality, parent `selectedSubjects[]` 제거.
-- **SectorLeadership independent state planner 완료**:
-  - gate-only `76d4c4ece6fe7312fe755584957ae553c1585f8b`, workflow #145 FAIL.
-  - gate 변경 없이 `SectorLeadershipIndependentState.mjs` + migration explicit order만 제품 수정.
-  - editor selected set ↔ existing child set의 ID diff.
-  - existing child의 stable code id + role + paletteSlot + order 보존.
-  - 중간 child 제거가 뒤 sibling recolor/reorder로 전파되지 않음.
-  - new child만 next order/slot 부여.
-  - parent normal state에 `leader/followers/selectedSubjectCode` 없음.
-  - 1000 중 #537 deselect = #537 remove 1건, sibling write 0.
-  - `894beb6b244c13f99dfc3bd18d1d513973017de3`, workflow #147 **PASS**.
+- explicit generic `order`: State/JSON/Projection roundtrip; Compare/Sector/Condition migration이 child order를 명시.
+- Compare independent planner: gate #141 FAIL -> `bf8e65477d3178b47383a810b75c5e369b283500`, #142 PASS.
+- MarketBeta independent planner: gate #143 FAIL -> `a52d07254290888bac00b3b547b97f633af3970e`, #144 PASS.
+- SectorLeadership independent planner: gate #145 FAIL -> `894beb6b244c13f99dfc3bd18d1d513973017de3`, #147 PASS. stable role/palette/order, #537 locality.
+- **ConditionSearch independent state planner 완료**:
+  - gate-only `487f315d0a80b3d7b4d3ebc4287c0209d49ddf09`, workflow #148 FAIL.
+  - 제품 `ConditionSearchIndependentState.mjs` + session child explicit order 추가.
+  - READY authoritative session에서만 selected set -> session child diff 허용.
+  - child는 `scope:'session'`; persistence authority로 승격하지 않음.
+  - existing child palette/order 보존; 중간 제거가 sibling recolor/reorder로 전파되지 않음.
+  - 1000 READY results 중 #537 uncheck = #537 remove 1건.
+  - STALE/non-ready session = child write 0, current session child 제거로 fail closed.
+  - parent normal state에 `selectedSubjects[]` 없음.
+  - 제품 head `77e8df57648d8c06ea7583f03ad873e2f8cd0ebf`의 workflow #150은 semantic 실패가 아니라 test가 frozen `itemRemoves`에 `.sort()`를 직접 호출한 gate 구현 오류 1건으로 FAIL; 나머지 265/266 PASS.
+  - gate 의미 변경 없이 복사본 정렬로 구현만 교정한 `9ab1b469e12d5d51967ee0a6955b4d632abebf5c`, workflow #151 **PASS**.
 
 ### pure Add-on 준비 완료
 
@@ -48,7 +50,7 @@
 - MarketBeta parent + one-subject-per-child stream/descriptor + independent write planner.
 - Compare one subject = child node/stream/pane descriptor + independent write planner.
 - SectorLeadership leader/follower independent child + stable role/palette/order + independent write planner.
-- ConditionSearch authoritative current session only session child; stale restart child 0; realtime I/D pure transition.
+- ConditionSearch READY session child + stable palette/order + independent write planner; stale restart child 0; realtime I/D pure transition.
 - Battlefield Map primary overlay pure parent + non-primary local subject independent lane child.
 - Battlefield Force parent regions + one force group per child.
 - FeatureValidation no-drawing add-on empty pure descriptor.
@@ -58,20 +60,21 @@
 - standard drawing registry completeness `616843f9b76849fe28b88a1ad3a4395654bb51f0`, #131 PASS.
 - one-time independent child state migration `635a85bb671b7081542dc298a3b7ccefa34948c5`, #135 PASS.
 - explicit desired item order `08fd22ea6e1bb47fd2700a4cb16ad31ad5e8e354`, #140 PASS.
-- Compare independent planner `bf8e65477d3178b47383a810b75c5e369b283500`, #142 PASS.
-- MarketBeta independent planner `a52d07254290888bac00b3b547b97f633af3970e`, #144 PASS.
-- Sector independent planner/order `894beb6b244c13f99dfc3bd18d1d513973017de3`, workflow #147 **PASS**.
-- PR #5 current verified head = `894beb6b244c13f99dfc3bd18d1d513973017de3`.
+- Compare planner `bf8e65477d3178b47383a810b75c5e369b283500`, #142 PASS.
+- MarketBeta planner `a52d07254290888bac00b3b547b97f633af3970e`, #144 PASS.
+- Sector planner/order `894beb6b244c13f99dfc3bd18d1d513973017de3`, #147 PASS.
+- Condition planner/order + gate implementation correction `9ab1b469e12d5d51967ee0a6955b4d632abebf5c`, workflow #151 **PASS**.
+- PR #5 current verified head = `9ab1b469e12d5d51967ee0a6955b4d632abebf5c`.
 
 ### 아직 NONSTANDARD
 
 - active `ChartRuntimeHost`는 여전히 `registration.load() -> definition.create(context)` live-object path.
 - legacy Add-on이 raw surface/state/getBars/workspace/capabilities/layout/realtime를 소유한다.
 - migration은 아직 startup active path에 적용하지 않았다.
-- active Compare/MarketBeta/Sector UI는 아직 legacy parent collection을 쓴다.
-- **active UI만 먼저 child-only로 바꾸면 legacy Runtime이 parent collection을 읽으므로 drawing이 중간 commit에서 사라진다. dual-write/fallback은 금지한다.**
+- active Compare/MarketBeta/Sector/Condition UI는 아직 legacy parent collection을 쓴다.
+- active UI만 먼저 child-only로 바꾸면 legacy Runtime이 parent collection을 읽으므로 drawing이 중간 commit에서 사라진다. dual-write/fallback은 금지한다.
 - independent UI/write planners를 모두 준비한 뒤 active UI composition + migration + RuntimeHost를 single-path cutover tranche에서 함께 전환한다.
-- Condition/Battlefield/Force independent write planner 준비 필요.
+- Battlefield Map/Force independent write planner 준비 필요.
 - Managed Strategy legacy `subjectViews.watch()` live lifecycle이 남아 있음.
 - `strategy.manager` UI/DOM lifecycle이 Runtime Add-on에 남아 있음.
 - `ChartSubjectViewManager` whole collection lifecycle과 임시 subject binder가 남아 있음.
@@ -80,9 +83,9 @@
 ## 할 일
 
 1. **feature별 independent write planner를 gate-first로 완성한다.**
-   - 다음 ConditionSearch -> Battlefield Map -> Battlefield Force.
+   - 다음 Battlefield Map -> Battlefield Force.
    - normal action은 addressed child만 write/remove; parent는 semantic state만 유지.
-   - Condition child는 `scope:'session'` 유지하고 persistence JSON에는 남지 않는다.
+   - Battlefield Map `subjectSelection`은 parent semantic state이므로 제거하지 않고 lane child만 ID diff한다.
    - collection 재생성 금지.
 
 2. Managed Strategy target을 neutral opaque `surfaceId` desired metadata로 이관한다.
