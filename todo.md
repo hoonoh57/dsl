@@ -17,6 +17,7 @@
   - **IDEMPOTENCE**: 동일 state 재적용은 불필요한 live object 재생성을 만들지 않는다.
   - **SINGLE PATH**: `JSON -> Add-on descriptor/type -> generic Runtime/Bridge -> Core draw` 경로 하나만 존재한다.
 - 기존의 “파일 위치/import/token 검사만으로 4축 PASS” 판정을 폐기했다. 앞으로 4축 PASS는 structural + semantic operation + cardinality + locality + restore + visibility + idempotence + single-path가 모두 PASS해야 한다.
+- **semantic gate 샛길을 영구 차단했다.** `rules.md` 의미가 바뀌지 않는 한 semantic gate의 판정 의미를 변경/완화할 수 없고, 제품 실패는 gate 수정 사유가 아니다. `test defect`는 기존 `rules.md` 불변식을 잘못 구현한 테스트/fixture/환경 오류에만 한정하며 수정 후 검증은 동일하거나 더 강해야 한다. 제품을 통과시키기 위한 예외·assertion 축소·expected 재정의·feature/legacy 예외는 검증 오염으로 금지한다. 제품 구조 수정과 semantic gate 판정 의미 수정을 같은 tranche에서 하지 않는다. 이 잠금은 `rules.md` commit `7164c372dc87516b0c68afd42d9c32ee0537baf7`에 반영됐다.
 - 현재 반복된 compare pane restore 문제는 더 이상 개별 height/race/signature 버그로만 보지 않는다. **collection-oriented lifecycle orchestration이 item-oriented declarative rendering을 대체한 구조 결함 가능성이 확인된 상태**다.
 - 현재 Chart 쪽 원격 기준은 `vendor/kiwoom-condition = e272e18adbb4530f0edfe5046a19e3b7e0272606`이다. 이 commit까지의 patch는 방어적 수정으로 남아 있으나 **최종 정상 구조로 승인된 것은 아니다**.
 - `rules.md` 생성 commit: `899996547496e3b7ae918c4aef338f1871caec5e`.
