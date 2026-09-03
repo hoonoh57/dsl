@@ -1,7 +1,7 @@
 # Quant DSL Current State
 
-Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_TRUSTED_FULL_PASS / LFVAL1_TRUSTED_FULL_PASS / LFOUT1_TRUSTED_FULL_PASS / LFREAL1_TRUSTED_FULL_PASS / LFREAL2_TRUSTED_FULL_PASS / LFREAL3_TRUSTED_FULL_PASS / REMEDIATION_REQUIRED**  
-Updated: 2026-08-29 KST
+Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_TRUSTED_FULL_PASS / LFVAL1_TRUSTED_FULL_PASS / LFOUT1_TRUSTED_FULL_PASS / LFREAL1_TRUSTED_FULL_PASS / LFREAL2_TRUSTED_FULL_PASS / LFREAL3_TRUSTED_FULL_PASS / REMOTE_EXECUTABLE_TAIL_UNVALIDATED / REMEDIATION_REQUIRED**  
+Updated: 2026-09-04 KST
 
 ## Recovery
 
@@ -24,6 +24,8 @@ single-instrument causal snapshots
 ```
 
 Hard equipment/guards remain authoritative before optional adaptive intelligence. No peer discovery, ranking, allocation, provider calls, learning authority or leader/follower semantics belongs in Parser/Runtime/Backtest/Broker.
+
+Before executable changes, establish the owning layer, existing shared-engine path, state SSOT, object create/delete authority, and adjacent-layer prohibitions. Then use one-boundary micro-tranches with focused verification, Full verification, and checkpointing. Do not weaken guards/assertions to obtain PASS.
 
 ## Trusted exact checkpoints relevant to current boundary
 
@@ -70,6 +72,37 @@ LFREAL3:      Ran 7 tests in 0.001s / OK
 LFREAL3 Full: [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
+## Remote tail awaiting local validation
+
+The last trusted executable point remains LFREAL3 `ab4d798c6648ee382e779af81e759cd11bf1cb13`.
+
+The following later executable/test changes exist on `main` but have no recovered user-local PASS and therefore remain `REMOTE_UNVALIDATED`:
+
+```text
+314a815300c64b492ce455f315d9e5b2cb861d6f  REALDATA1 source/provenance checkpoint
+59c5fc4fb839593deff201028ed1ada5965abe42  pinned exact-byte acquisition verifier
+95a1f3cedf9c8f4506bb2d59f02b14f8bbb90e60  first Live Studio verification catalog
+3a49177a15888922c48c68efd91beac1abcba4a6  focused Live Studio catalog tests
+```
+
+Later documentation-only reconciliation commits do not promote those executable changes to trusted state.
+
+REALDATA1 source material currently recorded:
+
+```text
+instrument: SK hynix
+symbol: 000660.KS
+source repository: hyekong/sk-hynix-news-dataset
+source file: sk_hynix_price.csv
+pinned source Git blob SHA-1: 84fb250326def7148cce6466026aaecf057e2013
+frequency: daily
+observations: 2024-04-15 .. 2026-04-13
+record_count: 483
+provider path stated by source: yfinance -> Yahoo Finance
+```
+
+This establishes source-origin evidence only. Exact caller-byte SHA-256/LFREAL2 manifest and independent market-data authenticity remain unverified.
+
 ## Trusted research boundary
 
 LF2 remains observation-only orchestration. LFVAL1 validates frozen intent evidence. LFOUT1 validates exact frozen outcomes. LFREAL1 validates non-fixture provenance/timing admission. LFREAL2 freezes caller-provided external historical bytes into a deterministic SHA-256 manifest. LFREAL3 binds caller-parsed OHLCV rows to that manifest and produces deterministic cutoff-bounded causal snapshots.
@@ -99,6 +132,8 @@ market_data_authenticity_verified = false
 real_data_claim = false
 ```
 
+The external source includes derived/future-facing columns such as `return`, `next_close`, and `direction`; they must not be admitted as causal observation features. A later parser/adapter may admit only the raw causal OHLCV fields needed by LFREAL3.
+
 ## Defect history preserved
 
 Initial LFOUT1 executable `f95d15f2f66533a616db5a86df9cbe9e1f7c418b` failed two focused tests. Classification: **product defect — signed MAE direction bug**. Product logic only was corrected; tests and thresholds were unchanged.
@@ -107,25 +142,35 @@ Initial LF2 checkpoint `14bf03f1f9473a607d4330e4d06f9d0ef9bdd219` had a source-l
 
 ## Next boundary
 
-**Architecture expansion stops here unless real source material appears.**
+**Do not add another executable tranche until the current remote tail is locally validated.**
 
-The next useful step is not another contract tranche. It is actual externally obtained historical bytes and source-origin evidence.
+Required validation order on the current pulled `main`:
 
 ```text
-external historical bytes
- -> LFREAL2 freeze/content hash
- -> independent source-origin verification
- -> LFREAL3 deterministic rows/snapshots
- -> narrow exact-as-of LF1/LF2 evidence producer
- -> strictly post-observation outcome producer
- -> LFVAL1 / LFOUT1 / LFREAL1 real study
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\acquire_realdata1_source.ps1
+python -m unittest -v test_live_validation_catalog.py
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
-Until real source material exists, do not add more parser/provider framework, automatic allocation, adaptive learning, new DSL grammar, live selection, broader ranking, or deployment permission.
+The acquisition verifier must confirm the pinned Git blob identity and report SHA-256 over the exact downloaded bytes. Focused catalog tests must pass. Tactical P1 Full must pass. Only then may the exact current SHA be promoted to trusted local state.
+
+After that gate, the next research micro-tranche is:
+
+```text
+verified exact REALDATA1 bytes
+ -> existing LFREAL2 ExternalDatasetFreezer
+ -> immutable content_sha256 + dataset_manifest_hash
+ -> causal OHLCV-only parser/adapter boundary
+ -> LFREAL3 admission focused validation
+```
+
+Do not modify LFREAL2 product logic merely to accommodate this source. Do not add provider/file/network authority or real-data-specific semantics to Parser/Runtime/Backtest/Broker.
+
+Automatic allocation, adaptive learning, new DSL grammar, live selection, broader ranking, and deployment permission remain deferred.
 
 ## Nonclaims
 
-No external real-market dataset has yet been collected or authenticated by this repository. No real-data LF study, profitable leader/follower edge, production leader selection, validated deployment gating, live provider/broker readiness, or repository-wide compliance PASS is claimed.
+External source material and provenance have been located, but exact LFREAL2 content freezing and independent market-data authentication are not complete. No real-data LF study, profitable leader/follower edge, production leader selection, validated deployment gating, live provider/broker readiness, or repository-wide compliance PASS is claimed.
 
 `REMEDIATION_REQUIRED` remains authoritative for broader repository compliance.
 
