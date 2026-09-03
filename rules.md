@@ -416,6 +416,38 @@ tolerance를 임의 확대
 expected를 현재 구현에 맞춤
 ```
 
+### SEMANTIC GATE IMMUTABILITY — 검증기 샛길 영구 금지
+
+`rules.md`의 4축 의미와 불변식이 변경되지 않는 한 **semantic gate의 판정 의미는 변경하거나 완화할 수 없다.**
+
+제품 코드가 semantic gate에 실패했다는 사실은 gate 수정 사유가 아니다. 그 경우 기본 판정은 **제품/아키텍처 결함**이다.
+
+`test defect`는 오직 다음 경우에만 인정한다.
+
+```text
+테스트 코드가 rules.md의 기존 불변식을 잘못 구현함
+테스트 fixture/recorder 자체가 사실과 다른 입력 또는 trace를 생성함
+테스트 실행환경 문제로 rules.md와 무관한 오판이 발생함
+```
+
+`test defect` 수정은 반드시 **기존 rules.md 의미를 그대로 보존하면서 동일하거나 더 강한 검증**이 되어야 한다. 제품을 통과시키기 위한 예외, 허용범위 확대, assertion 축소, expected 재정의는 `test defect`가 아니라 **검증 오염**이며 금지한다.
+
+다음은 절대 금지다.
+
+```text
+제품 실패 -> gate 기준 변경 -> PASS
+현재 구현을 기준으로 semantic expected 재작성
+특정 feature/commit/legacy 구현만 통과시키는 semantic 예외
+실제 WYSIWYG 실패를 이유로 semantic invariant 완화
+semantic gate FAIL을 단순 static PASS로 대체
+```
+
+semantic gate의 **coverage 강화**는 허용한다. 단, 기존 rules.md에서 이미 요구하는 invariant의 누락 사례를 추가하는 것만 가능하며 기존 판정 의미를 약화할 수 없다.
+
+제품 구조 수정과 semantic gate의 **판정 의미 수정**을 같은 tranche에서 수행하지 않는다. `rules.md` 의미 변경이 필요하다고 판단되면 개발자가 임의로 바꾸지 않고 사용자의 명시적 `rules.md 규칙 변경` 지시가 먼저 있어야 한다.
+
+새 세션도 이전 PASS, 현재 구현, 테스트 편의 때문에 이 조항을 재해석하거나 우회할 수 없다.
+
 실패하면 먼저 분류한다.
 
 ```text
