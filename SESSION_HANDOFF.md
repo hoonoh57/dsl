@@ -1,6 +1,6 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / COMPARE RUNTIME OWNERSHIP REMOTE PASS / USER-LOCAL REVALIDATION PENDING / 2026-09-02 KST**
+Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / STARTUP RESTORE RACE FIX REMOTE PASS / USER-LOCAL REVALIDATION PENDING / 2026-09-03 KST**
 
 이 문서는 새 세션에서 가장 먼저 읽는 복구 문서다. 최신 사용자 결정 + user-local 결과 + 현재 `dsl-live-studio` 상태가 stale 문서보다 우선한다.
 
@@ -20,29 +20,10 @@ Status: **PRIMARY HUMAN HANDOFF / UI CONSISTENCY ACCEPTANCE ACTIVE / COMPARE RUN
 PREVIOUS REMEDIATION = Steps 1 through 15 COMPLETE / USER-LOCAL PASS
 CURRENT_WORK = UI-ACCEPTANCE
 CURRENT_SUBSTEP = UIA-1 unified chart state restore
-STATUS = COMPARE RUNTIME OWNERSHIP REFACTOR REMOTE PASS / USER-LOCAL REVALIDATION PENDING
+STATUS = STARTUP RESTORE RACE FIX REMOTE PASS / USER-LOCAL REVALIDATION PENDING
 ```
 
-## 확정된 근본 원인
-
-저장 JSON 자체가 틀린 것이 아니었다.
-
-```text
-JSON에는 compare-1 / compare-2 / compare-3 + layout 존재
-Runtime 실제 object graph에는 compare pane missing
-```
-
-비교종목만 일반 Add-on lifecycle을 우회하여 JSON state authority와 persistent object lifecycle authority가 분리되어 있었다.
-
-구 위반 구조:
-
-```text
-JSON compare node
- -> registered Runtime Add-on: state normalize only
- -> UI Workspace / ShellController: persistent compare pane 직접 생성
-```
-
-## 현재 구현된 단일 정상 경로
+## 현재 단일 정상 구조
 
 ```text
 chart-state JSON
@@ -59,7 +40,58 @@ add / replace / remove / select / timeframe
  -> state-port write
 ```
 
-UI의 pane / bar-window / projection / legend 생성·복원 권한은 제거되었다.
+UI의 pane / bar-window / projection / legend 생성·복원 권한은 제거된 상태를 유지한다.
+
+## 2026-09-03 실제 UI 재기동 실패
+
+사용자 로컬 자동검증은 다음 상태에서 PASS했다.
+
+```text
+dsl-live-studio = 3c4dcff
+vendor/kiwoom-condition = 1d7277e
+verify.bat = [PASS] current verification passed
+```
+
+그러나 실제 재기동 acceptance에서는 다음 fail-closed 오류가 발생했다.
+
+```text
+compare-1 height expected 52 actual missing
+compare-2 height expected 108 actual missing
+compare-3 height expected 327 actual missing
+workspace primary/recent instrument name expected "" actual resolved name
+```
+
+분류:
+
+```text
+PRIMARY = PRODUCT DEFECT / startup restore completion race
+SECONDARY = runtime audit semantic drift / instrument display-name enrichment
+```
+
+pane height 값 자체의 계산 오류로 분류하지 않는다. `actual missing`은 감사 시점에 live pane record가 완성되지 않았음을 뜻했다.
+
+## 근본 원인과 수정
+
+`CompareSubjectsRuntimeAddon`의 연속 reconcile이 같은 owner/signature에 대해 겹칠 수 있었고, 최신 `#pending`이 이전 실제 pane 생성 작업보다 먼저 끝날 수 있었다. 그 결과 `whenIdle()`이 restore completion authority가 되지 못하는 경쟁조건이 있었다.
+
+수정:
+
+```text
+Compare Runtime reconcile = serialized promise chain
+whenIdle() = all prior/in-flight compare lifecycle work 포함
+same-owner reconcile overlap = forbidden by regression test
+```
+
+또한 startup에서 종목명이 catalog/API로 보강되는 것은 instrument identity 변경이 아니므로 runtime-state audit은 `name`을 비권위 표시 메타데이터로 취급한다. `kind + code` identity는 계속 엄격 검증한다.
+
+금지사항은 그대로다.
+
+```text
+pane 높이 보정으로 missing을 숨기지 않음
+UI restore path 재도입 금지
+Core feature-specific branch 금지
+code/kind identity audit 완화 금지
+```
 
 ## 실제 실행 repo 연결
 
@@ -69,66 +101,45 @@ dsl-live-studio
  -> condition1516/chart-platform
 ```
 
-현재 `dsl-live-studio`의 `vendor/kiwoom-condition` gitlink는 다음 검증 완료 commit을 가리킨다.
+현재 검증 완료 Chart commit:
 
 ```text
-kiwoom-condition/main = 1d7277eb2040c6d7c79a243573d2598bc5c8584c
+kiwoom-condition/main = b6ca51b5256349bf3f0dea2ede3c45449cd2e34a
 ```
 
-해당 Chart platform 원격 검증:
+원격 검증 evidence:
 
 ```text
-Add-on boundary audit = PASS
-Chart platform npm test = 93 / 93 PASS
+PR #2 Add-on boundary audit = PASS
+PR #2 Chart platform npm test = PASS (95 tests)
+main push Verify chart platform = PASS
 ```
 
 이는 이번 변경분 검증이며 repository-wide compliance clearance를 뜻하지 않는다.
-
-## 신규 구현 준수 게이트
-
-`DSL_IMPLEMENTATION_COMPLIANCE_GATE.md`가 active authority다.
-
-production 수정 전에 반드시:
-
-```text
-owner boundary
-existing generic engine path
-state SSOT
-persistent object lifecycle authority
-forbidden adjacent-layer behavior
-architecture invariant regression
-```
-
-을 확정한다.
-
-`verify.bat`은 기능 테스트보다 먼저 architecture-compliance와 generic Add-on boundary audit을 실행하고, compare runtime ownership 회귀검증도 포함한다.
 
 ## 지금 사용자에게 요청할 검증
 
 사용자 작업 브랜치는 `main`이 아니라 `dsl-live-studio`다.
 
-로컬 dirty state (`strategies.db`, `artifact_history/...`)를 보존한 채 다음 순서만 사용한다.
+로컬 generated/state evidence를 보존한 채:
 
 ```text
 git pull --ff-only
 git submodule update --init --recursive
-verify.bat
+.\verify.bat
 ```
 
-그 뒤 실제 UI에서 다음을 확인한다.
+그 뒤 **기존 저장 JSON을 지우지 말고** 동일한 Market Chart를 완전 종료/재기동한다.
+
+최우선 acceptance:
 
 ```text
-비교종목 추가
-선택 비교종목 교체
-선택
-삭제
-pane 높이 변경 후 재기동 복원
-저장된 비교종목 pane의 재기동 자동 복원
-TF 동기
-동일지표 ON/OFF
+별도 재조회/재추가 없이 compare-1/2/3 pane 자동 복원
+저장된 pane 높이 복원
+STATE RESTORE ERROR 없음
 ```
 
-가장 중요한 acceptance는 재기동 후 별도 재조회/재추가 없이 저장된 compare pane이 Runtime object graph에 자동 복원되는 것이다.
+그 다음 add / replace / select / delete / TF sync / 동일지표 ON/OFF를 확인한다.
 
 ## 절대 금지
 
