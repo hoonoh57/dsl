@@ -1,6 +1,6 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / ACTIVE / RECONCILED_REMOTE_TAIL / 2026-09-04 KST**
+Status: **PRIMARY HUMAN HANDOFF / ACTIVE / CURRENT_EXECUTABLE_LOCALLY_TRUSTED / 2026-09-04 KST**
 
 이 문서는 새 세션이 가장 먼저 읽는 사람 중심 인수인계 문서다. 갑작스러운 종료를 고려해 이전 프로젝트 대화의 마지막 exact local evidence와 GitHub 최신 상태를 함께 대조한다.
 
@@ -15,23 +15,29 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / RECONCILED_REMOTE_TAIL / 2026-09-04 K
 ## 2. 최근 한 일
 
 - `GCANCEL1`, `GCANCEL2`, `VSLICE1`, `LF2`, `LFVAL1`, `LFOUT1`, `LFREAL1`, `LFREAL2`, `LFREAL3`는 trusted Full PASS다.
-- 마지막 trusted executable checkpoint는 LFREAL3 `ab4d798c6648ee382e779af81e759cd11bf1cb13`이고, 사용자 로컬 증거는 `Ran 7 tests in 0.001s / OK` 및 `[PASS] Tactical P1 verification completed: mode=Full.`이다.
-- 이후 실제 외부 source material로 SK hynix `000660.KS` 일봉 CSV를 찾고 source provenance를 기록했다. pinned source blob은 `84fb250326def7148cce6466026aaecf057e2013`, 483 data rows다.
-- `REALDATA1` exact-byte acquisition verifier와 첫 Live Studio Core verification catalog/focused test가 `main`에 추가됐다.
-- 그러나 LFREAL3 이후 실행 변경에 대한 사용자 로컬 PASS는 아직 복구되지 않았다. executable/test 변경분은 `3a49177a15888922c48c68efd91beac1abcba4a6`까지 **REMOTE_UNVALIDATED**이며, 이후 documentation-only reconciliation commit은 이를 trusted로 승격하지 않는다.
+- 기존 LFREAL3 trusted checkpoint는 `ab4d798c6648ee382e779af81e759cd11bf1cb13`이다.
+- 이후 REALDATA1 source provenance, exact-byte acquisition verifier, Live Studio verification catalog, PowerShell 5.1 native-probe fixes를 포함한 현재 executable/test tail을 사용자 로컬 clean validation worktree에서 검증했다.
+- **현재 trusted executable/test checkpoint는 `4ebde8647cd0caede3c9cb4e6f210bc5a1f7d630`이다.** 이후 docs-only commit은 이 executable SHA를 바꾸지 않는다.
+- REALDATA1 exact source verification 결과는 `bytes=57541`, `sha256=fffbeaece7a769e063c3803ad184265aa751d9f417e3e72e2862045cad10f5ba`다.
+- Live catalog focused 검증은 `Ran 4 tests in 0.169s / OK`다.
+- Stage1 native probe + launcher focused 검증은 `Ran 8 tests in 0.095s / OK`, Stage1 preflight는 `Python 3.13.1 / Node v24.19.0`으로 PASS했다.
+- Tactical launcher focused 검증은 `Ran 6 tests in 0.033s / OK`다.
+- 최종 exact local checkout `4ebde864...`에서 `[PASS] Tactical P1 verification completed: mode=Full.`을 확보했다.
+- 검증 중 PowerShell native exit/stderr 처리 두 건은 **test/verification-harness defect**, 누락된 `pymysql`은 **environment issue**로 분류했다. product/Core assertion은 약화하지 않았다.
 
 ## 3. 현재 위치
 
 ```text
-TRUSTED_LOCAL
-  LFREAL3 ab4d798c6648ee382e779af81e759cd11bf1cb13
+TRUSTED_LOCAL_EXECUTABLE
+  4ebde8647cd0caede3c9cb4e6f210bc5a1f7d630
 
-REMOTE_UNVALIDATED executable/test tail
-  REALDATA1 provenance checkpoint
-  -> pinned exact-byte acquisition verifier
-  -> first Live Studio verification catalog
-  -> focused catalog tests
-  -> executable/test tail through 3a49177a15888922c48c68efd91beac1abcba4a6
+REALDATA1 exact content identity
+  pinned Git blob SHA-1: 84fb250326def7148cce6466026aaecf057e2013
+  exact bytes: 57541
+  SHA-256: fffbeaece7a769e063c3803ad184265aa751d9f417e3e72e2862045cad10f5ba
+
+market_data_authenticity_verified = false
+real_data_claim = false
 ```
 
 연구 데이터 경로는 다음 책임 경계를 유지한다.
@@ -53,31 +59,36 @@ broader repo compliance는 계속 **REMEDIATION_REQUIRED**다.
 
 ## 4. 바로 다음에 할 일
 
-**새 실행 기능을 더 쌓지 말고 현재 remote tail을 먼저 검증한다.**
-
-검증 순서:
-
-```text
-1. git pull --ff-only origin main
-2. powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\acquire_realdata1_source.ps1
-   -> pinned Git blob identity + exact downloaded bytes의 SHA-256 확인
-3. python -m unittest -v test_live_validation_catalog.py
-4. powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
-```
-
-위 세 검증이 현재 pull한 `main`에서 PASS하면 그 exact pulled SHA를 trusted local point로 승격한다.
-
-그 다음 micro-tranche에서만:
+이전 remote-tail validation gate는 닫혔다. 다음 micro-tranche는 하나뿐이다.
 
 ```text
 verified exact REALDATA1 bytes
  -> existing LFREAL2 ExternalDatasetFreezer
- -> immutable content_sha256 + dataset_manifest_hash 기록
- -> causal OHLCV-only parser/adapter 경계 검토
- -> LFREAL3 admission focused test
+ -> immutable content_sha256 + dataset_manifest_hash
 ```
 
-LFREAL2 product logic이나 Parser/Runtime/Backtest/Broker에 real-data/provider 특화 의미를 추가하지 않는다.
+구현 전 반드시 실제 `ExternalDatasetFreezer` 코드/schema와 LFREAL2 테스트를 다시 읽는다.
+
+고정 경계:
+
+```text
+owner layer: edge tool/adapter outside Core
+existing shared path: LFREAL2 ExternalDatasetFreezer
+state SSOT: immutable LFREAL2 dataset manifest
+create authority: caller bytes -> freezer only
+delete authority: no product/runtime deletion authority added
+forbidden: Parser/Runtime/Backtest/Broker/Core provider/file/network authority or source-specific semantics
+```
+
+외부 CSV를 Core가 직접 읽게 만들지 않는다. acquisition/tool edge가 caller bytes를 제공하고 기존 freezer를 그대로 사용해야 한다. LFREAL2 product logic을 이 source 때문에 수정하지 않는다.
+
+이 freeze tranche가 focused + Full PASS된 뒤에만 다음 경계로 간다.
+
+```text
+immutable manifest
+ -> causal OHLCV-only parser/adapter
+ -> LFREAL3 admission focused validation
+```
 
 automatic selection, allocation, adaptive learning, new DSL grammar, live deployment gate는 계속 보류한다.
 
@@ -92,11 +103,16 @@ automatic selection, allocation, adaptive learning, new DSL grammar, live deploy
 5. 문서가 stale이면 실제 코드 + exact local evidence + 최근 대화 결정으로 보정한다.
 6. 첫 답변은 개발철학 / 최근 한 일 / 앞으로 할 일 세 부분만 짧게 보여준다.
 
-새 GitHub 실행 코드/테스트에 local PASS가 없으면 `REMOTE_UNVALIDATED`로 취급한다.
+새 GitHub 실행 코드/테스트에 local PASS가 없으면 `REMOTE_UNVALIDATED`로 취급한다. docs-only HEAD와 trusted executable SHA를 혼동하지 않는다.
 
 ## 6. 금지된 과장
 
-현재 source material/provenance를 확보한 사실과 market-data authenticity 인증은 구분한다. LFREAL2 exact-byte manifest가 아직 생성되지 않았고, real-data LF study도 시작되지 않았다.
+REALDATA1 exact source-byte identity가 확인된 사실과 market-data authenticity 인증은 구분한다. LFREAL2 immutable manifest는 아직 생성되지 않았고 real-data LF study도 시작되지 않았다.
+
+```text
+market_data_authenticity_verified = false
+real_data_claim = false
+```
 
 수익성 있는 leader/follower edge, 실전 자동선별, validated deployment gating, live trading readiness, repository-wide compliance PASS를 주장하지 않는다.
 
