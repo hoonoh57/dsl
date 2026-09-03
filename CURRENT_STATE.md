@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_TRUSTED_FULL_PASS / LFVAL1_TRUSTED_FULL_PASS / LFOUT1_TRUSTED_FULL_PASS / LFREAL1_TRUSTED_FULL_PASS / LFREAL2_TRUSTED_FULL_PASS / LFREAL3_TRUSTED_FULL_PASS / REALDATA1_LFREAL3_CAUSAL_DATASET_TRUSTED_LOCAL_FULL_PASS / REMEDIATION_REQUIRED**  
+Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_TRUSTED_FULL_PASS / LFVAL1_TRUSTED_FULL_PASS / LFOUT1_TRUSTED_FULL_PASS / LFREAL1_TRUSTED_FULL_PASS / LFREAL2_TRUSTED_FULL_PASS / LFREAL3_TRUSTED_FULL_PASS / REALDATA1_LFREAL3_CAUSAL_DATASET_TRUSTED_LOCAL_FULL_PASS / MULTI_SYMBOL_REALDATA_REQUIRED_FOR_LF1 / REMEDIATION_REQUIRED**  
 Updated: 2026-09-04 KST
 
 ## Recovery
@@ -196,33 +196,36 @@ The REALDATA1 causal-dataset/LFREAL3 admission gate is closed at trusted executa
 f770742b69137315b14f16ad92ea77ac5881db7c
 ```
 
-The next research micro-tranche is:
+Direct LF1/LF2 evidence production is **not yet admissible** from REALDATA1 alone. Existing MSA2/LF1 requires a static exact multi-symbol universe: `GroupEvidencePolicy.leader_count=1` must satisfy `leader_count < len(universe.symbols)`, so at least two symbols are required for any follower evidence. REALDATA1 currently contains only `000660.KS`.
+
+The next research micro-tranche is therefore:
 
 ```text
-trusted derived LFREAL3 row bundle
- -> exact-cutoff causal snapshot
- -> narrow LF1 relation evidence over observation-only points
- -> LF2 observation-only intent evidence
+acquire/pin at least one additional compatible causal instrument
+ -> exact caller bytes + LFREAL2 manifest per source/dataset
+ -> LFREAL3 causal rows with aligned explicit observation points
+ -> static explicit multi-symbol universe
+ -> only then existing MSA2/LF1 -> LF2
 ```
-
-Before implementation, reuse the existing `CausalRowProducer.snapshot`, `MultiSymbolLeaderFollowerRelationAnalyzer`, and `MultiSymbolFollowerPendingOrchestrator` contracts rather than introducing parallel LF semantics.
 
 Mandatory implementation gate:
 
 ```text
-owner layer: tools/ research edge adapter outside Core
-existing shared path: LFREAL3 snapshot -> existing LF1 analyzer -> existing LF2 orchestrator
-state SSOT: derived dataset_manifest_hash + row_bundle_hash + exact knowledge_cutoff + existing LF1/LF2 hashes
-create authority: research evidence artifacts only
+owner layer: tools/ research data edge outside Core
+existing shared path: LFREAL2 freezer -> LFREAL3 rows -> MSA1/MSA2 -> existing LF1 -> existing LF2
+state SSOT: exact source identities + LFREAL2 manifest hashes + LFREAL3 row bundle hashes + explicit static universe topology
+create authority: research data/evidence artifacts only
 delete authority: none
-forbidden: Parser/Runtime/Backtest/Broker provider/file/network authority; future-row access; nearest-time/fill-forward; execution/deployment authority; new hidden ranking/allocation logic
+forbidden: fabricate follower symbols from one instrument; clone/shift one series as another symbol; nearest-time/fill-forward/interpolation; provider/network authority in Core; hidden ranking/allocation; execution/deployment authority
 ```
 
-The next tranche must be exact-as-of and causal: no row after `knowledge_cutoff` may contribute to LF1/LF2 evidence. Automatic allocation, adaptive learning, new DSL grammar, live selection, broader ranking, and deployment permission remain deferred.
+Do not create a fake second symbol from `000660.KS` and do not weaken the LF1 multi-symbol contract. A second independently identified causal instrument/source must be pinned and pass the same identity/OHLCV gates before LF1 study begins.
+
+Automatic allocation, adaptive learning, new DSL grammar, live selection, broader ranking, and deployment permission remain deferred.
 
 ## Nonclaims
 
-Exact source-byte identity, original LFREAL2 manifest identity, causal derived dataset identity, and LFREAL3 row admission are now verified locally. Independent market-data authentication remains incomplete. No actual LF1/LF2 relation/intent study over this dataset has yet been locally validated, and no profitable leader/follower edge, production leader selection, validated deployment gating, live provider/broker readiness, or repository-wide compliance PASS is claimed.
+Exact source-byte identity, original LFREAL2 manifest identity, causal derived dataset identity, and LFREAL3 row admission for `000660.KS` are verified locally. Independent market-data authentication remains incomplete. A multi-symbol real-data universe is not yet established, so no actual LF1/LF2 relation/intent study is currently admissible. No profitable leader/follower edge, production leader selection, validated deployment gating, live provider/broker readiness, or repository-wide compliance PASS is claimed.
 
 `REMEDIATION_REQUIRED` remains authoritative for broader repository compliance.
 
