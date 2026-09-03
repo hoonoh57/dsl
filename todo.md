@@ -26,45 +26,75 @@
   - descriptor는 stable id + plain JSON props/data/layout만 허용한다.
   - callback/function/live handle/non-finite number/non-plain object는 거부한다.
   - parent 관계를 generic grammar에서 검증하고 결과를 deep-freeze한다.
+  - 상호작용도 callback이 아니라 JSON intent만 허용한다: `legend.select/delete`, `region.activate` → `{type,payload}`.
 - **generic Runtime renderer를 구현했다.**
   - `src/runtime/chart/ChartDrawingRuntime.mjs`.
   - live authority는 `Map<itemId, liveHandle>`이며 public lifecycle은 `ensure/update/setVisible/remove`다.
   - item shape가 같으면 같은 handle에 data/visibility만 갱신하고, shape가 바뀌면 그 item만 재생성한다.
   - 생성 실패는 그 item의 root handle만 rollback하며 unrelated item은 건드리지 않는다.
   - pane child는 pane가 소유하도록 root-handle ownership을 정리해 Runtime/pane 이중 dispose를 제거했다.
-- **generic Runtime locality/ownership test를 추가했다.**
-  - A/B 두 item 중 A 변경·삭제가 B lifecycle을 건드리지 않는지 검증한다.
-  - pane child가 root pane dispose를 통해 정확히 한 번 정리되는지 검증한다.
-  - failed item creation이 unrelated live item을 rollback하지 않는지 검증한다.
+  - JSON action intent는 Runtime이 surface callback으로 번역해 `{itemId,primitiveId,event,intent}`로 generic dispatch한다. dispatch authority가 없으면 fail-closed다.
 - **pure Add-on drawing definition 계약을 구현했다.**
   - `src/runtime/chart/ChartDrawingDefinition.mjs`.
-  - 목표 인터페이스는 `describe({ id, state, bars, workspace }) -> immutable drawing descriptor`다.
-  - 입력은 deep-freeze되며 Add-on이 state/bars/workspace를 mutation하지 못한다.
+  - `describe({ id, state, bars, workspace }) -> immutable drawing descriptor`.
+  - 입력은 recursive deep-freeze되며 Add-on이 state/bars/workspace를 mutation하지 못한다.
   - `describe()`는 synchronous pure function이어야 하며 Promise를 반환하면 거부한다.
   - 반환 descriptor id는 Runtime item id로 강제한다.
-- 표준화 PR #5 현재 head는 `56d9ad20649ad380ad38166006f3e7bd30d94c79`이고, 해당 head의 `Verify chart platform` workflow `33721389937`은 PASS했다.
-- 이 PASS는 새 generic 부품의 기존 테스트 회귀 없음만 의미한다. **legacy drawing path는 아직 살아 있으므로 Add-on/Runtime/JSON/single-path/global PASS가 아니다.**
+- **indicator 11종 전체의 pure descriptor 정의를 추가했다.**
+  - primary: SMA / EMA / JMA / Bollinger / SuperTrend / VWAP.
+  - dedicated pane: RSI / MACD / Disparity / DMI / OBV.
+  - 각 descriptor data는 기존 `calculate*` 결과와 직접 equivalence test로 비교한다.
+  - pane indicator는 `pane(height=130)` root 하나 + 고정 child id만 사용한다.
+  - VWAP은 show flag가 바뀌어도 5개 primitive id를 유지하고 hidden component만 빈 data로 만들어 shape/cardinality를 안정화했다.
+  - **legacy `*AddonDefinition.create(context)` class는 아직 남아 있고 catalog도 legacy를 사용한다. 따라서 indicator active path 표준화 완료 선언은 아직 금지한다.**
+- **generic desired-item reconciler를 구현했다.**
+  - `src/runtime/chart/ChartDrawingReconciler.mjs`.
+  - input은 `{id,definitionId,enabled,visible,state}` 독립 desired item이다.
+  - desired/live ID set-diff만 수행하고 `ensure/remove(item)`를 호출한다.
+  - feature branch, owner collection signature, revision/pending, restore 전용 branch를 두지 않는다.
+  - 동일 item은 per-item signature로 skip하고 contextKey 변경 시 동일 ensure(item) path로 갱신한다.
+  - 미등록 definition/계산 실패는 그 item만 fail-closed remove하고 unrelated item은 유지한다.
+- **reconciler 구현 중 scale defect를 즉시 수정했다.**
+  - 초기 구현의 item loop 내부 `runtime.ids().includes()`는 1000개에서 O(N²) 가능성이 있어 NONSTANDARD로 판단했다.
+  - live ids를 reconcile 시작 시 한 번 `Set`으로 만들고 membership을 O(1) 평균으로 바꿔 전체 desired/live diff를 cardinality-linear하게 정리했다.
+- **semantic operation trace gate의 핵심을 구현했다.**
+  - 1000 items first apply = 1000개의 동일 `ensure(item)`.
+  - 동일 1000 재적용 = operation 0 / 1000 unchanged.
+  - `item-537`만 OFF = `remove(item-537)` 1건, 나머지 999 unchanged.
+  - `item-537` ON = `ensure(item-537)` 1건, 나머지 999 unchanged.
+  - 한 item state/visible 변경 = 그 item ensure 1건만 발생.
+  - global OFF = 동일 `remove(item)` 1000회 반복, 별도 global lifecycle 없음.
+  - restart = 새 Runtime에서 first apply와 동일 ensure trace.
+  - context revision = 동일 ensure(item) 반복, restore-specific branch 없음.
+  - 한 item 실패 = 실패 item만 remove, unrelated live item 유지.
+  - duplicate desired id는 live mutation 전에 fail-closed.
+- 표준화 PR #5 semantic checkpoint head `5ceecbf358680999210e8e3312dd63c677caa167`의 `Verify chart platform` workflow `33722856948`은 PASS했다.
+- 이 PASS는 **새 grammar/definition/renderer/reconciler/semantic test 부품**에 대한 PASS다. legacy drawing path, collection restore path, JSON 구조가 아직 남아 있으므로 Add-on/Runtime/JSON/single-path/global PASS가 아니다.
 - 추가 compare restore/height/timing 보정 패치는 중단 상태다.
 - 작업 branch는 dsl `dsl-live-studio`; `origin/main`을 섞지 않는다.
 - repo-wide/global compliance는 `REMEDIATION_REQUIRED`다.
 
 ## 할 일
 
-- **표준화 PR #5를 계속하되 legacy drawing path가 완전히 제거되기 전에는 merge하지 않는다.**
-- 다음 micro-tranche는 pure definition contract를 테스트로 고정한 뒤 단순 indicator의 descriptor 출력부터 증명한다.
-  1. `ChartDrawingDefinition` property test: deep-freeze, callback/live data rejection, async describe rejection, returned id 강제, input mutation 차단을 검증한다.
-  2. SMA/EMA/JMA의 feature 계산 결과를 이용해 pure one-item descriptor를 생성하는 정의를 추가/전환한다. primary line은 동일 Core grammar(`line`, parent=`primary`)만 사용한다.
-  3. 이 단계에서는 새 descriptor path를 제품에서 별도 활성화하지 않는다. 출력 equivalence/contract를 먼저 테스트한다.
-  4. Bollinger/SuperTrend/VWAP 및 pane indicator(RSI/MACD/Disparity/DMI/OBV)도 동일 descriptor 방식으로 순차 전환한다.
-- indicator descriptor 전환이 끝나면 **RuntimeHost를 한 번의 경계 변경으로** desired item → definition.describe → `ChartDrawingRuntime.ensure/update/remove` 단일 path로 전환한다.
+- **표준화 PR #5는 계속 draft/DO NOT MERGE 상태로 유지한다. legacy drawing lifecycle이 완전히 제거되기 전에는 main에 merge하지 않는다.**
+- 다음 micro-tranche는 interactive research/compare를 위해 **pure Add-on action reducer contract**를 고정한다.
+  - Add-on action semantics = `reduce({state,action,workspace}) -> nextState` 순수 JSON 함수.
+  - Runtime은 descriptor의 JSON intent를 reducer로 generic dispatch하고 state store write만 수행한다.
+  - feature-specific action switch를 Runtime에 넣지 않는다.
+  - reducer input deep-freeze, async rejection, JSON-only output, unknown action fail-closed, item A action이 item B state를 변경하지 않는 locality를 테스트한다.
+- 그 다음 synchronous research부터 descriptor화한다.
+  - 우선 `Trend Regime`: 계산 line/marker/region을 pure desired drawing data로 변환한다.
+  - 동적으로 생기는 region/subject는 whole-array lifecycle을 만들지 않고 stable child item id가 필요하면 generic desired child item으로 확장한다.
+- async research(`N_UP_COUNT`, MarketBetaCohort, ConditionSearch, SectorLeadership 등)는 Add-on-owned pane/bar-window lifecycle이 아니라 generic data request result → stable desired child item으로 변환한다.
+- `CompareSubjects`는 기존 `subjects[] -> replace(owner)`를 유지한 채 descriptor layer를 덧씌우지 않는다. JSON 자체를 independent subject desired items로 이행한 뒤 같은 reconciler path를 사용한다.
+- 모든 drawing feature가 pure definition/reducer 계약으로 준비된 뒤 **RuntimeHost를 한 번의 경계 변경으로** desired item → definition.describe → reconciler → drawing runtime 단일 path로 전환한다.
   - Add-on에 raw `surface`, `layout`, drawing handle을 넘기지 않는다.
-  - 전환과 동시에 indicator의 legacy `definition.create(context)` drawing implementation을 제거한다. compatibility fallback/feature branch를 남기지 않는다.
-- 그 다음 research/compare를 같은 원칙으로 변환한다.
-  - async market/bar data는 Add-on-owned pane lifecycle이 아니라 generic data capability 결과 → desired child item descriptor로 만든다.
-  - `revision/pending/subjects[] -> replace(owner)` collection orchestration을 제거한다.
-- 이후 JSON/Persistence를 independent desired item 구조로 변환하고 compare `subjects[]` 및 restore-only `__layout` authority를 제거한다.
+  - `.create`/`.describe` 자동 fallback 같은 이중 active path를 만들지 않는다.
+  - 전환과 동시에 legacy `definition.create(context)` drawing implementation을 제거한다.
+- 이후 `ChartSubjectViewManager` owner whole-replace/collection signature를 제거하고, compare/condition/sector child item도 독립 lifecycle로 통일한다.
+- JSON/Persistence에서 compare `subjects[]` collection authority와 restore-only `__layout`을 제거/마이그레이션한다.
 - `MarketChart.whenAddonsIdle()`의 별도 layout restore/stabilize path를 제거해 restart/global/item ON/OFF가 모두 같은 normal apply path를 사용하도록 한다.
-- 마지막에 semantic operation recorder로 1/10/1000 cardinality, single-item locality, global/item visibility equivalence, restart==normal apply, idempotence, single-path를 고정한다.
+- 최종 semantic gate에서 1/10/1000 cardinality, locality, global/item visibility equivalence, restart==normal apply, idempotence, single-path를 다시 전체 제품경로로 검증한다.
 - semantic gate는 제품에 맞춰 완화하지 않는다.
 - 전체 4축 baseline이 STANDARD가 되기 전 UIA-1/Chart 구조 PASS를 선언하지 않는다.
 - 각 tranche 종료 시 새 문서를 만들지 않고 이 `todo.md`만 갱신한다.
