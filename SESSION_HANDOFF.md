@@ -18,7 +18,7 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / RECONCILED_REMOTE_TAIL / 2026-09-04 K
 - 마지막 trusted executable checkpoint는 LFREAL3 `ab4d798c6648ee382e779af81e759cd11bf1cb13`이고, 사용자 로컬 증거는 `Ran 7 tests in 0.001s / OK` 및 `[PASS] Tactical P1 verification completed: mode=Full.`이다.
 - 이후 실제 외부 source material로 SK hynix `000660.KS` 일봉 CSV를 찾고 source provenance를 기록했다. pinned source blob은 `84fb250326def7148cce6466026aaecf057e2013`, 483 data rows다.
 - `REALDATA1` exact-byte acquisition verifier와 첫 Live Studio Core verification catalog/focused test가 `main`에 추가됐다.
-- 그러나 LFREAL3 이후 실행 변경에 대한 사용자 로컬 PASS는 아직 복구되지 않았다. 따라서 현재 `main` HEAD `3a49177a15888922c48c68efd91beac1abcba4a6`은 **REMOTE_UNVALIDATED**이며 trusted checkpoint로 승격하지 않는다.
+- 그러나 LFREAL3 이후 실행 변경에 대한 사용자 로컬 PASS는 아직 복구되지 않았다. executable/test 변경분은 `3a49177a15888922c48c68efd91beac1abcba4a6`까지 **REMOTE_UNVALIDATED**이며, 이후 documentation-only reconciliation commit은 이를 trusted로 승격하지 않는다.
 
 ## 3. 현재 위치
 
@@ -26,12 +26,12 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / RECONCILED_REMOTE_TAIL / 2026-09-04 K
 TRUSTED_LOCAL
   LFREAL3 ab4d798c6648ee382e779af81e759cd11bf1cb13
 
-REMOTE_UNVALIDATED tail
+REMOTE_UNVALIDATED executable/test tail
   REALDATA1 provenance checkpoint
   -> pinned exact-byte acquisition verifier
   -> first Live Studio verification catalog
   -> focused catalog tests
-  -> main HEAD 3a49177a15888922c48c68efd91beac1abcba4a6
+  -> executable/test tail through 3a49177a15888922c48c68efd91beac1abcba4a6
 ```
 
 연구 데이터 경로는 다음 책임 경계를 유지한다.
@@ -65,7 +65,7 @@ broader repo compliance는 계속 **REMEDIATION_REQUIRED**다.
 4. powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
 ```
 
-위 세 검증이 현재 `main` HEAD에서 PASS하면 그 exact SHA를 trusted local point로 승격한다.
+위 세 검증이 현재 pull한 `main`에서 PASS하면 그 exact pulled SHA를 trusted local point로 승격한다.
 
 그 다음 micro-tranche에서만:
 
