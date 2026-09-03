@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_TRUSTED_FULL_PASS / LFVAL1_TRUSTED_FULL_PASS / LFOUT1_TRUSTED_FULL_PASS / LFREAL1_TRUSTED_FULL_PASS / LFREAL2_TRUSTED_FULL_PASS / LFREAL3_TRUSTED_FULL_PASS / REALDATA1_LFREAL2_MANIFEST_TRUSTED_LOCAL_FULL_PASS / REMEDIATION_REQUIRED**  
+Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_TRUSTED_FULL_PASS / LFVAL1_TRUSTED_FULL_PASS / LFOUT1_TRUSTED_FULL_PASS / LFREAL1_TRUSTED_FULL_PASS / LFREAL2_TRUSTED_FULL_PASS / LFREAL3_TRUSTED_FULL_PASS / REALDATA1_LFREAL3_CAUSAL_DATASET_TRUSTED_LOCAL_FULL_PASS / REMEDIATION_REQUIRED**  
 Updated: 2026-09-04 KST
 
 ## Recovery
@@ -42,11 +42,11 @@ LFOUT1            ca4d5309a658de02f970e341bbf86ad87ab327ae
 LFREAL1           5aa1da3268f1f3e031aa6d607a4d3a5921f03e58
 LFREAL2           10861c232d03937c5ae77e2be32cd1873a5ff977
 LFREAL3           ab4d798c6648ee382e779af81e759cd11bf1cb13
-PREVIOUS LOCAL MAIN 4ebde8647cd0caede3c9cb4e6f210bc5a1f7d630
-CURRENT LOCAL MAIN  2a20f49cd3ae69b1f340496f27b8621d034c98ed
+PREVIOUS LOCAL MAIN 2a20f49cd3ae69b1f340496f27b8621d034c98ed
+CURRENT LOCAL MAIN  f770742b69137315b14f16ad92ea77ac5881db7c
 ```
 
-`2a20f49cd3ae69b1f340496f27b8621d034c98ed` is the current trusted executable/test checkpoint because the exact user-local clean validation checkout passed the focused LFREAL2 freeze contracts, produced the pinned REALDATA1 manifest, and passed Tactical P1 Full. Later documentation-only commits do not change the trusted executable SHA.
+`f770742b69137315b14f16ad92ea77ac5881db7c` is the current trusted executable/test checkpoint because the exact user-local clean validation checkout passed the focused REALDATA1 causal-dataset/LFREAL3 contracts, deterministically derived and admitted the actual 482-row causal dataset, and passed Tactical P1 Full. Later documentation-only commits do not change the trusted executable SHA.
 
 Relevant external Chart contract checkpoint used by trusted Full runs:
 
@@ -80,29 +80,24 @@ REALDATA1 acquisition:
   bytes=57541
   sha256=fffbeaece7a769e063c3803ad184265aa751d9f417e3e72e2862045cad10f5ba
 
-Live Studio catalog:
-  Ran 4 tests in 0.169s / OK
-
-Stage1 native probe + launcher contracts:
-  Ran 8 tests in 0.095s / OK
-Stage1 preflight:
-  [PASS] Stage 1 preflight: Python Python 3.13.1, Node v24.19.0
-
-Tactical launcher contracts:
-  Ran 6 tests in 0.033s / OK
-Previous Full at 4ebde8647cd0caede3c9cb4e6f210bc5a1f7d630:
+REALDATA1 original LFREAL2 freeze at 2a20f49cd3ae69b1f340496f27b8621d034c98ed:
+  Ran 12 tests in 0.024s / OK
+  dataset_manifest_hash=8b06c3a4871666771343df7eee074abc176fd2cf68fce3768848f2342c57f982
   [PASS] Tactical P1 verification completed: mode=Full.
 
-REALDATA1 LFREAL2 freeze focused validation at 2a20f49cd3ae69b1f340496f27b8621d034c98ed:
-  Ran 12 tests in 0.024s / OK
-
-REALDATA1 LFREAL2 actual manifest freeze:
-  [PASS] REALDATA1 LFREAL2 manifest frozen
-  bytes=57541
-  sha256=fffbeaece7a769e063c3803ad184265aa751d9f417e3e72e2862045cad10f5ba
-  dataset_manifest_hash=8b06c3a4871666771343df7eee074abc176fd2cf68fce3768848f2342c57f982
-
-Current Full at 2a20f49cd3ae69b1f340496f27b8621d034c98ed:
+REALDATA1 causal-dataset tranche at f770742b69137315b14f16ad92ea77ac5881db7c:
+  Ran 22 tests in 0.016s / OK
+  original invalid row detected: 20241014000000
+  low=184624.15022681453
+  close=183735.109375
+  low-close=889.0408518145268
+  [PASS] REALDATA1 causal dataset derived and admitted
+  rows=482
+  quarantined=1
+  derived_bytes=40493
+  derived_sha256=c97624cdc92632ec3e4fab637e37514aadb9e9f9e61b1a4f2dde3a2e6390b76c
+  manifest_hash=58acf49d4031938fd0099d99f7a105f8bbec3664a6478604d71daf2dbf370ae6
+  row_bundle_hash=1428a6343635524723b828f6447b04d9d9ab9a3fe42b58e0776144f4fcd4bec2
   [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
@@ -111,11 +106,11 @@ Two verification-harness defects were exposed during earlier local validation an
 1. Windows PowerShell 5.1 native version probing read `$LASTEXITCODE` after `Select-Object`, producing a false failure even when Python returned `Python 3.13.1`; the exit code is now captured before output selection.
 2. Tactical preflight invoked native Python imports under `$ErrorActionPreference='Stop'`, causing stderr to terminate the script before the intended fail-closed exit-code branch; native stderr/exit are now captured explicitly and reported without bypassing failure.
 
-A later Tactical preflight correctly exposed the actual environment issue `ModuleNotFoundError: No module named 'pymysql'`. `PyMySQL` was already an official `requirements.txt` dependency, so no product/Core requirement change was made. The final exact local checkout subsequently passed Tactical P1 Full.
+The missing `pymysql` module was classified as an environment issue after the harness correctly exposed it.
 
-## REALDATA1 source, identity, and LFREAL2 manifest status
+## REALDATA1 source, original identity, and causal derived identity
 
-REALDATA1 source material currently recorded:
+Original pinned source:
 
 ```text
 instrument: SK hynix
@@ -124,32 +119,43 @@ source repository: hyekong/sk-hynix-news-dataset
 source commit: 339f0b6dc15531f374c51f715f12555153054009
 source file: sk_hynix_price.csv
 pinned source Git blob SHA-1: 84fb250326def7148cce6466026aaecf057e2013
-frequency: daily / LFREAL2 timeframe=1d
+frequency: daily / timeframe=1d
 observations: 2024-04-15 .. 2026-04-13
-LFREAL2 observation keys: 20240415000000 .. 20260413000000
 record_count: 483
-provider path stated by source: yfinance -> Yahoo Finance
 exact downloaded bytes: 57541
 exact downloaded content SHA-256: fffbeaece7a769e063c3803ad184265aa751d9f417e3e72e2862045cad10f5ba
-LFREAL2 dataset_manifest_hash: 8b06c3a4871666771343df7eee074abc176fd2cf68fce3768848f2342c57f982
+original LFREAL2 dataset_manifest_hash: 8b06c3a4871666771343df7eee074abc176fd2cf68fce3768848f2342c57f982
 ```
 
-The acquisition verifier establishes exact content identity for the pinned source bytes. The existing LFREAL2 `ExternalDatasetFreezer` now also freezes those exact caller bytes into a deterministic immutable manifest. Neither step independently establishes market-data authenticity.
+The original source remains immutable. LFREAL3 correctly rejected one source row because `2024-10-14` had `low > close` by about 889.04, which is not floating-point noise. No Core assertion was weakened and no price was clipped, filled, interpolated or corrected.
+
+A separate causal-only derived dataset was therefore created at the edge. Its identity is:
+
+```text
+quarantined observation: 20241014000000
+quarantined row count: 1
+causal record_count: 482
+derived_bytes: 40493
+derived_sha256: c97624cdc92632ec3e4fab637e37514aadb9e9f9e61b1a4f2dde3a2e6390b76c
+derived LFREAL2 dataset_manifest_hash: 58acf49d4031938fd0099d99f7a105f8bbec3664a6478604d71daf2dbf370ae6
+LFREAL3 row_bundle_hash: 1428a6343635524723b828f6447b04d9d9ab9a3fe42b58e0776144f4fcd4bec2
+```
+
+The derived dataset contains only causal `date/open/high/low/close/volume` information. Source columns `return`, `next_close`, and `direction` are not admitted. The derivation remains bound to the exact original source identity and explicitly quarantines only the known invalid observation; unexpected additional invalid rows fail closed.
 
 ```text
 content_hash_verified = true
 lfreal2_manifest_created = true
+lfreal3_rows_admitted = true
 market_data_authenticity_verified = false
 real_data_claim = false
 ```
 
-The manifest identity SSOT is now the exact tuple of source declaration + caller-byte content identity embodied by `dataset_manifest_hash=8b06c3a4871666771343df7eee074abc176fd2cf68fce3768848f2342c57f982`.
-
 ## Trusted research boundary
 
-LF2 remains observation-only orchestration. LFVAL1 validates frozen intent evidence. LFOUT1 validates exact frozen outcomes. LFREAL1 validates non-fixture provenance/timing admission. LFREAL2 freezes caller-provided external historical bytes into a deterministic SHA-256 manifest. LFREAL3 binds caller-parsed OHLCV rows to that manifest and produces deterministic cutoff-bounded causal snapshots.
+LF2 remains observation-only orchestration. LFVAL1 validates frozen intent evidence. LFOUT1 validates exact frozen outcomes. LFREAL1 validates non-fixture provenance/timing admission. LFREAL2 freezes caller-provided bytes into deterministic immutable manifests. LFREAL3 binds caller-parsed OHLCV rows to a manifest and produces deterministic cutoff-bounded causal snapshots.
 
-LFREAL3 trusted guarantees:
+LFREAL3 trusted guarantees remain unchanged:
 
 ```text
 row_count == manifest.record_count
@@ -161,7 +167,7 @@ visible rows = rows where row.time <= knowledge_cutoff
 future_rows_excluded = true
 ```
 
-No nearest-time lookup, fill-forward, interpolation, provider access, file I/O, strategy replay, LF semantics, order authority, or deployment authority is added.
+No nearest-time lookup, fill-forward, interpolation, provider access, strategy replay, LF semantics, order authority, or deployment authority is added to Core.
 
 Authority/claim boundary remains:
 
@@ -174,52 +180,49 @@ market_data_authenticity_verified = false
 real_data_claim = false
 ```
 
-The external source includes derived/future-facing columns such as `return`, `next_close`, and `direction`; they must not be admitted as causal observation features. The next edge parser/adapter may admit only `date, open, high, low, close, volume`, assign the already-declared symbol `000660.KS`, and normalize daily dates to the LFREAL3-compatible midnight observation key. It must not modify LFREAL3 Core semantics.
-
 ## Defect history preserved
 
 Initial LFOUT1 executable `f95d15f2f66533a616db5a86df9cbe9e1f7c418b` failed two focused tests. Classification: **product defect — signed MAE direction bug**. Product logic only was corrected; tests and thresholds were unchanged.
 
 Initial LF2 checkpoint `14bf03f1f9473a607d4330e4d06f9d0ef9bdd219` had a source-level boundary contract defect; the test was kept and only product text was corrected. A later sibling Chart failure was classified as a stale Chart test contract and fixed only in the Chart test at `258fd07ca76214819cec3822b02564e21a1c8680`.
 
-The 2026-09-04 local validation failures around Python version probing and Tactical native stderr were classified as **test/verification-harness defects**, not product defects. The missing `pymysql` module was classified as an **environment issue** after the harness correctly exposed it.
+The 2026-09-04 Python version/stderr failures were **test/verification-harness defects**. Missing `pymysql` was an **environment issue**. The REALDATA1 `2024-10-14` OHLC violation is classified as an **external source/data defect**; Core LFREAL3 behaved correctly by rejecting it.
 
 ## Next boundary
 
-The REALDATA1 LFREAL2 freeze gate is closed at trusted executable SHA:
+The REALDATA1 causal-dataset/LFREAL3 admission gate is closed at trusted executable SHA:
 
 ```text
-2a20f49cd3ae69b1f340496f27b8621d034c98ed
+f770742b69137315b14f16ad92ea77ac5881db7c
 ```
 
-The next research micro-tranche is now:
+The next research micro-tranche is:
 
 ```text
-trusted LFREAL2 manifest
-+ exact REALDATA1 local CSV bytes
- -> edge causal OHLCV-only parser/adapter
- -> existing LFREAL3 CausalRowProducer.admit
- -> deterministic row_bundle_hash / exact boundary validation
+trusted derived LFREAL3 row bundle
+ -> exact-cutoff causal snapshot
+ -> narrow LF1 relation evidence over observation-only points
+ -> LF2 observation-only intent evidence
 ```
+
+Before implementation, reuse the existing `CausalRowProducer.snapshot`, `MultiSymbolLeaderFollowerRelationAnalyzer`, and `MultiSymbolFollowerPendingOrchestrator` contracts rather than introducing parallel LF semantics.
 
 Mandatory implementation gate:
 
 ```text
-owner layer: tools/ edge adapter outside Core
-existing shared path: LFREAL3 CausalRowProducer.admit
-state SSOT: LFREAL2 dataset_manifest_hash + existing LFREAL3 row bundle
-create authority: explicit caller source path + manifest path -> parser adapter -> LFREAL3 only
+owner layer: tools/ research edge adapter outside Core
+existing shared path: LFREAL3 snapshot -> existing LF1 analyzer -> existing LF2 orchestrator
+state SSOT: derived dataset_manifest_hash + row_bundle_hash + exact knowledge_cutoff + existing LF1/LF2 hashes
+create authority: research evidence artifacts only
 delete authority: none
-forbidden: Parser/Runtime/Backtest/Broker/Core provider/file/network authority; future-facing column admission; source-specific LFREAL3 product semantics
+forbidden: Parser/Runtime/Backtest/Broker provider/file/network authority; future-row access; nearest-time/fill-forward; execution/deployment authority; new hidden ranking/allocation logic
 ```
 
-The edge adapter must fail closed if the supplied manifest identity is not the trusted REALDATA1 LFREAL2 manifest, if source bytes do not match the pinned content SHA-256, if required causal columns are absent/invalid, if row count/time boundaries differ, or if LFREAL3 rejects the rows. It must ignore rather than admit `return`, `next_close`, and `direction` as observations.
-
-Automatic allocation, adaptive learning, new DSL grammar, live selection, broader ranking, and deployment permission remain deferred.
+The next tranche must be exact-as-of and causal: no row after `knowledge_cutoff` may contribute to LF1/LF2 evidence. Automatic allocation, adaptive learning, new DSL grammar, live selection, broader ranking, and deployment permission remain deferred.
 
 ## Nonclaims
 
-Exact REALDATA1 source-byte identity and LFREAL2 immutable manifest identity are now verified locally. Independent market-data authentication is not complete. No LFREAL3 actual-row admission has yet been locally validated for this source, and no real-data LF study, profitable leader/follower edge, production leader selection, validated deployment gating, live provider/broker readiness, or repository-wide compliance PASS is claimed.
+Exact source-byte identity, original LFREAL2 manifest identity, causal derived dataset identity, and LFREAL3 row admission are now verified locally. Independent market-data authentication remains incomplete. No actual LF1/LF2 relation/intent study over this dataset has yet been locally validated, and no profitable leader/follower edge, production leader selection, validated deployment gating, live provider/broker readiness, or repository-wide compliance PASS is claimed.
 
 `REMEDIATION_REQUIRED` remains authoritative for broader repository compliance.
 
