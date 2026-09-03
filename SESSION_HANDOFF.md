@@ -1,6 +1,6 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / ACTIVE / CURRENT_EXECUTABLE_LOCALLY_TRUSTED / 2026-09-04 KST**
+Status: **PRIMARY HUMAN HANDOFF / ACTIVE / REALDATA1_LFREAL2_MANIFEST_LOCALLY_TRUSTED / 2026-09-04 KST**
 
 이 문서는 새 세션이 가장 먼저 읽는 사람 중심 인수인계 문서다. 갑작스러운 종료를 고려해 이전 프로젝트 대화의 마지막 exact local evidence와 GitHub 최신 상태를 함께 대조한다.
 
@@ -15,26 +15,36 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / CURRENT_EXECUTABLE_LOCALLY_TRUSTED / 
 ## 2. 최근 한 일
 
 - `GCANCEL1`, `GCANCEL2`, `VSLICE1`, `LF2`, `LFVAL1`, `LFOUT1`, `LFREAL1`, `LFREAL2`, `LFREAL3`는 trusted Full PASS다.
-- 기존 LFREAL3 trusted checkpoint는 `ab4d798c6648ee382e779af81e759cd11bf1cb13`이다.
-- 이후 REALDATA1 source provenance, exact-byte acquisition verifier, Live Studio verification catalog, PowerShell 5.1 native-probe fixes를 포함한 현재 executable/test tail을 사용자 로컬 clean validation worktree에서 검증했다.
-- **현재 trusted executable/test checkpoint는 `4ebde8647cd0caede3c9cb4e6f210bc5a1f7d630`이다.** 이후 docs-only commit은 이 executable SHA를 바꾸지 않는다.
-- REALDATA1 exact source verification 결과는 `bytes=57541`, `sha256=fffbeaece7a769e063c3803ad184265aa751d9f417e3e72e2862045cad10f5ba`다.
-- Live catalog focused 검증은 `Ran 4 tests in 0.169s / OK`다.
-- Stage1 native probe + launcher focused 검증은 `Ran 8 tests in 0.095s / OK`, Stage1 preflight는 `Python 3.13.1 / Node v24.19.0`으로 PASS했다.
-- Tactical launcher focused 검증은 `Ran 6 tests in 0.033s / OK`다.
-- 최종 exact local checkout `4ebde864...`에서 `[PASS] Tactical P1 verification completed: mode=Full.`을 확보했다.
-- 검증 중 PowerShell native exit/stderr 처리 두 건은 **test/verification-harness defect**, 누락된 `pymysql`은 **environment issue**로 분류했다. product/Core assertion은 약화하지 않았다.
+- REALDATA1 source provenance, exact-byte acquisition verifier, Live Studio verification catalog, PowerShell 5.1 verification-harness fixes를 포함한 이전 executable tail은 `4ebde8647cd0caede3c9cb4e6f210bc5a1f7d630`에서 trusted였다.
+- 이후 Core를 수정하지 않고 `tools/freeze_realdata1_dataset.py` edge adapter와 focused test를 추가했다.
+- 사용자 로컬 clean validation checkout에서 해당 tranche를 검증했다.
+- **현재 trusted executable/test checkpoint는 `2a20f49cd3ae69b1f340496f27b8621d034c98ed`이다.** 이후 docs-only commit은 이 executable SHA를 바꾸지 않는다.
+- focused 결과: `Ran 12 tests in 0.024s / OK`.
+- 실제 REALDATA1 LFREAL2 freeze 결과:
+  - `bytes=57541`
+  - `content_sha256=fffbeaece7a769e063c3803ad184265aa751d9f417e3e72e2862045cad10f5ba`
+  - `dataset_manifest_hash=8b06c3a4871666771343df7eee074abc176fd2cf68fce3768848f2342c57f982`
+- 동일 exact checkout에서 `[PASS] Tactical P1 verification completed: mode=Full.`을 확보했다.
+- LFREAL2 product logic, Parser/Runtime/Backtest/Broker authority는 변경하지 않았다.
 
 ## 3. 현재 위치
 
 ```text
 TRUSTED_LOCAL_EXECUTABLE
-  4ebde8647cd0caede3c9cb4e6f210bc5a1f7d630
+  2a20f49cd3ae69b1f340496f27b8621d034c98ed
 
 REALDATA1 exact content identity
   pinned Git blob SHA-1: 84fb250326def7148cce6466026aaecf057e2013
   exact bytes: 57541
   SHA-256: fffbeaece7a769e063c3803ad184265aa751d9f417e3e72e2862045cad10f5ba
+
+TRUSTED LFREAL2 MANIFEST
+  dataset_manifest_hash: 8b06c3a4871666771343df7eee074abc176fd2cf68fce3768848f2342c57f982
+  symbol: 000660.KS
+  timeframe: 1d
+  first_observation: 20240415000000
+  last_observation: 20260413000000
+  record_count: 483
 
 market_data_authenticity_verified = false
 real_data_claim = false
@@ -44,8 +54,8 @@ real_data_claim = false
 
 ```text
 external historical bytes
- -> LFREAL2 caller-bytes immutable dataset manifest
- -> LFREAL3 manifest-bound deterministic causal rows/snapshots
+ -> LFREAL2 caller-bytes immutable dataset manifest       [DONE / TRUSTED]
+ -> LFREAL3 manifest-bound deterministic causal rows      [NEXT]
  -> narrow exact-as-of LF1/LF2 evidence producer
  -> strictly post-observation outcome producer
  -> LFVAL1 / LFOUT1 / LFREAL1 real study
@@ -59,36 +69,32 @@ broader repo compliance는 계속 **REMEDIATION_REQUIRED**다.
 
 ## 4. 바로 다음에 할 일
 
-이전 remote-tail validation gate는 닫혔다. 다음 micro-tranche는 하나뿐이다.
+다음 micro-tranche는 하나뿐이다.
 
 ```text
-verified exact REALDATA1 bytes
- -> existing LFREAL2 ExternalDatasetFreezer
- -> immutable content_sha256 + dataset_manifest_hash
+trusted LFREAL2 manifest
++ exact REALDATA1 local CSV
+ -> causal OHLCV-only edge parser/adapter
+ -> existing LFREAL3 CausalRowProducer.admit
+ -> deterministic row_bundle_hash / exact boundary validation
 ```
 
-구현 전 반드시 실제 `ExternalDatasetFreezer` 코드/schema와 LFREAL2 테스트를 다시 읽는다.
-
-고정 경계:
+구현 전 고정 경계:
 
 ```text
-owner layer: edge tool/adapter outside Core
-existing shared path: LFREAL2 ExternalDatasetFreezer
-state SSOT: immutable LFREAL2 dataset manifest
-create authority: caller bytes -> freezer only
-delete authority: no product/runtime deletion authority added
-forbidden: Parser/Runtime/Backtest/Broker/Core provider/file/network authority or source-specific semantics
+owner layer: tools/ edge adapter outside Core
+existing shared path: LFREAL3 CausalRowProducer.admit
+state SSOT: trusted LFREAL2 dataset_manifest_hash + LFREAL3 row bundle
+create authority: explicit caller source path + manifest path -> edge parser -> LFREAL3 only
+delete authority: none
+forbidden: Parser/Runtime/Backtest/Broker/Core provider/file/network authority; future-facing column admission; source-specific LFREAL3 semantics
 ```
 
-외부 CSV를 Core가 직접 읽게 만들지 않는다. acquisition/tool edge가 caller bytes를 제공하고 기존 freezer를 그대로 사용해야 한다. LFREAL2 product logic을 이 source 때문에 수정하지 않는다.
+edge parser는 `date, open, high, low, close, volume`만 causal row로 변환하고 symbol은 manifest의 `000660.KS`를 사용한다. daily date는 manifest와 일치하는 `YYYYMMDD000000` observation key로 정규화한다.
 
-이 freeze tranche가 focused + Full PASS된 뒤에만 다음 경계로 간다.
+source bytes SHA-256, manifest hash, record count, first/last observation, required causal columns 중 하나라도 다르면 fail closed 해야 한다. 기존 LFREAL3 product logic은 이 source 때문에 수정하지 않는다.
 
-```text
-immutable manifest
- -> causal OHLCV-only parser/adapter
- -> LFREAL3 admission focused validation
-```
+이 tranche가 focused + Full PASS된 뒤에만 exact-as-of LF1/LF2 evidence producer로 간다.
 
 automatic selection, allocation, adaptive learning, new DSL grammar, live deployment gate는 계속 보류한다.
 
@@ -107,7 +113,7 @@ automatic selection, allocation, adaptive learning, new DSL grammar, live deploy
 
 ## 6. 금지된 과장
 
-REALDATA1 exact source-byte identity가 확인된 사실과 market-data authenticity 인증은 구분한다. LFREAL2 immutable manifest는 아직 생성되지 않았고 real-data LF study도 시작되지 않았다.
+REALDATA1 exact source-byte identity와 LFREAL2 immutable manifest identity가 확인된 사실과 market-data authenticity 인증은 구분한다. LFREAL3 actual-row admission과 real-data LF study는 아직 시작되지 않았다.
 
 ```text
 market_data_authenticity_verified = false
