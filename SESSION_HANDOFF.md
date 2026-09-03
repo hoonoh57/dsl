@@ -1,6 +1,6 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / ACTIVE / REALDATA1_LFREAL3_CAUSAL_DATASET_LOCALLY_TRUSTED / 2026-09-04 KST**
+Status: **PRIMARY HUMAN HANDOFF / ACTIVE / REALDATA1_LFREAL3_CAUSAL_DATASET_LOCALLY_TRUSTED / MULTI_SYMBOL_REALDATA_REQUIRED_FOR_LF1 / 2026-09-04 KST**
 
 이 문서는 새 세션이 가장 먼저 읽는 사람 중심 인수인계 문서다. 갑작스러운 종료를 고려해 이전 프로젝트 대화의 마지막 exact local evidence와 GitHub 최신 상태를 함께 대조한다.
 
@@ -22,6 +22,7 @@ Status: **PRIMARY HUMAN HANDOFF / ACTIVE / REALDATA1_LFREAL3_CAUSAL_DATASET_LOCA
 - edge에서 해당 한 행만 명시적으로 quarantine하고 causal `date/open/high/low/close/volume`만 직렬화한 별도 482행 dataset을 만들었다.
 - 사용자 로컬 clean validation checkout `f770742b69137315b14f16ad92ea77ac5881db7c`에서 focused `Ran 22 tests in 0.016s / OK`, 실제 파생+LFREAL3 admission PASS, Tactical P1 Full PASS를 확보했다.
 - **현재 trusted executable/test checkpoint는 `f770742b69137315b14f16ad92ea77ac5881db7c`다.** 이후 docs-only commit은 executable SHA를 바꾸지 않는다.
+- 다음 공용계약 점검에서 MSA2/LF1은 `leader_count < len(universe.symbols)`를 강제하므로 `leader_count=1`인 LF1은 최소 2개 종목이 필요함을 확인했다. REALDATA1은 `000660.KS` 단일 종목이므로 현재 상태에서 LF1/LF2 생성은 금지한다.
 
 실제 파생 identity:
 
@@ -48,10 +49,14 @@ ORIGINAL REALDATA1 LFREAL2
   record_count: 483
 
 TRUSTED CAUSAL DERIVED DATASET
+  symbol: 000660.KS
   record_count: 482
   derived SHA-256: c97624cdc92632ec3e4fab637e37514aadb9e9f9e61b1a4f2dde3a2e6390b76c
   dataset_manifest_hash: 58acf49d4031938fd0099d99f7a105f8bbec3664a6478604d71daf2dbf370ae6
   row_bundle_hash: 1428a6343635524723b828f6447b04d9d9ab9a3fe42b58e0776144f4fcd4bec2
+
+LF1 admissibility:
+  false until an independently identified second causal instrument is pinned and admitted
 
 market_data_authenticity_verified = false
 real_data_claim = false
@@ -61,10 +66,12 @@ real_data_claim = false
 
 ```text
 external historical bytes
- -> original LFREAL2 immutable manifest                [DONE / TRUSTED]
+ -> original LFREAL2 immutable manifest                  [DONE / TRUSTED]
  -> explicit quarantine causal derived LFREAL2 manifest [DONE / TRUSTED]
  -> LFREAL3 manifest-bound causal rows                   [DONE / TRUSTED]
- -> exact-as-of LF1/LF2 evidence producer                [NEXT]
+ -> additional independent causal instrument            [NEXT]
+ -> static explicit multi-symbol universe
+ -> existing MSA2 / LF1 / LF2
  -> strictly post-observation outcome producer
  -> LFVAL1 / LFOUT1 / LFREAL1 real study
 ```
@@ -75,41 +82,45 @@ broader repo compliance는 계속 **REMEDIATION_REQUIRED**다.
 
 ## 4. 바로 다음에 할 일
 
-다음 micro-tranche는 하나뿐이다.
+다음 micro-tranche는 **LF1 구현이 아니라 multi-symbol 데이터 경계 확보**다.
 
 ```text
-trusted derived LFREAL3 row bundle
- -> exact knowledge_cutoff snapshot
- -> existing LF1 relation analyzer
- -> existing LF2 observation-only intent evidence
+at least one additional independently identified instrument/source
+ -> exact caller bytes
+ -> existing LFREAL2 ExternalDatasetFreezer
+ -> causal OHLCV-only edge derivation/admission
+ -> existing LFREAL3
+ -> explicit aligned static universe
 ```
 
 구현 전 고정 경계:
 
 ```text
-owner layer: tools/ research edge adapter outside Core
+owner layer: tools/ research data edge outside Core
 existing shared path:
-  CausalRowProducer.snapshot
+  ExternalDatasetFreezer
+  -> CausalRowProducer.admit/snapshot
+  -> MSA1/MSA2
   -> MultiSymbolLeaderFollowerRelationAnalyzer
   -> MultiSymbolFollowerPendingOrchestrator
 state SSOT:
-  dataset_manifest_hash
-  + row_bundle_hash
-  + exact knowledge_cutoff
-  + existing LF1/LF2 result hashes
-create authority: research evidence artifacts only
+  exact source identity
+  + LFREAL2 manifest hash per source/dataset
+  + LFREAL3 row bundle hash per instrument
+  + explicit static universe topology
+create authority: research data/evidence artifacts only
 delete authority: none
 forbidden:
-  Parser/Runtime/Backtest/Broker provider/file/network authority
-  future-row access
+  one series를 복제/shift하여 가짜 follower symbol 생성
   nearest-time/fill-forward/interpolation
+  Parser/Runtime/Backtest/Broker provider/file/network authority
   hidden ranking/allocation
   execution/deployment authority
 ```
 
-기존 LF1/LF2 의미를 복제하거나 새 Core semantics를 만들지 않는다. exact-as-of evidence만 edge에서 기존 공용엔진으로 연결한다.
+현재 `000660.KS` 하나로 LF1을 실행하지 않는다. 두 번째 종목은 별도의 source identity와 causal OHLCV 검증을 통과해야 한다.
 
-이 tranche가 focused + Full PASS된 뒤에만 strictly post-observation outcome producer로 간다.
+이 multi-symbol 데이터 gate가 focused + Full PASS된 뒤에만 exact-as-of LF1/LF2 evidence producer로 간다.
 
 automatic selection, allocation, adaptive learning, new DSL grammar, live deployment gate는 계속 보류한다.
 
@@ -128,7 +139,7 @@ automatic selection, allocation, adaptive learning, new DSL grammar, live deploy
 
 ## 6. 금지된 과장
 
-현재 확인된 것은 exact source-byte identity, original/derived LFREAL2 identity, LFREAL3 causal row admission까지다. market-data authenticity와 실제 LF1/LF2 relation edge는 아직 검증하지 않았다.
+현재 확인된 것은 `000660.KS` exact source-byte identity, original/derived LFREAL2 identity, LFREAL3 causal row admission까지다. multi-symbol real-data universe, market-data authenticity, 실제 LF1/LF2 relation edge는 아직 검증하지 않았다.
 
 ```text
 market_data_authenticity_verified = false
