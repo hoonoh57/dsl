@@ -38,9 +38,10 @@
   - primary markers는 generic surface의 `createPriceMarkers()` 또는 `createMarkers()`를 동일 primitive로 수용한다.
 - **pure Add-on drawing definition 계약을 구현했다.**
   - `src/runtime/chart/ChartDrawingDefinition.mjs`.
-  - `describe({ id, state, bars, workspace }) -> immutable drawing descriptor`.
-  - 입력은 recursive deep-freeze되며 Add-on이 state/bars/workspace를 mutation하지 못한다.
+  - `describe({ id, state, bars, workspace, data? }) -> immutable drawing descriptor`.
+  - 입력은 recursive deep-freeze되며 Add-on이 state/bars/workspace/data를 mutation하지 못한다.
   - `describe()`는 synchronous pure function이어야 하며 Promise를 반환하면 거부한다.
+  - async data가 필요한 feature도 Runtime이 resolve한 JSON-only `data`만 받아 같은 pure describe path를 사용한다.
   - 반환 descriptor id는 Runtime item id로 강제한다.
 - **pure Add-on action reducer + generic dispatcher 계약을 구현했다.**
   - optional `reduce({id,state,action,workspace}) -> nextState`는 synchronous/pure/JSON-only다.
@@ -77,6 +78,21 @@
   - target A facade 교체는 A registry entry만 교체하며 B는 유지한다.
   - `watch()`가 동기 callback을 호출해도 binding 유실이 없도록 map 등록을 watch 호출보다 먼저 수행한다.
   - binder는 **현 legacy `ChartSubjectViewManager`와 새 renderer 사이의 임시 generic bridge**이며 최종 독립 compare item/pane surface 전환 후 제거 대상이다.
+- **generic per-item async data-result 계약을 구현했다.**
+  - `src/runtime/chart/ChartDrawingDataDefinition.mjs`: Add-on `loadData()` 입력은 frozen JSON state/bars/workspace + opaque service bag + AbortSignal이다.
+  - `src/runtime/chart/ChartDrawingDataRuntime.mjs`: Runtime이 item id별 generation/pending/cancel/stale-result rejection을 소유한다.
+  - OFF/제거된 request의 underlying service가 AbortSignal을 무시해도 stale promise는 pending authority에서 즉시 제외되어 `whenIdle()`을 붙잡지 않는다.
+  - 늦게 도착한 stale result는 generation/current-entry 검증으로 폐기한다.
+  - async result는 JSON-only/deep-frozen이며 drawing definition에는 `data`로만 전달한다.
+  - optional pure `dataKey({id,state,bars,workspace})` 계약을 추가했다. request identity와 drawing-only state를 분리해 threshold/style 변경만으로 불필요한 refetch가 발생하지 않게 한다.
+  - `dataKey()`도 synchronous/frozen-input/JSON-only 계약이며 Runtime은 feature 의미를 해석하지 않는다.
+- **async semantic operation gate를 추가했다.**
+  - 1000 items = 동일 per-item async start path 1000회.
+  - `item-537` OFF/ON = 해당 item cancel/restart만 발생하고 나머지 999는 유지된다.
+  - stale result는 폐기되고 실패/취소가 unrelated item을 롤백하지 않는다.
+  - global OFF는 동일 per-item cancel 반복이며 별도 async restore/global lifecycle이 없다.
+  - restart는 first apply와 같은 load path를 사용한다.
+  - 같은 surface context는 reconcile 1회당 한 번만 resolve한다.
 - **reconciler scale defect를 즉시 수정했다.**
   - 초기 구현의 item loop 내부 `runtime.ids().includes()`는 1000개에서 O(N²) 가능성이 있어 NONSTANDARD로 판단했다.
   - live ids를 reconcile 시작 시 한 번 `Set`으로 만들고 membership을 O(1) 평균으로 바꿔 전체 desired/live diff를 cardinality-linear하게 정리했다.
@@ -106,9 +122,8 @@
   - pure descriptor equivalence와 insufficient-bars stable-shape 테스트가 PASS했다.
 - **최근 gate 결과를 확정했다.**
   - per-surface context resolver head `d27ca7d9bef2ae7e28d73f3eae0f44121a67ca1f` workflow #57 PASS.
-  - subject binder head `5e661890...`에서 revision 증가량을 정확히 +1로 가정한 테스트 1건이 실패했다.
-  - 분류=`test defect`: registry replacement는 old unregister + new register의 두 mutation이므로 exact step count는 계약이 아니다.
-  - 테스트를 `A revision monotonic increase + B revision strict unchanged`로 수정했고 head `fbaddb6df575113b14729de4a2ff5f750050adab`, workflow #63 PASS.
+  - subject binder revision exact-step 테스트는 `test defect`로 분류해 `A revision monotonic increase + B revision strict unchanged`로 수정했고 head `fbaddb6df575113b14729de4a2ff5f750050adab`, workflow #63 PASS.
+  - async data runtime/dataKey 최신 head `39238f437a145269a55d432ce7681f822f6d958a`, workflow #72 **PASS**.
 - 표준화 PR #5는 계속 draft/DO NOT MERGE다.
 - 추가 compare restore/height/timing 보정 패치는 중단 상태다.
 - 작업 branch는 dsl `dsl-live-studio`; `origin/main`을 섞지 않는다.
@@ -116,13 +131,14 @@
 
 ## 할 일
 
-- **다음 micro-tranche: generic per-item async data-result 계약을 구현한다.**
-  - `N_UP_COUNT`, MarketBetaCohort, ConditionSearch, SectorLeadership 등 async research가 Add-on-owned pane/bar-window lifecycle을 유지한 채 descriptor만 덧씌우는 방식은 금지한다.
-  - Runtime이 item id별 request generation/pending/cancel/stale-result rejection을 소유한다.
-  - Add-on은 async data request 의미/계산과 JSON-only result, pure `describe()`만 소유한다.
-  - item A request 실패/취소/재시작이 item B drawing/data를 롤백하지 않는 locality를 테스트한다.
-  - restart/global OFF/item OFF는 별도 async restore branch 없이 같은 per-item start/cancel/remove path를 사용한다.
-- async 계약이 고정되면 `N_UP_COUNT`를 첫 실제 사례로 전환해 기존 `buildNUpCountRecords()` 결과와 새 data-result/descriptor를 equivalence 검증한다.
+- **다음 micro-tranche: `N_UP_COUNT`를 첫 실제 async 표준 사례로 전환한다.**
+  - 기존 `buildNUpCountRecords()` 계산 의미는 변경하지 않는다.
+  - Add-on에 `loadData()` + pure `describe({state,bars,workspace,data})`를 추가한다.
+  - `dataKey()`는 market/from/to/bar coverage만 request identity로 사용하고 `thresholdPct`는 제외해 threshold 변경 시 refetch 없이 기존 rows로 재계산한다.
+  - data request는 `dailyMarketData.loadClosePanel()` 의미만 소유하고 pane/histogram handle, `#revision/#schedule/#load` lifecycle은 최종 single-path 전환 때 제거한다.
+  - 새 data-result + descriptor 결과를 기존 `buildNUpCountRecords()`와 직접 equivalence 검증한다.
+  - 현재 branch에서는 legacy create path와 새 descriptor path를 동시에 active하게 만들지 않는다.
+- `N_UP_COUNT` PASS 후 MarketBetaCohort / ConditionSearch / SectorLeadership 등 async research를 같은 계약으로 준비한다.
 - `CompareSubjects`는 기존 `subjects[] -> replace(owner)`를 유지한 채 descriptor layer를 덧씌우지 않는다.
   - JSON 자체를 independent subject desired items로 이행한다.
   - 각 compare subject는 stable item id + generic data request + pane/candlestick/legend descriptor로 변환한다.
