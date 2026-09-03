@@ -103,6 +103,15 @@
   - `BrowserDailyMarketDataPort`가 optional AbortSignal을 실제 fetch까지 전달하도록 수정해 Runtime cancellation이 adapter 경계까지 도달한다.
   - legacy `NUpCountAddon.create(context)` / `#revision/#schedule/#load`는 아직 active catalog path 때문에 남아 있으며 **새 descriptor와 동시에 active하지 않는다**. 최종 RuntimeHost single-path 전환 때 제거한다.
   - Chart head `157473253f1e0e3b97fbcd48dc18e798d8a8e7bf`, workflow #76 **PASS**.
+- **MarketBetaCohort의 primary line/data 경계를 pure 계약으로 분리했다.**
+  - `marketBetaCohortDataDefinition`: current day-index chart의 market/from/to/bar-count만 request identity로 사용한다.
+  - lookback/cohortPercent/showHigh/showLow/selectedSubjects/paneHeight 변경은 raw daily panel refetch를 유발하지 않는다.
+  - `loadData()`는 `dailyMarketData.loadClosePanel()` raw rows만 반환하고 AbortSignal을 전달한다.
+  - `marketBetaCohortDrawingDefinition`: 기존 `buildPointInTimeBetaCohorts()` 결과를 stable `high/low` primary line 2개로 그대로 투영한다.
+  - showHigh/showLow는 primitive cardinality를 바꾸지 않고 해당 line data만 비운다.
+  - synthetic benchmark/equity panel로 기존 beta 계산과 descriptor data를 직접 equivalence 검증했다.
+  - **`selectedSubjects[] -> subjectViews.replace()` collection lifecycle은 이번 tranche에서 건드리지 않았다.** 따라서 MarketBeta 전체 표준화 완료가 아니라 primary-line/data 경계만 준비 완료다.
+  - Chart head `e9f76756fe7beb6e8bd4ed4e379dd427a727d030`, workflow #79 **PASS**.
 - **reconciler scale defect를 즉시 수정했다.**
   - 초기 구현의 item loop 내부 `runtime.ids().includes()`는 1000개에서 O(N²) 가능성이 있어 NONSTANDARD로 판단했다.
   - live ids를 reconcile 시작 시 한 번 `Set`으로 만들고 membership을 O(1) 평균으로 바꿔 전체 desired/live diff를 cardinality-linear하게 정리했다.
@@ -135,6 +144,7 @@
   - subject binder revision exact-step 테스트는 `test defect`로 분류해 `A revision monotonic increase + B revision strict unchanged`로 수정했고 head `fbaddb6df575113b14729de4a2ff5f750050adab`, workflow #63 PASS.
   - async data runtime/dataKey head `39238f437a145269a55d432ce7681f822f6d958a`, workflow #72 PASS.
   - N_UP_COUNT + AbortSignal adapter head `157473253f1e0e3b97fbcd48dc18e798d8a8e7bf`, workflow #76 PASS.
+  - MarketBeta primary line/data head `e9f76756fe7beb6e8bd4ed4e379dd427a727d030`, workflow #79 PASS.
 - 표준화 PR #5는 계속 draft/DO NOT MERGE다.
 - 추가 compare restore/height/timing 보정 패치는 중단 상태다.
 - 작업 branch는 dsl `dsl-live-studio`; `origin/main`을 섞지 않는다.
@@ -142,11 +152,14 @@
 
 ## 할 일
 
-- **다음 micro-tranche: 나머지 async research 중 가장 작은 독립 사례를 코드 기준으로 선택해 같은 계약으로 변환한다.**
-  - 후보: MarketBetaCohort / ConditionSearch / SectorLeadership.
-  - 선택 기준은 feature 규모가 아니라 `data request -> JSON result -> pure descriptor`로 분리했을 때 collection lifecycle이나 UI command까지 함께 끌고 오지 않는 가장 작은 경계다.
-  - legacy live lifecycle 위에 descriptor를 병행 활성화하는 방식은 금지한다.
-  - 각 사례에서 request identity와 drawing-only state를 `dataKey()`로 분리하고, 한 item의 refetch/failure/cancel이 다른 item을 건드리지 않는지 검증한다.
+- **다음 micro-tranche: async data result와 drawing reconciler 사이의 generic composition gap을 닫는다.**
+  - 현재 `ChartDrawingDataRuntime`은 JSON data를 만들 수 있고 `ChartDrawingDefinition.describe()`는 data를 받을 수 있지만, `ChartDrawingReconciler`는 아직 data를 resolve/전달하지 않는다.
+  - Runtime에 feature 분기를 추가하지 않고 `itemId -> data status/version/data`를 generic하게 resolve한다.
+  - data pending/failed item은 unrelated drawing을 건드리지 않고 해당 item만 fail-closed/deferred 처리한다.
+  - data ready event는 **해당 item만** targeted reconcile하여 1000 async completion이 whole-list 1000회 재스캔되는 O(N²) 구조가 되지 않게 한다.
+  - calculation-only state 변경으로 dataKey가 동일하면 data version을 유지하고 drawing item만 다시 ensure한다.
+  - first apply/restart/global OFF/item OFF는 동일 per-item data+draw path를 사용한다.
+- composition gate가 PASS한 뒤 ConditionSearch / SectorLeadership / MarketBeta selectedSubjects 같은 collection-oriented subject 기능을 독립 desired child item 구조로 이행한다.
 - `CompareSubjects`는 기존 `subjects[] -> replace(owner)`를 유지한 채 descriptor layer를 덧씌우지 않는다.
   - JSON 자체를 independent subject desired items로 이행한다.
   - 각 compare subject는 stable item id + generic data request + pane/candlestick/legend descriptor로 변환한다.
