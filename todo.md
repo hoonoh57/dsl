@@ -25,34 +25,30 @@
 - per-item one-shot async `ChartDrawingDataRuntime` + `dataKey` + AbortSignal.
 - per-item live `ChartDrawingStreamRuntime` + JSON snapshot/event reduction.
 - sync/async/stream 단일 `ChartDrawingPipeline`.
-- opaque surface router/context registry.
+- opaque drawing surface router/context registry.
 - independent parent-child State + `ChartDesiredItemProjection`.
 - generic action commands `chart.item.remove`, `chart.selection.set`.
-- **generic session-scoped desired node**:
-  - in-memory State/Projection은 persistent node와 동일 경로.
-  - `scope:'session'`만 수명 metadata로 보유.
-  - `persistentChartAddonStateDocument()`가 disk JSON 경계에서 session node를 제거.
-  - load/hydrate/save/unload/saveAddon 모두 session node를 persistence authority에서 제외.
-  - persistent sibling은 그대로 유지.
+- generic `scope:'session'` desired node: in-memory 경로는 동일하고 persistence JSON에서만 제외; save/hydrate/restart gate PASS.
+- stale relative Core import integrity gate PASS.
 
 ### pure Add-on 준비 완료
 
-- Indicator 11종, Trend Regime, Managed Strategy, N_UP_COUNT.
-- MarketBeta parent + independent child.
-- Compare independent child:
-  - legacy `subjects[]` migration input only.
-  - one subject = child node + bars stream + pane/candlestick/legend.
-  - `__layout` height를 child paneHeight로 정확히 이관.
-  - selectedPaneId -> generic selection.
-  - 1000 subject locality PASS.
-- SectorLeadership independent child:
-  - leader/follower = independent child node/stream/descriptor.
-  - code-stable id, role/palette state 고정, generic select/delete.
-- ConditionSearch independent child base:
-  - current authoritative session일 때만 child projection.
-  - one stock = child node/stream/descriptor.
-  - stale persisted selection은 session authority 없으면 child 0개.
-  - 최종 child node는 `scope:'session'` 사용 예정.
+- Indicator 11종 + 기존 계산 equivalence.
+- Trend Regime, Managed Strategy, N_UP_COUNT.
+- MarketBeta parent + one-subject-per-child stream/descriptor.
+- Compare: legacy `subjects[]` migration input only → one child/subject; layout height child 이관; generic selection/delete; 1000/#537 locality PASS.
+- SectorLeadership: leader/follower one child node/stream/descriptor; stable code id; role/palette state 고정.
+- ConditionSearch: authoritative current session일 때만 session child projection; stale restart child 0; realtime I/D pure membership transition.
+- FeatureValidation 계열 no-drawing add-on은 empty pure descriptor 준비.
+- Battlefield Map:
+  - parent = primary markers/regions pure descriptor.
+  - local non-primary subject = independent lane child + bars stream + histogram/legend.
+  - 기존 `선택 1개 vs N개`에 따라 primary/lane 알고리즘이 바뀌던 cardinality 결함 제거.
+- Battlefield Force:
+  - parent = opportunity regions only.
+  - one force group = one independent child drawing item.
+  - group id가 lifecycle identity; group 제거 시 해당 child만 제거.
+  - 기존 force normalized series/evaluation과 descriptor equivalence gate 추가.
 
 ### 최근 PASS
 
@@ -60,36 +56,46 @@
 - Compare child `2cf88bbdd78824f9428df617c29db45dc11a8e33`, #107 PASS.
 - SectorLeadership child `2b775500b9c42bc85b4221ccb6c9bd13b83b1f3c`, #110 PASS.
 - ConditionSearch child base `8fa762820021a4b242d7db0f8ab78682d1fef5ef`, #112 PASS.
-- session-scope persistence `1c4c3ed2cf332e5c33245ef9ebc9b44bec8c6577`, workflow #115 **PASS**.
+- session-scope persistence `1c4c3ed2cf332e5c33245ef9ebc9b44bec8c6577`, #115 PASS.
+- session restart gate `4f39744251e3834de0a678755fdcacecf6094e5f`, #116 PASS.
+- ConditionSearch realtime membership/session child `4f19d8eea6b458865ab556031527ba6bbcc140c2`, #118 PASS.
+- Battlefield Map + Battlefield Force standard definitions `f87dc2f0a2014e4029078395acbbf8d371f347c5`, workflow #125 **PASS**.
+- PR #5 current head = `f87dc2f0a2014e4029078395acbbf8d371f347c5`.
 
 ### 아직 NONSTANDARD
 
-- active `ChartRuntimeHost`/catalog는 legacy `definition.create(context)` live-object path.
-- MarketBeta/Compare/SectorLeadership/ConditionSearch active legacy lifecycle은 아직 살아 있음.
+- active `ChartRuntimeHost`/catalog는 legacy `registration.load() -> definition.create(context)` live-object path.
+- MarketBeta/Compare/SectorLeadership/ConditionSearch/Battlefield/Managed Strategy legacy live implementations은 아직 active path에 남아 있음.
 - `ChartSubjectViewManager` whole collection lifecycle이 살아 있음.
+- `ChartSubjectDrawingSurfaceBinder`는 legacy subjectViews와 새 renderer 사이 임시 bridge이며 final child cutover 후 삭제 대상.
 - legacy collection JSON + restore-only `__layout` authority가 남아 있음.
-- 별도 layout restore/stabilize/viewport 경로가 남아 있음.
+- `MarketChart.whenAddonsIdle()` 뒤 별도 layout restore/stabilize/viewport 경로가 남아 있음.
+- generic Runtime은 `surfaceId`를 지원하지만 State/JSON/DesiredItemProjection이 아직 `surfaceId` metadata를 보존하지 않아 target-surface item의 단일경로가 끊겨 있음.
+- `strategy.manager`는 drawing이 아닌 UI/관리 lifecycle을 Runtime Add-on이 소유하므로 Shell/UI 축으로 이동 필요.
 
 ## 할 일
 
-1. **session-scope restart gate를 완성한다.**
-   - live Store에 persistent+session node 생성.
-   - 저장된 JSON에는 persistent만 존재.
-   - hydrate -> 새 Store -> DesiredItemProjection에서 session node 0개 확인.
-   - persistent sibling은 동일 normal apply 대상이어야 한다.
+1. **`surfaceId`를 State → persistence JSON → DesiredItemProjection까지 generic metadata로 관통시킨다.**
+   - default/persistent/session node 모두 동일 계약.
+   - `surfaceId`는 feature 의미를 모르는 opaque string이다.
+   - 1000 items 중 #537 `surfaceId`만 변경하면 #537만 rebind/reconcile되고 나머지 999 lifecycle은 0이어야 한다.
 
-2. ConditionSearch realtime membership을 parent feature state + session child node add/remove로 분리한다.
-   - selected child 생성은 `scope:'session'`.
-   - membership D는 해당 child만 remove + parent resultCodes 갱신.
-   - membership I는 parent resultCodes만 갱신하며 selected child를 임의 생성하지 않는다.
+2. pure drawing/data/stream **standard registry completeness gate**를 만든다.
+   - 모든 active drawing definition이 legacy `.create(context)` 없이 표준 registry에서 표현 가능해야 한다.
+   - Compare/Sector/Condition처럼 parent가 직접 그리지 않으면 empty pure parent definition으로 등록한다.
+   - drawing이 아닌 `strategy.manager`는 registry에 억지로 넣지 않고 Shell/UI 축으로 이동한다.
 
-3. 모든 feature 준비 후 `ChartRuntimeHost`를 한 번의 경계 변경으로 `State -> DesiredItemProjection -> DrawingPipeline -> Core` 단일 active path로 전환한다.
+3. Managed Strategy target rendering을 `target -> opaque surfaceId` desired state로 전환한다.
+   - Add-on이 `subjectViews.watch()`/live series/marker lifecycle을 소유하지 않는다.
+   - surface binding은 generic Runtime infrastructure만 소유한다.
+
+4. 모든 feature 표준 registry 완결 후 `ChartRuntimeHost`를 **한 번의 경계 변경**으로 `State -> DesiredItemProjection -> DrawingPipeline -> Core` 단일 active path로 전환한다.
    - `.create`/`.describe` fallback/이중 active path 금지.
-   - 동시에 legacy drawing live implementations 제거.
+   - 전환과 동시에 legacy drawing live implementations 제거.
 
-4. 이후 `ChartSubjectViewManager`, legacy collection JSON, restore-only `__layout`, 별도 stabilization path 제거/마이그레이션.
+5. 이후 `ChartSubjectViewManager`, 임시 subject binder, legacy collection JSON, restore-only `__layout`, 별도 stabilization/viewport restore path를 제거/마이그레이션한다.
 
-5. 최종 제품경로 gate: 1/10/1000 cardinality, locality, async/stream locality, global/item/parent equivalence, restart==normal apply, idempotence, single-path.
+6. 최종 제품경로 gate: 1/10/1000 cardinality, locality, async/stream locality, global/item/parent equivalence, surface locality, restart==normal apply, idempotence, single-path.
 
 - semantic gate는 제품에 맞춰 완화하지 않는다.
 - tranche 종료 시 새 문서를 만들지 않고 이 `todo.md`만 갱신한다.
