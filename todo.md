@@ -2,177 +2,96 @@
 
 ## 한 일
 
-- **권위 파일은 `rules.md` + `todo.md` 두 개뿐이다.** 세션 복구/이어가기는 `rules.md` → `todo.md`만 읽는다.
-- `rules.md`에 4축 의미, semantic invariant, semantic gate 불변성, 주기적 STANDARDIZATION CYCLE을 고정했다.
-- **Core 축 `src/core/chart` 1차 표준화 완료.**
-  - JMA/SMA/EMA feature 계산을 Core에서 제거하고 Add-on-owned `src/addons/indicator/math/`로 내용 변경 없이 이동했다.
-  - 기존 generic `ChartAddonSurface`, `ChartCore`, `PaneLegendDescriptor`, `PriceDisplayMode`는 Core primitive로 유지했다.
-  - Chart PR #4 CI PASS, main merge `ded98eb6d782d853ed1bd805abc83692d50b3ff1`, main workflow `33720008027` PASS.
-  - dsl `vendor/kiwoom-condition`도 `ded98eb6d782d853ed1bd805abc83692d50b3ff1`로 advance했다.
-- **4축 baseline 사전감사를 완료했고 구조 교체가 필요한 축을 확정했다.**
-  - Core(chart scope) = `STANDARD`.
-  - Add-on = `NONSTANDARD`: indicator/research Add-on들이 raw surface/pane/series/marker/region/bar-window/projection live lifecycle을 직접 소유한다.
-  - Runtime = `NONSTANDARD`: 기본 계약이 `definition.create(context)` live object이고 `ChartSubjectViewManager`가 owner collection/signature/whole replace lifecycle을 가진다.
-  - JSON/Persistence = `PARTIAL/NONSTANDARD`: top-level enabled/visible/state 저장기는 generic이지만 render item 1:1을 강제하지 않아 `subjects[]`, `__layout` collection/restore authority가 존재한다.
-  - UI/Composition single path = `NONSTANDARD`: Runtime idle 후 별도 `stabilizePersistedLayout()`/startup viewport 재적용 restore path가 존재한다.
-- **구조 교체용 branch를 분리했다.**
-  - Chart branch: `standardize/four-axis-render-pipeline`.
-  - draft PR #5: `WIP: Standardize four-axis render pipeline`.
-  - PR 본문에 `DO NOT MERGE until legacy drawing lifecycle is removed`를 고정했다.
-  - main에는 새 descriptor renderer를 아직 활성화하지 않았으며, 완성 전 merge하지 않는다.
-- **새 Core drawing grammar 계약을 구현했다.**
-  - `src/core/chart/ChartDrawingGrammar.mjs`.
-  - primitive kind는 `pane / line / histogram / candlestick / legend / markers / region`으로 제한한다.
-  - descriptor는 stable id + plain JSON props/data/layout만 허용한다.
-  - callback/function/live handle/non-finite number/non-plain object는 거부한다.
-  - parent 관계를 generic grammar에서 검증하고 결과를 deep-freeze한다.
-  - 상호작용도 callback이 아니라 JSON intent만 허용한다: `legend.select/delete`, `region.activate` → `{type,payload}`.
-- **generic Runtime renderer를 구현했다.**
-  - `src/runtime/chart/ChartDrawingRuntime.mjs`.
-  - live authority는 `Map<itemId, liveHandle>`이며 public lifecycle은 `ensure/update/setVisible/remove`다.
-  - item shape가 같으면 같은 handle에 data/visibility만 갱신하고, shape가 바뀌면 그 item만 재생성한다.
-  - 생성 실패는 그 item의 root handle만 rollback하며 unrelated item은 건드리지 않는다.
-  - pane child는 pane가 소유하도록 root-handle ownership을 정리해 Runtime/pane 이중 dispose를 제거했다.
-  - JSON action intent는 Runtime이 surface callback으로 번역해 `{itemId,primitiveId,event,intent}`로 generic dispatch한다. dispatch authority가 없으면 fail-closed다.
-  - surface capability는 Runtime 생성 시 일괄 강제하지 않고 primitive 사용 시점에만 검사한다.
-  - primary markers는 generic surface의 `createPriceMarkers()` 또는 `createMarkers()`를 동일 primitive로 수용한다.
-- **pure Add-on drawing definition 계약을 구현했다.**
-  - `src/runtime/chart/ChartDrawingDefinition.mjs`.
-  - `describe({ id, state, bars, workspace, data? }) -> immutable drawing descriptor`.
-  - 입력은 recursive deep-freeze되며 Add-on이 state/bars/workspace/data를 mutation하지 못한다.
-  - `describe()`는 synchronous pure function이어야 하며 Promise를 반환하면 거부한다.
-  - async data가 필요한 feature도 Runtime이 resolve한 JSON-only `data`만 받아 같은 pure describe path를 사용한다.
-  - 반환 descriptor id는 Runtime item id로 강제한다.
-- **pure Add-on action reducer + generic dispatcher 계약을 구현했다.**
-  - optional `reduce({id,state,action,workspace}) -> nextState`는 synchronous/pure/JSON-only다.
-  - Runtime은 action type을 해석하지 않고 `itemId -> definitionId -> definition.reduce()`로 전달한 뒤 해당 item state만 write한다.
-  - async reducer, non-JSON 결과, unknown/unhandled action은 fail-closed다.
-  - item A action이 item B state를 변경하지 않는 locality를 테스트했다.
-- **indicator 11종 전체의 pure descriptor 정의를 추가했다.**
-  - primary: SMA / EMA / JMA / Bollinger / SuperTrend / VWAP.
-  - dedicated pane: RSI / MACD / Disparity / DMI / OBV.
-  - 각 descriptor data는 기존 `calculate*` 결과와 직접 equivalence test로 비교한다.
-  - pane indicator는 `pane(height=130)` root 하나 + 고정 child id만 사용한다.
-  - VWAP은 show flag가 바뀌어도 5개 primitive id를 유지하고 hidden component만 빈 data로 만든다.
-  - **legacy `*AddonDefinition.create(context)` class는 아직 남아 있고 catalog도 legacy를 사용한다. 따라서 indicator active path 표준화 완료 선언은 아직 금지한다.**
-- **generic desired-item reconciler를 구현했다.**
-  - `src/runtime/chart/ChartDrawingReconciler.mjs`.
-  - input은 `{id,definitionId,enabled,visible,state,surfaceId?}` 독립 desired item이다.
-  - desired/live ID set-diff만 수행하고 `ensure/remove(item)`를 호출한다.
-  - feature branch, owner collection signature, revision/pending, restore 전용 branch를 두지 않는다.
-  - 동일 item은 per-item signature로 skip하고 contextKey 변경 시 동일 ensure(item) path로 갱신한다.
-  - 미등록 definition/계산 실패는 그 item만 fail-closed remove하고 unrelated item은 유지한다.
-  - `surfaceId` 변경도 해당 item signature만 변경하므로 한 item만 재적용된다.
-  - `resolveContext(surfaceId)`를 추가해 target별 `{bars,workspace}`를 공급하며 같은 surface context는 reconcile 1회당 한 번만 resolve/cache한다.
-- **generic surface routing을 추가했다.**
-  - `src/runtime/chart/ChartDrawingSurfaceRouter.mjs`.
-  - default surface와 named surface 모두 동일 `ensure/remove(item)` API를 사용한다.
-  - target 차이는 opaque `surfaceId` 문자열뿐이며 Runtime은 feature 의미를 해석하지 않는다.
-  - 한 item의 `surfaceId` 이동은 그 item만 dispose/recreate하고 다른 surface/item handle은 유지한다.
-  - 미등록 surface는 해당 item만 fail-closed한다.
-- **generic surface/context registry와 subject binder를 추가했다.**
-  - `ChartDrawingSurfaceContextRegistry`는 opaque `surfaceId -> {surface,getBars,getWorkspace}`만 관리한다.
-  - replacement unregister token은 newer registration을 지울 수 없도록 generation-safe하게 했다.
-  - `ChartSubjectDrawingSurfaceBinder`는 기존 `subjectViews.watch(target)` facade를 registry에 ref-counted로 연결한다.
-  - 같은 target을 여러 item이 사용해도 watch는 하나만 유지한다.
-  - target A facade 교체는 A registry entry만 교체하며 B는 유지한다.
-  - `watch()`가 동기 callback을 호출해도 binding 유실이 없도록 map 등록을 watch 호출보다 먼저 수행한다.
-  - binder는 **현 legacy `ChartSubjectViewManager`와 새 renderer 사이의 임시 generic bridge**이며 최종 독립 compare item/pane surface 전환 후 제거 대상이다.
-- **generic per-item async data-result 계약을 구현했다.**
-  - `src/runtime/chart/ChartDrawingDataDefinition.mjs`: Add-on `loadData()` 입력은 frozen JSON state/bars/workspace + opaque service bag + AbortSignal이다.
-  - `src/runtime/chart/ChartDrawingDataRuntime.mjs`: Runtime이 item id별 generation/pending/cancel/stale-result rejection을 소유한다.
-  - OFF/제거된 request의 underlying service가 AbortSignal을 무시해도 stale promise는 pending authority에서 즉시 제외되어 `whenIdle()`을 붙잡지 않는다.
-  - 늦게 도착한 stale result는 generation/current-entry 검증으로 폐기한다.
-  - async result는 JSON-only/deep-frozen이며 drawing definition에는 `data`로만 전달한다.
-  - optional pure `dataKey({id,state,bars,workspace})` 계약을 추가했다. request identity와 drawing-only state를 분리해 threshold/style 변경만으로 불필요한 refetch가 발생하지 않게 한다.
-  - `dataKey()`도 synchronous/frozen-input/JSON-only 계약이며 Runtime은 feature 의미를 해석하지 않는다.
-- **async semantic operation gate를 추가했다.**
-  - 1000 items = 동일 per-item async start path 1000회.
-  - `item-537` OFF/ON = 해당 item cancel/restart만 발생하고 나머지 999는 유지된다.
-  - stale result는 폐기되고 실패/취소가 unrelated item을 롤백하지 않는다.
-  - global OFF는 동일 per-item cancel 반복이며 별도 async restore/global lifecycle이 없다.
-  - restart는 first apply와 같은 load path를 사용한다.
-  - 같은 surface context는 reconcile 1회당 한 번만 resolve한다.
-- **N_UP_COUNT를 첫 실제 async 표준 사례로 준비 완료했다.**
-  - 기존 `buildNUpCountRecords()` 계산 의미는 변경하지 않았다.
-  - `nUpCountDataDefinition`: market/from/to/bar-count만 `dataKey()` request identity로 사용하며 `thresholdPct`는 제외한다.
-  - threshold 변경 시 `ChartDrawingDataRuntime`은 기존 rows를 unchanged로 재사용하고 pure drawing definition만 새 threshold로 다시 계산할 수 있음을 테스트했다.
-  - `loadData()`는 `dailyMarketData.loadClosePanel()`만 호출하고 JSON rows를 반환하며 pane/series handle은 소유하지 않는다.
-  - `nUpCountDrawingDefinition`: stable `pane + histogram` descriptor로 기존 count 결과를 정확히 투영한다.
-  - non-day/non-index context는 `{active:false}` key + empty rows로 동일 data path 안에서 처리한다.
-  - `BrowserDailyMarketDataPort`가 optional AbortSignal을 실제 fetch까지 전달하도록 수정해 Runtime cancellation이 adapter 경계까지 도달한다.
-  - legacy `NUpCountAddon.create(context)` / `#revision/#schedule/#load`는 아직 active catalog path 때문에 남아 있으며 **새 descriptor와 동시에 active하지 않는다**. 최종 RuntimeHost single-path 전환 때 제거한다.
-  - Chart head `157473253f1e0e3b97fbcd48dc18e798d8a8e7bf`, workflow #76 **PASS**.
-- **MarketBetaCohort의 primary line/data 경계를 pure 계약으로 분리했다.**
-  - `marketBetaCohortDataDefinition`: current day-index chart의 market/from/to/bar-count만 request identity로 사용한다.
-  - lookback/cohortPercent/showHigh/showLow/selectedSubjects/paneHeight 변경은 raw daily panel refetch를 유발하지 않는다.
-  - `loadData()`는 `dailyMarketData.loadClosePanel()` raw rows만 반환하고 AbortSignal을 전달한다.
-  - `marketBetaCohortDrawingDefinition`: 기존 `buildPointInTimeBetaCohorts()` 결과를 stable `high/low` primary line 2개로 그대로 투영한다.
-  - showHigh/showLow는 primitive cardinality를 바꾸지 않고 해당 line data만 비운다.
-  - synthetic benchmark/equity panel로 기존 beta 계산과 descriptor data를 직접 equivalence 검증했다.
-  - **`selectedSubjects[] -> subjectViews.replace()` collection lifecycle은 이번 tranche에서 건드리지 않았다.** 따라서 MarketBeta 전체 표준화 완료가 아니라 primary-line/data 경계만 준비 완료다.
-  - Chart head `e9f76756fe7beb6e8bd4ed4e379dd427a727d030`, workflow #79 **PASS**.
-- **reconciler scale defect를 즉시 수정했다.**
-  - 초기 구현의 item loop 내부 `runtime.ids().includes()`는 1000개에서 O(N²) 가능성이 있어 NONSTANDARD로 판단했다.
-  - live ids를 reconcile 시작 시 한 번 `Set`으로 만들고 membership을 O(1) 평균으로 바꿔 전체 desired/live diff를 cardinality-linear하게 정리했다.
-- **semantic operation trace gate의 핵심을 구현했다.**
-  - 1000 items first apply = 1000개의 동일 `ensure(item)`.
-  - 동일 1000 재적용 = operation 0 / 1000 unchanged.
-  - `item-537`만 OFF = `remove(item-537)` 1건, 나머지 999 unchanged.
-  - `item-537` ON = `ensure(item-537)` 1건, 나머지 999 unchanged.
-  - 한 item state/visible/surfaceId 변경 = 그 item ensure 1건만 발생.
-  - global OFF = 동일 `remove(item)` 1000회 반복, 별도 global lifecycle 없음.
-  - restart = 새 Runtime에서 first apply와 동일 ensure trace.
-  - context revision = 동일 ensure(item) 반복, restore-specific branch 없음.
-  - 한 item 실패 = 실패 item만 remove, unrelated live item 유지.
-  - duplicate desired id는 live mutation 전에 fail-closed.
-- **Trend Regime을 pure drawing definition으로 변환했다.**
-  - 기존 모델의 long/fast/slow line, transition markers, opportunity regions를 순수 descriptor로 투영한다.
-  - 모델 계산 결과와 descriptor data를 직접 비교한다.
-  - frozen 상태에서는 persisted `frozenOpportunitySet`을 drawing authority로 사용한다.
-- **stale Core import 전수감사 gate를 추가했다.**
-  - `tests/source-relative-import-integrity.test.mjs`가 `src/**/*.mjs`의 모든 relative static/dynamic import가 실제 파일로 resolve되는지 검사한다.
-  - 이 gate가 `TrendRegimeModel -> core/chart/JmaSeries/MovingAverageSeries`와 `StrategyModel -> core/chart/JmaSeries` stale dependency를 실제로 적발했다.
-  - 두 경로 모두 Add-on-owned `indicator/math/JmaMath.mjs`, `MovingAverageMath.mjs`로 교체했다.
-- **Managed Strategy pure descriptor 표준화를 완료 준비 상태로 만들었다.**
-  - 기존 `subjectViews.watch() -> target surface -> live series/markers` lifecycle을 조사했다.
-  - 동일 계산 결과를 `fast line / slow line / signal markers` 3개 stable primitive로 투영하는 `managedStrategyDrawingDefinition`을 추가했다.
-  - `normalizeManagedStrategy()`가 optional field를 `undefined`로 남기던 JSON 계약 위반을 수정했다.
-  - pure descriptor equivalence와 insufficient-bars stable-shape 테스트가 PASS했다.
-- **최근 gate 결과를 확정했다.**
-  - per-surface context resolver head `d27ca7d9bef2ae7e28d73f3eae0f44121a67ca1f` workflow #57 PASS.
-  - subject binder revision exact-step 테스트는 `test defect`로 분류해 `A revision monotonic increase + B revision strict unchanged`로 수정했고 head `fbaddb6df575113b14729de4a2ff5f750050adab`, workflow #63 PASS.
-  - async data runtime/dataKey head `39238f437a145269a55d432ce7681f822f6d958a`, workflow #72 PASS.
-  - N_UP_COUNT + AbortSignal adapter head `157473253f1e0e3b97fbcd48dc18e798d8a8e7bf`, workflow #76 PASS.
-  - MarketBeta primary line/data head `e9f76756fe7beb6e8bd4ed4e379dd427a727d030`, workflow #79 PASS.
-- 표준화 PR #5는 계속 draft/DO NOT MERGE다.
-- 추가 compare restore/height/timing 보정 패치는 중단 상태다.
-- 작업 branch는 dsl `dsl-live-studio`; `origin/main`을 섞지 않는다.
-- repo-wide/global compliance는 `REMEDIATION_REQUIRED`다.
+- 권위 파일은 `rules.md` + `todo.md` 두 개뿐이다. 세션 복구는 `rules.md` → `todo.md` 순서다.
+- 전체 상태는 계속 `REMEDIATION_REQUIRED`다. UIA-1/Chart 구조/global PASS는 아직 선언하지 않는다.
+- Chart 작업은 `hoonoh57/kiwoom-condition` branch `standardize/four-axis-render-pipeline`, draft PR #5에서만 진행한다.
+- PR #5는 **DO NOT MERGE until legacy drawing lifecycle is removed** 상태를 유지한다.
+- dsl 작업 branch는 `dsl-live-studio`; `origin/main`을 섞지 않는다.
+
+### 4축 현재 계약
+
+- Core = generic drawing primitive/grammar만 소유한다.
+- Add-on = 계산 의미, drawing 종류, pure reducer/data request/descriptor만 소유한다.
+- Runtime = feature-blind per-item data/drawing lifecycle과 surface translation만 소유한다.
+- JSON/State = 선언/ON-OFF persistence다. raw JSON이 Core를 직접 실행하지 않는다.
+- 핵심 invariant = `1 item ON/OFF == N items 중 1 item ON/OFF`; global OFF/restart도 동일 per-item path 반복이다.
+
+### 표준 부품 완료
+
+- Core `ChartDrawingGrammar`: `pane/line/histogram/candlestick/legend/markers/region`, JSON-only, callback/live handle 금지.
+- Runtime `ChartDrawingRuntime`: `ensure/update/setVisible/remove`, item-local rollback/dispose.
+- `ChartDrawingDefinition`: synchronous pure `describe({id,state,bars,workspace,data?})` + optional pure `reduce()`.
+- `ChartDrawingReconciler`: independent desired item set-diff, 1000-item cardinality/locality, surfaceId/context 지원.
+- `ChartDrawingSurfaceRouter` + `ChartDrawingSurfaceContextRegistry`: opaque surfaceId routing/context.
+- `ChartSubjectDrawingSurfaceBinder`: legacy subjectViews와 새 renderer 사이 임시 ref-count bridge. 최종 subject item 전환 후 삭제 대상.
+- `ChartDrawingDataDefinition` + `ChartDrawingDataRuntime`: per-item async generation/cancel/stale-result rejection, AbortSignal, optional pure `dataKey()`.
+- `BrowserDailyMarketDataPort`: optional AbortSignal을 실제 fetch까지 전달.
+- stale relative Core import 전수감사 gate 추가 및 발견된 TrendRegime/ManagedStrategy stale dependency 제거.
+
+### pure Add-on 준비 완료 범위
+
+- Indicator 11종: SMA/EMA/JMA/Bollinger/SuperTrend/VWAP/RSI/MACD/Disparity/DMI/OBV pure descriptor + 기존 계산 equivalence.
+- Trend Regime: line/marker/region pure descriptor + frozen opportunity authority.
+- Managed Strategy: fast/slow JMA + signal markers pure descriptor; target surface generic routing 준비.
+- N_UP_COUNT: `dataKey + loadData + pane/histogram descriptor`; threshold 변경은 raw rows 재사용.
+- MarketBetaCohort: **primary beta high/low line/data 경계만** pure 계약 준비. `selectedSubjects[] -> subjectViews.replace()`는 아직 legacy collection lifecycle이다.
+
+### semantic gate / 최근 PASS
+
+- 1000 drawing items first apply = 동일 `ensure(item)` 1000회.
+- `item-537` OFF/ON/state/visible/surface 변경 = 해당 item만 touch.
+- global OFF = 동일 per-item remove 반복.
+- restart = first apply와 동일 path.
+- 1000 async items = 동일 per-item start; cancel/failure/stale result locality 보장.
+- async data ready completion은 whole-list rescan 없이 해당 item만 targeted drawing reconcile하도록 `ChartDrawingPipeline`을 추가했다.
+- calculation-only state change에서 dataKey가 같으면 data version/refetch는 유지되고 해당 drawing item만 다시 ensure한다.
+- request identity가 바뀌면 해당 item drawing만 remove → 새 data ready 후 ensure한다.
+- sync/async definition은 동일 Pipeline에서 feature branch 없이 공존한다.
+
+PASS checkpoints:
+- per-surface context `d27ca7d9...` workflow #57 PASS.
+- subject binder `fbaddb6d...` workflow #63 PASS.
+- async DataRuntime/dataKey `39238f43...` workflow #72 PASS.
+- N_UP_COUNT + AbortSignal adapter `15747325...` workflow #76 PASS.
+- MarketBeta primary line/data `e9f76756...` workflow #79 PASS.
+- async-data → targeted-drawing Pipeline `7e990dc5003b280cc7872200a5e5153b99604b9b` workflow #83 **PASS**.
+
+### 아직 NONSTANDARD인 핵심
+
+- active catalog/RuntimeHost는 여전히 legacy `definition.create(context)` live object path다.
+- Add-on live classes가 raw surface/pane/series/subjectViews/bar-window/projection lifecycle을 아직 소유한다.
+- Compare/ConditionSearch/SectorLeadership/MarketBeta selectedSubjects는 collection/owner whole lifecycle을 가진다.
+- `ChartSubjectViewManager`는 `subjects[] -> whole signature/revision/replace(owner)` 구조다.
+- JSON/Persistence에는 compare `subjects[]`, restore-only `__layout` 등 collection authority가 남아 있다.
+- `MarketChart.whenAddonsIdle()` 이후 별도 layout restore/stabilize/viewport 경로가 남아 있다.
+- 따라서 PR #5는 계속 draft이며 dsl submodule main baseline은 아직 advance하지 않는다.
 
 ## 할 일
 
-- **다음 micro-tranche: async data result와 drawing reconciler 사이의 generic composition gap을 닫는다.**
-  - 현재 `ChartDrawingDataRuntime`은 JSON data를 만들 수 있고 `ChartDrawingDefinition.describe()`는 data를 받을 수 있지만, `ChartDrawingReconciler`는 아직 data를 resolve/전달하지 않는다.
-  - Runtime에 feature 분기를 추가하지 않고 `itemId -> data status/version/data`를 generic하게 resolve한다.
-  - data pending/failed item은 unrelated drawing을 건드리지 않고 해당 item만 fail-closed/deferred 처리한다.
-  - data ready event는 **해당 item만** targeted reconcile하여 1000 async completion이 whole-list 1000회 재스캔되는 O(N²) 구조가 되지 않게 한다.
-  - calculation-only state 변경으로 dataKey가 동일하면 data version을 유지하고 drawing item만 다시 ensure한다.
-  - first apply/restart/global OFF/item OFF는 동일 per-item data+draw path를 사용한다.
-- composition gate가 PASS한 뒤 ConditionSearch / SectorLeadership / MarketBeta selectedSubjects 같은 collection-oriented subject 기능을 독립 desired child item 구조로 이행한다.
-- `CompareSubjects`는 기존 `subjects[] -> replace(owner)`를 유지한 채 descriptor layer를 덧씌우지 않는다.
-  - JSON 자체를 independent subject desired items로 이행한다.
-  - 각 compare subject는 stable item id + generic data request + pane/candlestick/legend descriptor로 변환한다.
-  - compare subject의 pane surface가 opaque surfaceId authority가 되면 현재 `ChartSubjectDrawingSurfaceBinder`는 삭제한다.
-  - `subjects[]` whole signature/revision/pending/replace lifecycle을 제거한다.
-- 모든 drawing feature가 pure definition/reducer/data-result 계약으로 준비된 뒤 **RuntimeHost를 한 번의 경계 변경으로** desired item → data result → definition.describe → reconciler → surface router → drawing runtime 단일 path로 전환한다.
-  - Add-on에 raw `surface`, `layout`, drawing handle을 넘기지 않는다.
-  - `.create`/`.describe` 자동 fallback 같은 이중 active path를 만들지 않는다.
-  - 전환과 동시에 legacy `definition.create(context)` drawing implementation을 제거한다.
-- 이후 `ChartSubjectViewManager` owner whole-replace/collection signature를 제거하고, compare/condition/sector child item도 독립 lifecycle로 통일한다.
-- JSON/Persistence에서 compare `subjects[]` collection authority와 restore-only `__layout`을 제거/마이그레이션한다.
-- `MarketChart.whenAddonsIdle()`의 별도 layout restore/stabilize path를 제거해 restart/global/item ON/OFF가 모두 같은 normal apply path를 사용하도록 한다.
-- 최종 semantic gate에서 1/10/1000 cardinality, locality, global/item visibility equivalence, surface routing locality, async request locality, restart==normal apply, idempotence, single-path를 전체 제품경로로 검증한다.
+1. **독립 child item persistence/state 계약을 먼저 만든다.**
+   - 부모 `subjects[]` 배열을 Runtime lifecycle authority로 사용하지 않는다.
+   - 각 child는 stable `itemId + definitionId + enabled + visible + state + parentId?`를 독립 state node로 가진다.
+   - parent/global enabled는 child `effectiveEnabled` gate만 만든다. 별도 whole-replace lifecycle은 금지한다.
+   - 1/10/1000 child와 `#537` 단독 ON/OFF/remove/restart가 동일 state-read → Pipeline path인지 semantic gate로 검증한다.
+
+2. 첫 실제 child 사례는 코드 경계가 가장 작은 것을 선택한다.
+   - 우선 MarketBeta `selectedSubjects`를 검토한다.
+   - subject 하나 = 독립 bar-data request + pane/candlestick/legend descriptor.
+   - subject 하나 삭제/추가가 다른 subject pane/data를 건드리지 않아야 한다.
+   - legacy `subjectViews.replace(owner)` 위에 descriptor를 병행 활성화하지 않는다.
+
+3. 그 다음 Compare / SectorLeadership / ConditionSearch를 독립 child item으로 이행한다.
+   - Compare `subjects[]` whole signature/revision/pending/replace 제거.
+   - Sector/Condition의 subject pane도 동일 child pipeline 사용.
+   - Condition realtime membership은 state item add/remove만 수행하고 drawing lifecycle을 직접 소유하지 않는다.
+
+4. 모든 feature가 pure definition/data/reducer 준비된 뒤 RuntimeHost를 **한 번의 경계 변경**으로 Pipeline 단일 active path로 전환한다.
+   - `.create`/`.describe` fallback 또는 이중 active path 금지.
+   - 전환과 동시에 legacy drawing live implementations를 제거한다.
+
+5. 이후 `ChartSubjectViewManager` collection lifecycle, compare collection JSON, restore-only `__layout`, 별도 layout stabilization path를 제거/마이그레이션한다.
+
+6. 최종 gate에서 1/10/1000 cardinality, locality, async locality, global/item equivalence, restart==normal apply, idempotence, single-path를 전체 제품경로로 검증한다.
+
 - semantic gate는 제품에 맞춰 완화하지 않는다.
-- 전체 4축 baseline이 STANDARD가 되기 전 UIA-1/Chart 구조 PASS를 선언하지 않는다.
 - 각 tranche 종료 시 새 문서를 만들지 않고 이 `todo.md`만 갱신한다.
