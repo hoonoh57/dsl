@@ -18,35 +18,36 @@
 
 ### 표준 부품 완료
 
-- JSON-only `ChartDrawingGrammar`.
-- item-local `ChartDrawingRuntime.ensure/update/setVisible/remove`.
-- pure `ChartDrawingDefinition.describe/reduce`.
+- JSON-only `ChartDrawingGrammar`, item-local `ChartDrawingRuntime`, pure `ChartDrawingDefinition`.
 - independent `ChartDrawingReconciler` + targeted `reconcileItem()`.
 - per-item async `ChartDrawingDataRuntime`, live `ChartDrawingStreamRuntime`, sync/async/stream 단일 `ChartDrawingPipeline`.
-- opaque drawing surface router/context registry + State/JSON/Projection `surfaceId` roundtrip.
+- opaque surface router/context + State/JSON/Projection `surfaceId` roundtrip.
 - independent parent-child State + `ChartDesiredItemProjection`.
 - generic action commands `chart.item.remove`, `chart.selection.set`.
-- generic `scope:'session'` desired node persistence/restart gate PASS.
-- Add-on-owned `StandardDrawingRegistry`: 모든 active drawing registration pure definition으로 커버, `strategy.manager`만 Shell/UI 전용.
-- one-time `StandardDrawingStateMigration`:
-  - Compare/MarketBeta/Sector/Condition/Battlefield Map/Battlefield Force legacy state -> actual child nodes.
-  - legacy parent drawing collection 제거, child existing authority 우선, schemaVersion=2 one-time lock.
-  - Compare 1000 subjects -> 1000 stable child identities, #537 보존, 두 번째 migration 변화 0.
-- **explicit `order` desired metadata 완료**:
-  - gate-only `096520cf...`, workflow #136에서 State/persistence/projection/order migration 부재를 먼저 FAIL 확인.
-  - gate 의미 변경 없이 State normalization + persistence hydrate merge + DesiredItemProjection + Compare child projection만 수정.
-  - `order`는 generic non-negative integer metadata로 State/JSON/Projection roundtrip.
-  - Compare migration은 legacy 배열 위치를 child `order`로 명시 저장하여 JSON object 삽입순서에 의존하지 않는다.
+- generic `scope:'session'` persistence/restart gate PASS.
+- Add-on-owned `StandardDrawingRegistry`: active drawing registration pure definition 커버; `strategy.manager`만 Shell/UI 전용.
+- one-time `StandardDrawingStateMigration`: legacy collections -> actual child nodes, parent drawing collection 제거, existing child authority 우선, schemaVersion=2 lock, second migration change 0.
+- explicit generic `order`: State/JSON/Projection roundtrip; Compare migration legacy 배열 순서를 child order로 보존.
+- **Compare independent state planner 완료**:
+  - gate-only `510a8f6d179439c4a7c93aac5c43095b735551d4`, workflow #141에서 planner 부재 FAIL 확인.
+  - gate 변경 없이 제품 `CompareSubjectsIndependentState`만 추가.
+  - append = child 1 write + parent nextOrdinal + generic selection.
+  - replace/timeframe = addressed child 1 write.
+  - remove = child 1 remove; selected child인 경우 generic selection clear.
+  - select = generic activeSubject only.
+  - synchronizeTimeframes만 intentional all-child write.
+  - parent normal state에 `subjects[]`, `selectedPaneId`, `__layout` 없음.
+  - `bf8e65477d3178b47383a810b75c5e369b283500`, workflow #142 **PASS**.
 
 ### pure Add-on 준비 완료
 
 - Indicator 11종 + 기존 계산 equivalence.
 - Trend Regime, Managed Strategy, N_UP_COUNT.
 - MarketBeta parent + one-subject-per-child stream/descriptor.
-- Compare: one subject = child node/stream/pane descriptor; height/order 이관; generic selection/delete.
+- Compare: one subject = child node/stream/pane descriptor; height/order 이관; generic selection/delete + independent write planner.
 - SectorLeadership: leader/follower independent child; stable code id; role/palette state 고정.
 - ConditionSearch: authoritative current session only session child; stale restart child 0; realtime I/D pure transition.
-- Battlefield Map: primary overlay pure parent + non-primary local subject independent lane child; N에 따른 경로 변경 결함 제거.
+- Battlefield Map: primary overlay pure parent + non-primary local subject independent lane child.
 - Battlefield Force: parent regions + one force group per child; group id lifecycle identity.
 - FeatureValidation no-drawing add-on empty pure descriptor.
 
@@ -56,16 +57,19 @@
 - surface desired-state route `a9c7c86d05a17c3f222945039e64c79eac6948ce`, #129 PASS.
 - standard drawing registry completeness `616843f9b76849fe28b88a1ad3a4395654bb51f0`, #131 PASS.
 - one-time independent child state migration `635a85bb671b7081542dc298a3b7ccefa34948c5`, #135 PASS.
-- explicit desired item order `08fd22ea6e1bb47fd2700a4cb16ad31ad5e8e354`, workflow #140 **PASS**.
-- PR #5 current verified head = `08fd22ea6e1bb47fd2700a4cb16ad31ad5e8e354`.
+- explicit desired item order `08fd22ea6e1bb47fd2700a4cb16ad31ad5e8e354`, #140 PASS.
+- Compare independent planner `bf8e65477d3178b47383a810b75c5e369b283500`, workflow #142 **PASS**.
+- PR #5 current verified head = `bf8e65477d3178b47383a810b75c5e369b283500`.
 
 ### 아직 NONSTANDARD
 
 - active `ChartRuntimeHost`는 여전히 `registration.load() -> definition.create(context)` live-object path.
 - legacy Add-on이 raw surface/state/getBars/workspace/capabilities/layout/realtime를 소유한다.
-- migration은 아직 startup active path에 적용하지 않았다. 기존 UI가 parent collection을 다시 쓰므로 지금 적용하면 legacy Runtime과 충돌한다.
-- **Compare Shell은 현재 `subjects[]/selectedPaneId/__layout` collection state를 읽고 정상 action마다 parent에 다시 쓴다.** 첫 write-path 교체 대상이다.
-- MarketBeta/Sector/Condition/Battlefield/Force editor write path도 independent child CRUD로 전환 필요.
+- migration은 아직 startup active path에 적용하지 않았다.
+- active Compare Shell은 아직 legacy parent `subjects[]`를 쓴다.
+- **active Shell만 먼저 child-only로 바꾸면 legacy Runtime이 `subjects[]`를 읽으므로 Compare drawing이 중간 commit에서 사라진다. 이를 dual-write/fallback으로 메우는 것은 금지한다.**
+- 따라서 independent UI/write planners를 feature별로 먼저 완성하고, active UI composition + migration + RuntimeHost는 single-path cutover tranche에서 함께 전환한다.
+- MarketBeta/Sector/Condition/Battlefield/Force independent write planner 준비 필요.
 - Managed Strategy legacy `subjectViews.watch()` live lifecycle이 남아 있음.
 - `strategy.manager` UI/DOM lifecycle이 Runtime Add-on에 남아 있음.
 - `ChartSubjectViewManager` whole collection lifecycle과 임시 subject binder가 남아 있음.
@@ -73,30 +77,28 @@
 
 ## 할 일
 
-1. **Compare independent write planner + Shell CRUD를 먼저 전환한다.**
-   - gate-first: append=child 1 write + parent nextOrdinal + generic selection; replace/timeframe=선택 child 1 write; remove=child 1 remove; select=generic activeSubject만.
-   - parent normal state에는 `subjects[]`, `selectedPaneId`, `__layout` 재생성 금지.
-   - sibling order는 explicit `order`만 사용.
-   - `synchronizeTimeframes`만 의도적으로 모든 compare child state update 가능.
-
-2. 같은 원칙으로 MarketBeta, SectorLeadership, ConditionSearch, Battlefield Map, Battlefield Force editor/write path를 independent State CRUD로 전환한다.
+1. **feature별 independent write planner를 gate-first로 완성한다.**
+   - 다음 MarketBeta -> SectorLeadership -> ConditionSearch -> Battlefield Map -> Battlefield Force.
+   - normal action은 addressed child만 write/remove; parent는 semantic state만 유지.
    - Condition child는 `scope:'session'` 유지.
+   - collection 재생성 금지.
 
-3. Managed Strategy target을 neutral opaque `surfaceId` desired metadata로 이관한다.
+2. Managed Strategy target을 neutral opaque `surfaceId` desired metadata로 이관한다.
    - Add-on -> Runtime helper import 금지.
    - Add-on이 `subjectViews.watch()`/live series/marker lifecycle을 소유하지 않는다.
 
-4. `strategy.manager` UI lifecycle을 Runtime Add-on에서 Shell/UI 축으로 이동한다.
+3. `strategy.manager` UI lifecycle을 Runtime Add-on에서 Shell/UI 축으로 이동한다.
 
-5. UI/State 준비가 끝나면 startup에 one-time migration을 적용하고 migrated JSON을 persistence authority로 저장한다.
-
-6. 그 직후 `ChartRuntimeHost`를 **한 번의 경계 변경**으로 `State -> DesiredItemProjection -> DrawingPipeline -> Core` 단일 active path로 전환한다.
-   - `.create` fallback/이중 active path 금지.
+4. independent UI/write 준비 완료 후 **한 번의 active cutover**:
+   - startup one-time migration 적용 + migrated JSON persistence authority 저장.
+   - active Shell/editor를 independent child CRUD로 전환.
+   - `ChartRuntimeHost`를 `State -> DesiredItemProjection -> DrawingPipeline -> Core` 단일 active path로 전환.
+   - `.create` fallback/dual-write/이중 active path 금지.
    - legacy drawing live implementations 동시 제거.
 
-7. `ChartSubjectViewManager`, 임시 binder, legacy collection helpers, restore-only `__layout`, 별도 stabilization/viewport restore path 제거.
+5. 이후 `ChartSubjectViewManager`, 임시 binder, legacy collection helpers, restore-only `__layout`, 별도 stabilization/viewport restore path 제거.
 
-8. 최종 제품경로 gate: 1/10/1000 cardinality, locality, async/stream locality, global/item/parent equivalence, surface/order locality, restart==normal apply, idempotence, single-path + real WYSIWYG restart.
+6. 최종 제품경로 gate: 1/10/1000 cardinality, locality, async/stream locality, global/item/parent equivalence, surface/order locality, restart==normal apply, idempotence, single-path + real WYSIWYG restart.
 
 - semantic gate는 제품에 맞춰 완화하지 않는다.
 - tranche 종료 시 새 문서를 만들지 않고 이 `todo.md`만 갱신한다.
