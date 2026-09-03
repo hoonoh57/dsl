@@ -137,16 +137,20 @@ function Assert-Preflight {
     $node = Get-CommandPath 'node.exe'
     if ($null -eq $node) { $node = Get-CommandPath 'node' }
     if ($null -eq $node) { Fail 'Node.js is required.' }
-    $nodeText = (& $node --version 2>&1 | Select-Object -First 1)
-    if ($LASTEXITCODE -ne 0) { Fail 'Unable to read Node.js version.' }
+    $nodeVersionOutput = & $node --version 2>&1
+    $nodeVersionExitCode = $LASTEXITCODE
+    if ($nodeVersionExitCode -ne 0) { Fail 'Unable to read Node.js version.' }
+    $nodeText = [string]($nodeVersionOutput | Select-Object -First 1)
     $nodeMajorText = ([string]$nodeText).Trim().TrimStart('v').Split('.')[0]
     $nodeMajor = 0
     if (-not [int]::TryParse($nodeMajorText, [ref]$nodeMajor) -or $nodeMajor -lt 24) { Fail ('Chart SSOT requires Node.js >= 24; found ' + $nodeText) }
 
     $python = Get-PythonPath
     if ($null -eq $python) { Fail 'Python is required.' }
-    $pythonVersionText = (& $python --version 2>&1 | Select-Object -First 1)
-    if ($LASTEXITCODE -ne 0) { Fail 'Unable to read Python version.' }
+    $pythonVersionOutput = & $python --version 2>&1
+    $pythonVersionExitCode = $LASTEXITCODE
+    if ($pythonVersionExitCode -ne 0) { Fail 'Unable to read Python version.' }
+    $pythonVersionText = [string]($pythonVersionOutput | Select-Object -First 1)
 
     $pythonDepsOk = $true
     & $python -c 'import fastapi, uvicorn, numpy, pydantic' 2>$null
