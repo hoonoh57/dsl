@@ -1,6 +1,6 @@
 # Quant DSL Current State
 
-Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_TRUSTED_FULL_PASS / LFVAL1_TRUSTED_FULL_PASS / LFOUT1_TRUSTED_FULL_PASS / LFREAL1_TRUSTED_FULL_PASS / LFREAL2_TRUSTED_FULL_PASS / LFREAL3_TRUSTED_FULL_PASS / REMOTE_EXECUTABLE_TAIL_UNVALIDATED / REMEDIATION_REQUIRED**  
+Status: **VSLICE1_TRUSTED_FULL_PASS / GENERIC_MECHANICAL_VERTICAL_SLICE_CLOSED / LF2_TRUSTED_FULL_PASS / LFVAL1_TRUSTED_FULL_PASS / LFOUT1_TRUSTED_FULL_PASS / LFREAL1_TRUSTED_FULL_PASS / LFREAL2_TRUSTED_FULL_PASS / LFREAL3_TRUSTED_FULL_PASS / CURRENT_MAIN_EXECUTABLE_TRUSTED_LOCAL_FULL_PASS / REMEDIATION_REQUIRED**  
 Updated: 2026-09-04 KST
 
 ## Recovery
@@ -42,7 +42,10 @@ LFOUT1            ca4d5309a658de02f970e341bbf86ad87ab327ae
 LFREAL1           5aa1da3268f1f3e031aa6d607a4d3a5921f03e58
 LFREAL2           10861c232d03937c5ae77e2be32cd1873a5ff977
 LFREAL3           ab4d798c6648ee382e779af81e759cd11bf1cb13
+CURRENT LOCAL MAIN 4ebde8647cd0caede3c9cb4e6f210bc5a1f7d630
 ```
+
+`4ebde8647cd0caede3c9cb4e6f210bc5a1f7d630` is the current trusted executable/test checkpoint because the exact user-local checkout passed the focused verifier contracts and Tactical P1 Full. Later documentation-only commits do not change the trusted executable SHA.
 
 Relevant external Chart contract checkpoint used by trusted Full runs:
 
@@ -70,22 +73,34 @@ LFREAL2:      Ran 7 tests in 0.001s / OK
 LFREAL2 Full: [PASS] Tactical P1 verification completed: mode=Full.
 LFREAL3:      Ran 7 tests in 0.001s / OK
 LFREAL3 Full: [PASS] Tactical P1 verification completed: mode=Full.
+
+REALDATA1 acquisition:
+  [PASS] exact source verified
+  bytes=57541
+  sha256=fffbeaece7a769e063c3803ad184265aa751d9f417e3e72e2862045cad10f5ba
+
+Live Studio catalog:
+  Ran 4 tests in 0.169s / OK
+
+Stage1 native probe + launcher contracts:
+  Ran 8 tests in 0.095s / OK
+Stage1 preflight:
+  [PASS] Stage 1 preflight: Python Python 3.13.1, Node v24.19.0
+
+Tactical launcher contracts:
+  Ran 6 tests in 0.033s / OK
+Current Full at 4ebde8647cd0caede3c9cb4e6f210bc5a1f7d630:
+  [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-## Remote tail awaiting local validation
+Two verification-harness defects were exposed during local validation and fixed without weakening product assertions:
 
-The last trusted executable point remains LFREAL3 `ab4d798c6648ee382e779af81e759cd11bf1cb13`.
+1. Windows PowerShell 5.1 native version probing read `$LASTEXITCODE` after `Select-Object`, producing a false failure even when Python returned `Python 3.13.1`; the exit code is now captured before output selection.
+2. Tactical preflight invoked native Python imports under `$ErrorActionPreference='Stop'`, causing stderr to terminate the script before the intended fail-closed exit-code branch; native stderr/exit are now captured explicitly and reported without bypassing failure.
 
-The following later executable/test changes exist on `main` but have no recovered user-local PASS and therefore remain `REMOTE_UNVALIDATED`:
+A later Tactical preflight correctly exposed the actual environment issue `ModuleNotFoundError: No module named 'pymysql'`. `PyMySQL` was already an official `requirements.txt` dependency, so no product/Core requirement change was made. The final exact local checkout subsequently passed Tactical P1 Full.
 
-```text
-314a815300c64b492ce455f315d9e5b2cb861d6f  REALDATA1 source/provenance checkpoint
-59c5fc4fb839593deff201028ed1ada5965abe42  pinned exact-byte acquisition verifier
-95a1f3cedf9c8f4506bb2d59f02b14f8bbb90e60  first Live Studio verification catalog
-3a49177a15888922c48c68efd91beac1abcba4a6  focused Live Studio catalog tests
-```
-
-Later documentation-only reconciliation commits do not promote those executable changes to trusted state.
+## REALDATA1 source and identity status
 
 REALDATA1 source material currently recorded:
 
@@ -99,9 +114,18 @@ frequency: daily
 observations: 2024-04-15 .. 2026-04-13
 record_count: 483
 provider path stated by source: yfinance -> Yahoo Finance
+exact downloaded bytes: 57541
+exact downloaded content SHA-256: fffbeaece7a769e063c3803ad184265aa751d9f417e3e72e2862045cad10f5ba
 ```
 
-This establishes source-origin evidence only. Exact caller-byte SHA-256/LFREAL2 manifest and independent market-data authenticity remain unverified.
+The acquisition verifier establishes exact content identity for the pinned source bytes. It does **not** independently establish market-data authenticity.
+
+```text
+market_data_authenticity_verified = false
+real_data_claim = false
+```
+
+The exact bytes have not yet been frozen through LFREAL2 into the immutable dataset manifest. Source provenance/content identity and market authenticity remain separate claims.
 
 ## Trusted research boundary
 
@@ -140,37 +164,33 @@ Initial LFOUT1 executable `f95d15f2f66533a616db5a86df9cbe9e1f7c418b` failed two 
 
 Initial LF2 checkpoint `14bf03f1f9473a607d4330e4d06f9d0ef9bdd219` had a source-level boundary contract defect; the test was kept and only product text was corrected. A later sibling Chart failure was classified as a stale Chart test contract and fixed only in the Chart test at `258fd07ca76214819cec3822b02564e21a1c8680`.
 
+The 2026-09-04 local validation failures around Python version probing and Tactical native stderr were classified as **test/verification-harness defects**, not product defects. The missing `pymysql` module was classified as an **environment issue** after the harness correctly exposed it.
+
 ## Next boundary
 
-**Do not add another executable tranche until the current remote tail is locally validated.**
-
-Required validation order on the current pulled `main`:
+The prior remote-tail validation gate is closed at trusted executable SHA:
 
 ```text
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\acquire_realdata1_source.ps1
-python -m unittest -v test_live_validation_catalog.py
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 -Mode Full
+4ebde8647cd0caede3c9cb4e6f210bc5a1f7d630
 ```
 
-The acquisition verifier must confirm the pinned Git blob identity and report SHA-256 over the exact downloaded bytes. Focused catalog tests must pass. Tactical P1 Full must pass. Only then may the exact current SHA be promoted to trusted local state.
-
-After that gate, the next research micro-tranche is:
+The next research micro-tranche is now:
 
 ```text
 verified exact REALDATA1 bytes
  -> existing LFREAL2 ExternalDatasetFreezer
  -> immutable content_sha256 + dataset_manifest_hash
- -> causal OHLCV-only parser/adapter boundary
- -> LFREAL3 admission focused validation
 ```
 
-Do not modify LFREAL2 product logic merely to accommodate this source. Do not add provider/file/network authority or real-data-specific semantics to Parser/Runtime/Backtest/Broker.
+Before implementation, confirm the actual `ExternalDatasetFreezer` code/schema and its existing tests. The owning layer for source-path acquisition remains an edge tool/adapter outside Core. Caller-provided bytes are the only input to the freezer. The LFREAL2 manifest remains the identity SSOT. Core Parser/Runtime/Backtest/Broker must not gain provider/file/network authority or source-specific semantics.
+
+Only after immutable LFREAL2 freeze is locally focused + Full validated may the next boundary proceed to a causal OHLCV-only parser/adapter and LFREAL3 admission.
 
 Automatic allocation, adaptive learning, new DSL grammar, live selection, broader ranking, and deployment permission remain deferred.
 
 ## Nonclaims
 
-External source material and provenance have been located, but exact LFREAL2 content freezing and independent market-data authentication are not complete. No real-data LF study, profitable leader/follower edge, production leader selection, validated deployment gating, live provider/broker readiness, or repository-wide compliance PASS is claimed.
+Exact REALDATA1 source-byte identity is verified, but LFREAL2 immutable manifest generation and independent market-data authentication are not complete. No real-data LF study, profitable leader/follower edge, production leader selection, validated deployment gating, live provider/broker readiness, or repository-wide compliance PASS is claimed.
 
 `REMEDIATION_REQUIRED` remains authoritative for broader repository compliance.
 
