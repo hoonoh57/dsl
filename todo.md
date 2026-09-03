@@ -93,6 +93,16 @@
   - global OFF는 동일 per-item cancel 반복이며 별도 async restore/global lifecycle이 없다.
   - restart는 first apply와 같은 load path를 사용한다.
   - 같은 surface context는 reconcile 1회당 한 번만 resolve한다.
+- **N_UP_COUNT를 첫 실제 async 표준 사례로 준비 완료했다.**
+  - 기존 `buildNUpCountRecords()` 계산 의미는 변경하지 않았다.
+  - `nUpCountDataDefinition`: market/from/to/bar-count만 `dataKey()` request identity로 사용하며 `thresholdPct`는 제외한다.
+  - threshold 변경 시 `ChartDrawingDataRuntime`은 기존 rows를 unchanged로 재사용하고 pure drawing definition만 새 threshold로 다시 계산할 수 있음을 테스트했다.
+  - `loadData()`는 `dailyMarketData.loadClosePanel()`만 호출하고 JSON rows를 반환하며 pane/series handle은 소유하지 않는다.
+  - `nUpCountDrawingDefinition`: stable `pane + histogram` descriptor로 기존 count 결과를 정확히 투영한다.
+  - non-day/non-index context는 `{active:false}` key + empty rows로 동일 data path 안에서 처리한다.
+  - `BrowserDailyMarketDataPort`가 optional AbortSignal을 실제 fetch까지 전달하도록 수정해 Runtime cancellation이 adapter 경계까지 도달한다.
+  - legacy `NUpCountAddon.create(context)` / `#revision/#schedule/#load`는 아직 active catalog path 때문에 남아 있으며 **새 descriptor와 동시에 active하지 않는다**. 최종 RuntimeHost single-path 전환 때 제거한다.
+  - Chart head `157473253f1e0e3b97fbcd48dc18e798d8a8e7bf`, workflow #76 **PASS**.
 - **reconciler scale defect를 즉시 수정했다.**
   - 초기 구현의 item loop 내부 `runtime.ids().includes()`는 1000개에서 O(N²) 가능성이 있어 NONSTANDARD로 판단했다.
   - live ids를 reconcile 시작 시 한 번 `Set`으로 만들고 membership을 O(1) 평균으로 바꿔 전체 desired/live diff를 cardinality-linear하게 정리했다.
@@ -123,7 +133,8 @@
 - **최근 gate 결과를 확정했다.**
   - per-surface context resolver head `d27ca7d9bef2ae7e28d73f3eae0f44121a67ca1f` workflow #57 PASS.
   - subject binder revision exact-step 테스트는 `test defect`로 분류해 `A revision monotonic increase + B revision strict unchanged`로 수정했고 head `fbaddb6df575113b14729de4a2ff5f750050adab`, workflow #63 PASS.
-  - async data runtime/dataKey 최신 head `39238f437a145269a55d432ce7681f822f6d958a`, workflow #72 **PASS**.
+  - async data runtime/dataKey head `39238f437a145269a55d432ce7681f822f6d958a`, workflow #72 PASS.
+  - N_UP_COUNT + AbortSignal adapter head `157473253f1e0e3b97fbcd48dc18e798d8a8e7bf`, workflow #76 PASS.
 - 표준화 PR #5는 계속 draft/DO NOT MERGE다.
 - 추가 compare restore/height/timing 보정 패치는 중단 상태다.
 - 작업 branch는 dsl `dsl-live-studio`; `origin/main`을 섞지 않는다.
@@ -131,14 +142,11 @@
 
 ## 할 일
 
-- **다음 micro-tranche: `N_UP_COUNT`를 첫 실제 async 표준 사례로 전환한다.**
-  - 기존 `buildNUpCountRecords()` 계산 의미는 변경하지 않는다.
-  - Add-on에 `loadData()` + pure `describe({state,bars,workspace,data})`를 추가한다.
-  - `dataKey()`는 market/from/to/bar coverage만 request identity로 사용하고 `thresholdPct`는 제외해 threshold 변경 시 refetch 없이 기존 rows로 재계산한다.
-  - data request는 `dailyMarketData.loadClosePanel()` 의미만 소유하고 pane/histogram handle, `#revision/#schedule/#load` lifecycle은 최종 single-path 전환 때 제거한다.
-  - 새 data-result + descriptor 결과를 기존 `buildNUpCountRecords()`와 직접 equivalence 검증한다.
-  - 현재 branch에서는 legacy create path와 새 descriptor path를 동시에 active하게 만들지 않는다.
-- `N_UP_COUNT` PASS 후 MarketBetaCohort / ConditionSearch / SectorLeadership 등 async research를 같은 계약으로 준비한다.
+- **다음 micro-tranche: 나머지 async research 중 가장 작은 독립 사례를 코드 기준으로 선택해 같은 계약으로 변환한다.**
+  - 후보: MarketBetaCohort / ConditionSearch / SectorLeadership.
+  - 선택 기준은 feature 규모가 아니라 `data request -> JSON result -> pure descriptor`로 분리했을 때 collection lifecycle이나 UI command까지 함께 끌고 오지 않는 가장 작은 경계다.
+  - legacy live lifecycle 위에 descriptor를 병행 활성화하는 방식은 금지한다.
+  - 각 사례에서 request identity와 drawing-only state를 `dataKey()`로 분리하고, 한 item의 refetch/failure/cancel이 다른 item을 건드리지 않는지 검증한다.
 - `CompareSubjects`는 기존 `subjects[] -> replace(owner)`를 유지한 채 descriptor layer를 덧씌우지 않는다.
   - JSON 자체를 independent subject desired items로 이행한다.
   - 각 compare subject는 stable item id + generic data request + pane/candlestick/legend descriptor로 변환한다.
