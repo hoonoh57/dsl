@@ -14,39 +14,40 @@
 - Add-on = 계산 의미, drawing 종류, pure reducer/data request/descriptor만 소유한다.
 - Runtime = feature-blind per-item data/drawing lifecycle과 surface translation만 소유한다.
 - JSON/State = 선언/ON-OFF persistence다. raw JSON이 Core를 직접 실행하지 않는다.
-- 핵심 invariant = `1 item ON/OFF == N items 중 1 item ON/OFF`; global OFF/restart도 동일 per-item path 반복이다.
+- 핵심 invariant = `1 item ON/OFF == N items 중 1 item ON/OFF`; parent/global OFF/restart도 동일 per-item path 반복이다.
 
 ### 표준 부품 완료
 
-- Core `ChartDrawingGrammar`: `pane/line/histogram/candlestick/legend/markers/region`, JSON-only, callback/live handle 금지.
-- Runtime `ChartDrawingRuntime`: `ensure/update/setVisible/remove`, item-local rollback/dispose.
-- `ChartDrawingDefinition`: synchronous pure `describe({id,state,bars,workspace,data?})` + optional pure `reduce()`.
-- `ChartDrawingReconciler`: independent desired item set-diff, 1000-item cardinality/locality, surfaceId/context 지원.
-- `ChartDrawingSurfaceRouter` + `ChartDrawingSurfaceContextRegistry`: opaque surfaceId routing/context.
-- `ChartSubjectDrawingSurfaceBinder`: legacy subjectViews와 새 renderer 사이 임시 ref-count bridge. 최종 subject item 전환 후 삭제 대상.
-- `ChartDrawingDataDefinition` + `ChartDrawingDataRuntime`: per-item async generation/cancel/stale-result rejection, AbortSignal, optional pure `dataKey()`.
-- `BrowserDailyMarketDataPort`: optional AbortSignal을 실제 fetch까지 전달.
-- stale relative Core import 전수감사 gate 추가 및 발견된 TrendRegime/ManagedStrategy stale dependency 제거.
+- `ChartDrawingGrammar`: JSON-only generic primitives.
+- `ChartDrawingRuntime`: item-local `ensure/update/setVisible/remove`.
+- `ChartDrawingDefinition`: pure synchronous `describe(...,data?)` + optional pure `reduce()`.
+- `ChartDrawingReconciler`: independent desired-item diff + targeted `reconcileItem()`.
+- `ChartDrawingPipeline`: async data ready event를 해당 item drawing에만 연결; whole-list async completion 재스캔 금지.
+- `ChartDrawingDataDefinition/DataRuntime`: per-item async generation/cancel/stale rejection + `dataKey()` + AbortSignal.
+- `ChartDrawingSurfaceRouter/ContextRegistry`: opaque surfaceId translation.
+- `ChartSubjectDrawingSurfaceBinder`: legacy subjectViews와 새 renderer 사이 임시 bridge; 최종 child 전환 후 삭제 대상.
+- `ChartAddonStateStore`: 기존 `addons[id]` 독립 node에 optional `parentId` persistence를 추가했다. 별도 children collection/storage는 만들지 않았다.
+- `ChartDesiredItemProjection`: node parent chain을 generic `effectiveEnabled`로 계산한다. missing parent/cycle은 해당 chain만 fail-closed한다.
 
 ### pure Add-on 준비 완료 범위
 
-- Indicator 11종: SMA/EMA/JMA/Bollinger/SuperTrend/VWAP/RSI/MACD/Disparity/DMI/OBV pure descriptor + 기존 계산 equivalence.
-- Trend Regime: line/marker/region pure descriptor + frozen opportunity authority.
-- Managed Strategy: fast/slow JMA + signal markers pure descriptor; target surface generic routing 준비.
-- N_UP_COUNT: `dataKey + loadData + pane/histogram descriptor`; threshold 변경은 raw rows 재사용.
-- MarketBetaCohort: **primary beta high/low line/data 경계만** pure 계약 준비. `selectedSubjects[] -> subjectViews.replace()`는 아직 legacy collection lifecycle이다.
+- Indicator 11종 pure descriptor + 기존 계산 equivalence.
+- Trend Regime pure line/marker/region descriptor.
+- Managed Strategy pure fast/slow JMA + signal markers descriptor.
+- N_UP_COUNT `dataKey + loadData + pane/histogram descriptor`.
+- MarketBetaCohort는 **primary beta high/low line/data 경계만** pure 준비. `selectedSubjects[]` collection은 아직 legacy다.
 
 ### semantic gate / 최근 PASS
 
-- 1000 drawing items first apply = 동일 `ensure(item)` 1000회.
-- `item-537` OFF/ON/state/visible/surface 변경 = 해당 item만 touch.
-- global OFF = 동일 per-item remove 반복.
-- restart = first apply와 동일 path.
-- 1000 async items = 동일 per-item start; cancel/failure/stale result locality 보장.
-- async data ready completion은 whole-list rescan 없이 해당 item만 targeted drawing reconcile하도록 `ChartDrawingPipeline`을 추가했다.
-- calculation-only state change에서 dataKey가 같으면 data version/refetch는 유지되고 해당 drawing item만 다시 ensure한다.
-- request identity가 바뀌면 해당 item drawing만 remove → 새 data ready 후 ensure한다.
-- sync/async definition은 동일 Pipeline에서 feature branch 없이 공존한다.
+- 1000 drawing items = 동일 `ensure(item)` 1000회; `item-537` 단독 변경은 해당 item만 touch.
+- 1000 async items = 동일 start path; cancel/failure/stale result locality.
+- async ready = targeted drawing 1건; calculation-only state 변경은 data 재사용 + drawing 1건.
+- parent/child state도 같은 Store → Projection → Pipeline 경로를 사용한다.
+- 1000 child + parent에서 `child-537` OFF = `remove(child-537)` 1건, 나머지 1000 unchanged.
+- parent OFF = 현재 live parent/descendant에 동일 per-item remove 반복; parent ON = 동일 ensure 반복.
+- restart = 같은 persisted nodes를 같은 normal ensure path로 재생한다.
+- global `visualsVisible`도 모든 item의 visible gate만 동일 per-item update한다.
+- missing parent/cycle은 unrelated item을 건드리지 않고 invalid chain만 disabled 처리한다.
 
 PASS checkpoints:
 - per-surface context `d27ca7d9...` workflow #57 PASS.
@@ -54,44 +55,37 @@ PASS checkpoints:
 - async DataRuntime/dataKey `39238f43...` workflow #72 PASS.
 - N_UP_COUNT + AbortSignal adapter `15747325...` workflow #76 PASS.
 - MarketBeta primary line/data `e9f76756...` workflow #79 PASS.
-- async-data → targeted-drawing Pipeline `7e990dc5003b280cc7872200a5e5153b99604b9b` workflow #83 **PASS**.
+- async-data → targeted-drawing Pipeline `7e990dc5...` workflow #83 PASS.
+- independent child state/projection `d83084c35a6e47e7021038bcd399f8e340b2bc35` workflow #86 **PASS**.
 
 ### 아직 NONSTANDARD인 핵심
 
-- active catalog/RuntimeHost는 여전히 legacy `definition.create(context)` live object path다.
-- Add-on live classes가 raw surface/pane/series/subjectViews/bar-window/projection lifecycle을 아직 소유한다.
-- Compare/ConditionSearch/SectorLeadership/MarketBeta selectedSubjects는 collection/owner whole lifecycle을 가진다.
+- active RuntimeHost/catalog는 legacy `definition.create(context)` live object path다.
+- Compare/ConditionSearch/SectorLeadership/MarketBeta selectedSubjects는 collection/owner whole lifecycle이다.
 - `ChartSubjectViewManager`는 `subjects[] -> whole signature/revision/replace(owner)` 구조다.
-- JSON/Persistence에는 compare `subjects[]`, restore-only `__layout` 등 collection authority가 남아 있다.
+- JSON에는 compare `subjects[]`, restore-only `__layout` 등 collection authority가 남아 있다.
 - `MarketChart.whenAddonsIdle()` 이후 별도 layout restore/stabilize/viewport 경로가 남아 있다.
 - 따라서 PR #5는 계속 draft이며 dsl submodule main baseline은 아직 advance하지 않는다.
 
 ## 할 일
 
-1. **독립 child item persistence/state 계약을 먼저 만든다.**
-   - 부모 `subjects[]` 배열을 Runtime lifecycle authority로 사용하지 않는다.
-   - 각 child는 stable `itemId + definitionId + enabled + visible + state + parentId?`를 독립 state node로 가진다.
-   - parent/global enabled는 child `effectiveEnabled` gate만 만든다. 별도 whole-replace lifecycle은 금지한다.
-   - 1/10/1000 child와 `#537` 단독 ON/OFF/remove/restart가 동일 state-read → Pipeline path인지 semantic gate로 검증한다.
+1. **첫 실제 independent child drawing 사례를 만든다.**
+   - 우선 MarketBeta `selectedSubjects`를 대상으로 공용 bars service 경계를 확인한다.
+   - one subject = one persisted node + one data request + one pane/candlestick/legend descriptor.
+   - bar loading/subscription을 현재 one-shot DataRuntime에 억지로 끼우지 않는다. 공용 bars 계약이 live stream이면 generic per-item stream 계약을 먼저 만든다.
+   - subject 하나 추가/삭제/갱신이 다른 subject에 영향 없어야 한다.
 
-2. 첫 실제 child 사례는 코드 경계가 가장 작은 것을 선택한다.
-   - 우선 MarketBeta `selectedSubjects`를 검토한다.
-   - subject 하나 = 독립 bar-data request + pane/candlestick/legend descriptor.
-   - subject 하나 삭제/추가가 다른 subject pane/data를 건드리지 않아야 한다.
-   - legacy `subjectViews.replace(owner)` 위에 descriptor를 병행 활성화하지 않는다.
-
-3. 그 다음 Compare / SectorLeadership / ConditionSearch를 독립 child item으로 이행한다.
+2. MarketBeta child PASS 후 Compare / SectorLeadership / ConditionSearch를 같은 independent child node 구조로 이행한다.
    - Compare `subjects[]` whole signature/revision/pending/replace 제거.
-   - Sector/Condition의 subject pane도 동일 child pipeline 사용.
-   - Condition realtime membership은 state item add/remove만 수행하고 drawing lifecycle을 직접 소유하지 않는다.
+   - Condition realtime membership은 state node add/remove만 수행하고 drawing lifecycle을 직접 소유하지 않는다.
 
-4. 모든 feature가 pure definition/data/reducer 준비된 뒤 RuntimeHost를 **한 번의 경계 변경**으로 Pipeline 단일 active path로 전환한다.
+3. 모든 feature가 pure definition/data/reducer 준비된 뒤 RuntimeHost를 **한 번의 경계 변경**으로 Pipeline 단일 active path로 전환한다.
    - `.create`/`.describe` fallback 또는 이중 active path 금지.
-   - 전환과 동시에 legacy drawing live implementations를 제거한다.
+   - 전환과 동시에 legacy drawing live implementations 제거.
 
-5. 이후 `ChartSubjectViewManager` collection lifecycle, compare collection JSON, restore-only `__layout`, 별도 layout stabilization path를 제거/마이그레이션한다.
+4. 이후 `ChartSubjectViewManager` collection lifecycle, compare collection JSON, restore-only `__layout`, 별도 layout stabilization path를 제거/마이그레이션한다.
 
-6. 최종 gate에서 1/10/1000 cardinality, locality, async locality, global/item equivalence, restart==normal apply, idempotence, single-path를 전체 제품경로로 검증한다.
+5. 최종 gate에서 1/10/1000 cardinality, locality, async/stream locality, global/item equivalence, restart==normal apply, idempotence, single-path를 전체 제품경로로 검증한다.
 
 - semantic gate는 제품에 맞춰 완화하지 않는다.
 - 각 tranche 종료 시 새 문서를 만들지 않고 이 `todo.md`만 갱신한다.
