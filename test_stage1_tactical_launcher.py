@@ -17,6 +17,18 @@ class TacticalLauncherContractTests(unittest.TestCase):
         self.assertIn("$chartPidValue = $null", text)
         self.assertNotIn("dummy", text.lower())
 
+    def test_tactical_launcher_captures_native_stderr_without_terminating_preflight(self):
+        text = (ROOT / "scripts" / "start_tactical_stack.ps1").read_text(encoding="utf-8")
+        self.assertIn("function Invoke-NativeCaptured", text)
+        self.assertIn("$previousErrorActionPreference = $ErrorActionPreference", text)
+        self.assertIn("$ErrorActionPreference = 'Continue'", text)
+        self.assertIn("$exitCode = $LASTEXITCODE", text)
+        self.assertIn("$ErrorActionPreference = $previousErrorActionPreference", text)
+        self.assertIn("$pythonImport = Invoke-NativeCaptured $python $importArgs", text)
+        self.assertIn("if ($pythonImport.ExitCode -ne 0)", text)
+        self.assertIn("Details: ", text)
+        self.assertNotIn("& $python -c 'import fastapi,uvicorn,numpy,pydantic,pymysql; import tactical_main' 2>$null", text)
+
     def test_consolidated_verifier_keeps_base_full_boundary_then_adds_tactical_stress_and_smoke(self):
         text = (ROOT / "scripts" / "verify_tactical_p1.ps1").read_text(encoding="utf-8")
         self.assertIn("verify_stage1.ps1", text)
