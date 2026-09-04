@@ -1,208 +1,316 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / ACTIVE / TRUSTED_EXECUTABLE_e44f684 / REALDATA1_LFREAL3_CAUSAL_DATASET_LOCALLY_TRUSTED / REALDATA2_EXACT_SOURCE_LOCALLY_TRUSTED / REALDATA2_LFREAL2_FREEZE_NEXT / MULTI_SYMBOL_REALDATA_REQUIRED_FOR_LF1 / 2026-09-05 KST**
+Status: **PRIMARY HANDOFF / PROFIT-STRATEGY PRODUCT FLOW / DSL_TRUSTED_01da3bc / CHART_c67d3d8_REMOTE_UNVALIDATED / 2026-09-05 KST**
 
-이 문서는 새 세션이 가장 먼저 읽는 사람 중심 인수인계 문서다. 갑작스러운 종료를 고려해 이전 프로젝트 대화의 마지막 exact local evidence와 GitHub 최신 상태를 함께 대조한다.
+이 문서는 새 세션이 가장 먼저 읽는 인수인계 문서다. 세부 실행 순서와 장기 TODO는 바로 이어서 `STRATEGY_PRODUCT_FLOW_TODO.md`를 읽는다.
 
-## 1. 개발철학 — 5개 이내
+> 중요: 기존 `CURRENT_STATE.md`의 REALDATA2/LF next-boundary 내용은 연구 경로의 과거 상태다. 현재 제품 우선순위는 아래 **profit-strategy product flow**가 우선한다. REALDATA2/LF 연구는 필요성이 다시 생길 때까지 PAUSED다.
 
-1. **작고 검증된 전술부터 키운다.** 큰 자동매매 시스템을 한 번에 만들지 않는다.
-2. **DSL Core는 범용적이고 결정론적으로 유지한다.** 계산·신호·주문·취소 같은 재사용 기능만 Core에 둔다.
-3. **시장/섹터/대장·추종 판단과 orchestration은 Add-on/context 책임이다.** 이런 의미를 Parser/Runtime/Backtest/Broker에 넣지 않는다.
-4. **hard equipment / guard가 학습보다 우선한다.** hard guard 실패는 신규 진입/ARM을 막고 살아 있는 pending을 무효화할 수 있어야 한다.
-5. **구현 전에 소유계층·기존 공용경로·state SSOT·객체 생성/삭제 권한·인접계층 금지사항을 확정하고, micro-tranche 구현 → focused 검증 → Full 검증 → checkpoint 순서를 지킨다.** 실패는 먼저 분류하고 guard/assertion을 약화하지 않는다.
+## 1. 현재 최상위 목적
 
-## 2. 최근 한 일
-
-- `GCANCEL1`, `GCANCEL2`, `VSLICE1`, `LF2`, `LFVAL1`, `LFOUT1`, `LFREAL1`, `LFREAL2`, `LFREAL3`는 trusted Full PASS다.
-- REALDATA1 exact source bytes는 `57541`, SHA-256은 `fffbeaece7a769e063c3803ad184265aa751d9f417e3e72e2862045cad10f5ba`로 고정됐다.
-- REALDATA1 원본 483행은 LFREAL2 manifest `8b06c3a4871666771343df7eee074abc176fd2cf68fce3768848f2342c57f982`로 trusted다.
-- 실제 LFREAL3 admission에서 `2024-10-14` 한 행이 `low=184624.15022681453 > close=183735.109375`로 약 `889.0408518145268` 위반하여 정상 fail-closed했다. 분류는 **external source/data defect**다.
-- Core assertion이나 가격은 수정하지 않았다. 원본은 그대로 보존했다.
-- edge에서 해당 한 행만 명시적으로 quarantine하고 causal `date/open/high/low/close/volume`만 직렬화한 별도 482행 dataset을 만들었다.
-- 사용자 로컬 clean validation checkout `f770742b69137315b14f16ad92ea77ac5881db7c`에서 focused `Ran 22 tests in 0.016s / OK`, 실제 파생+LFREAL3 admission PASS, Tactical P1 Full PASS를 확보했다.
-- MSA2/LF1은 `leader_count < len(universe.symbols)`를 강제하므로 `leader_count=1`인 LF1은 최소 2개 종목이 필요함을 확인했다. REALDATA1은 `000660.KS` 단일 종목이므로 현재 상태에서 LF1/LF2 생성은 금지한다.
-- 두 번째 독립 source로 Samsung Electronics `005930.KS`의 exact GitHub source를 pin했다.
-- REALDATA2 source identity:
-  - repository `nileshiq/Samsung-Stock-Price`
-  - commit `bcef6f27b803ce89000e2fc336201ddeef7df015`
-  - file `Samsung Dataset.csv`
-  - Git blob SHA-1 `68e3b6d861b4bfcf39d9c09c6a073c271369d3a9`
-  - observations `2000-01-04 .. 2024-06-13`
-  - records `6127`
-- 사용자 로컬 clean validation checkout에서 REALDATA2 acquisition focused `Ran 3 tests in 0.001s / OK`를 통과했다.
-- 실제 exact acquisition은 다음으로 고정됐다:
+DSL 자체를 계속 확장하는 것이 목적이 아니다.
 
 ```text
-bytes=511194
-sha256=ae73a5dcc5d1d076cc80d7aa2d95c25fa6e1795bd81657ed9cad7d26dbb2aa6e
-Git blob SHA-1=68e3b6d861b4bfcf39d9c09c6a073c271369d3a9
+수익 아이디어
+ -> DSL 전략 작성/저장
+ -> authoritative DSL 검증
+ -> 역사 백테스트
+ -> Chart WYSIWYG 신호/체결 확인
+ -> 실시간 모의매매
+ -> 백테스트 vs 모의매매 비교
+ -> 최소 fine tuning
+ -> 제한적 실거래
+ -> 재검증
 ```
 
-- Stage1 preflight의 direct Python dependency probe가 PowerShell 5.1의 `$ErrorActionPreference='Stop'`와 충돌하는 **verification-harness defect**를 발견했다. Tactical에서 이미 쓰던 native stderr/exit capture pattern으로 Stage1 launcher만 수정했고 focused contract를 추가했다.
-- focused launcher/native dependency tests는 `Ran 10 tests in 0.038s / OK`였다.
-- clean validation venv에 `numpy`가 없었던 것은 **environment issue**로 분류했고, 새 venv를 만들지 않고 기존 venv에 `numpy 2.5.2`만 설치했다.
-- 이후 Stage1 preflight는 다음으로 PASS했다:
+현재 선택한 수익전략을 정확히 표현·백테스트·모의매매하는 데 직접 필요하지 않은 범용 DSL/Chart 기능은 추가하지 않는다.
+
+## 2. 개발 원칙
+
+1. **Core는 결정론적 hard equipment/guard를 우선한다.** 학습/자율성은 Core를 오염시키지 않는다.
+2. **동일 기능의 권한은 하나만 둔다.** Chart와 DSL이 각각 전략 계산/검증/실행 semantics를 구현하지 않는다.
+3. 구현 전 반드시 `owner layer -> shared path -> state SSOT -> create/delete authority -> adjacent prohibitions`를 확정한다.
+4. 구현은 `one-boundary micro-tranche -> focused -> Full -> checkpoint` 순서다.
+5. 실패는 `test defect / product defect / authority drift / environment issue / external data defect / unknown`으로 먼저 분류한다. PASS를 위해 assertion/guard를 약화하지 않는다.
+
+broader repository compliance authoritative status는 계속 **REMEDIATION_REQUIRED**다.
+
+## 3. 저장소와 로컬 작업공간 — 절대 혼동 금지
+
+### DSL
 
 ```text
-[PASS] Stage 1 preflight: Python Python 3.13.1, Node v24.19.0
+repo:
+  hoonoh57/dsl
+local validation workspace:
+  E:\2026\gemini\dsl-main-validation-20260904
+trusted executable/test SHA:
+  01da3bc6b21c126efd6ffa3b220e2a34de5ef64b
 ```
 
-- 첫 Full 재시도에서 `Stage 1 full stress failed (exit=-1)`가 한 번 발생했지만 product assertion 출력은 없었다.
-- resumable seeker 단독, `factory_vertical -> resumable`, `deterministic -> factory -> resumable`, candidate-prefix, 실제 첫 7개 `Harness.check` 순서를 모두 재현했고 전부 PASS했다. threshold/Core 수정은 하지 않았다.
-- exact SHA `e44f6846619f9ec6c7bb9725d517d77cc197c802`에서 최종 Tactical P1 Full 재실행이 PASS했다:
+이 workspace에서 실행하는 것:
+
+- Python `test_stage1_*.py`
+- `scripts/verify_tactical_p1.ps1`
+- DSL StrategyWorkspace / BacktestEngine 검증
+
+`strategies.db`는 테스트/실행 중 수정될 수 있다. 기존 원칙대로 임의 reset/stash/delete하지 않는다.
+
+### Chart
 
 ```text
-[PASS] Tactical P1 verification completed: mode=Full.
+repo:
+  hoonoh57/cascading-feature-solution
+branch:
+  product-completion-mvp
+local validation workspace:
+  E:\2026\gemini\cascade-chart-validation-20260904
+previous trusted external checkpoint:
+  258fd07ca76214819cec3822b02564e21a1c8680
+current remote candidate:
+  c67d3d8de9cfefbdfa7c0e72c4a7e1dc0b025fda
+status:
+  REMOTE_UNVALIDATED
 ```
 
-- **현재 trusted executable/test checkpoint는 `e44f6846619f9ec6c7bb9725d517d77cc197c802`다.** 이후 documentation-only commit은 executable trust를 바꾸지 않는다.
+이 workspace에서 실행하는 것:
 
-REALDATA1 실제 파생 identity:
+- Node Chart Add-on tests
+- Strategy Manager UI/port/runtime tests
+- Chart WYSIWYG 검증
+
+### 2026-09-05 작업공간 혼선 기록
+
+사용자가 DSL workspace에서 다음을 실행했다.
 
 ```text
-record_count=482
-quarantined=1
-quarantined observation=20241014000000
-derived_bytes=40493
-derived_sha256=c97624cdc92632ec3e4fab637e37514aadb9e9f9e61b1a4f2dde3a2e6390b76c
-derived dataset_manifest_hash=58acf49d4031938fd0099d99f7a105f8bbec3664a6478604d71daf2dbf370ae6
-row_bundle_hash=1428a6343635524723b828f6447b04d9d9ab9a3fe42b58e0776144f4fcd4bec2
+git fetch origin product-completion-mvp
+ -> fatal: couldn't find remote ref product-completion-mvp
+
+node --test tests/dsl_strategy_manager_workspace_port.test.mjs
+ -> Could not find ...
 ```
 
-## 3. 현재 위치
+분류: **environment/operator workspace mismatch**, product defect 아님.
+
+원인:
 
 ```text
-TRUSTED_LOCAL_EXECUTABLE
-  e44f6846619f9ec6c7bb9725d517d77cc197c802
-
-ORIGINAL REALDATA1 LFREAL2
-  exact bytes: 57541
-  content SHA-256: fffbeaece7a769e063c3803ad184265aa751d9f417e3e72e2862045cad10f5ba
-  dataset_manifest_hash: 8b06c3a4871666771343df7eee074abc176fd2cf68fce3768848f2342c57f982
-  record_count: 483
-
-TRUSTED REALDATA1 CAUSAL DERIVED DATASET
-  symbol: 000660.KS
-  record_count: 482
-  derived SHA-256: c97624cdc92632ec3e4fab637e37514aadb9e9f9e61b1a4f2dde3a2e6390b76c
-  dataset_manifest_hash: 58acf49d4031938fd0099d99f7a105f8bbec3664a6478604d71daf2dbf370ae6
-  row_bundle_hash: 1428a6343635524723b828f6447b04d9d9ab9a3fe42b58e0776144f4fcd4bec2
-
-TRUSTED REALDATA2 EXACT SOURCE IDENTITY
-  symbol: 005930.KS
-  source commit: bcef6f27b803ce89000e2fc336201ddeef7df015
-  Git blob SHA-1: 68e3b6d861b4bfcf39d9c09c6a073c271369d3a9
-  exact bytes: 511194
-  content SHA-256: ae73a5dcc5d1d076cc80d7aa2d95c25fa6e1795bd81657ed9cad7d26dbb2aa6e
-  record_count: 6127
-  observations: 2000-01-04 .. 2024-06-13
-  LFREAL2 manifest: NOT YET CREATED
-  LFREAL3 rows: NOT YET ADMITTED
-
-LF1 admissibility:
-  false until REALDATA2 completes its LFREAL2/LFREAL3 causal admission and an explicit exact-date multi-symbol universe is established
-
-market_data_authenticity_verified = false
-real_data_claim = false
+current directory = DSL repo
+requested branch/tests = Chart repo
 ```
 
-연구 데이터 경로:
+Chart 원격 브랜치는 실제 존재하며 remote HEAD는 `c67d3d8de9cfefbdfa7c0e72c4a7e1dc0b025fda`다.
+
+## 4. 최근 완료 — DSL Strategy Workspace
+
+사용자 로컬 exact checkout:
 
 ```text
-REALDATA1 exact source                             [DONE / TRUSTED]
- -> original LFREAL2 immutable manifest           [DONE / TRUSTED]
- -> explicit quarantine causal derived LFREAL2    [DONE / TRUSTED]
- -> LFREAL3 manifest-bound causal rows             [DONE / TRUSTED]
-
-REALDATA2 exact source                             [DONE / TRUSTED]
- -> original LFREAL2 immutable manifest           [NEXT]
- -> causal OHLCV edge admission through LFREAL3   [LATER]
-
-both independently admitted instruments
- -> exact shared observation dates only
- -> static explicit multi-symbol universe
- -> existing MSA2 / LF1 / LF2
- -> strictly post-observation outcome producer
- -> LFVAL1 / LFOUT1 / LFREAL1 real study
+01da3bc6b21c126efd6ffa3b220e2a34de5ef64b
 ```
 
-REALDATA1 원본의 `return`, `next_close`, `direction`은 causal observation feature로 들어가지 않는다. REALDATA2의 `Adj Close`는 raw `Close`를 대체하지 않는다. nearest-time lookup, fill-forward, interpolation, 가격보정도 하지 않는다.
-
-broader repo compliance는 계속 **REMEDIATION_REQUIRED**다.
-
-## 4. 바로 다음에 할 일
-
-다음 micro-tranche는 **LF1 구현이 아니라 REALDATA2 exact original source의 LFREAL2 freeze**다.
+검증 evidence:
 
 ```text
-REALDATA2 exact original bytes
- -> existing LFREAL2 ExternalDatasetFreezer
- -> immutable REALDATA2 original-source manifest
+focused: Ran 7 tests / OK
+Full: [PASS] Tactical P1 verification completed: mode=Full.
 ```
 
-구현 전 고정 경계:
+따라서 `01da3bc...`는 현재 DSL trusted executable/test checkpoint다.
+
+현재 authoritative StrategyWorkspace:
 
 ```text
-owner layer: tools/ edge adapter outside Core
-existing shared path: LFREAL2 ExternalDatasetFreezer
-state SSOT:
-  pinned REALDATA2 exact source identity
-  -> immutable LFREAL2 manifest
-create authority:
-  caller-provided exact source bytes
-  -> existing freezer only
-delete authority: none
-forbidden:
-  Core/Parser/Runtime/Backtest/Broker provider/file/network authority
-  source-specific semantics in Core
-  Adj Close replacing raw Close
-  causal-row derivation or LFREAL3 admission in the same tranche
-  nearest-time/fill-forward/interpolation
+addons/strategy_manager/workspace.py
+ -> core.db strategy CRUD
+ -> validate_and_commit()
+ -> existing BacktestEngine.run(exact_dsl)
+ -> immutable artifact version + validation record
 ```
 
-그 LFREAL2 tranche가 고정해야 할 original-source identity:
+핵심 권한:
+
+- DSL exact source/persisted artifact = DSL side SSOT
+- validation = existing BacktestEngine path
+- UI/client의 ephemeral `validated=true` 같은 상태는 authority 아님
+- 새 UI/session은 persisted exact DSL + validation artifact를 통해 검증상태를 복원
+
+## 5. 최근 원격 구현 — Chart DSL-first Strategy Manager
+
+Chart branch remote candidate:
 
 ```text
-symbol: 005930.KS
-timeframe: 1d
-first_observation: 20000104000000
-last_observation: 20240613000000
-record_count: 6127
-exact_bytes: 511194
-content_sha256: ae73a5dcc5d1d076cc80d7aa2d95c25fa6e1795bd81657ed9cad7d26dbb2aa6e
+c67d3d8de9cfefbdfa7c0e72c4a7e1dc0b025fda
 ```
 
-이 freeze가 focused + Full PASS된 뒤에만 다음 micro-tranche에서 raw `Date/Open/High/Low/Close/Volume`을 parsing하여 existing LFREAL3 admission을 시도한다.
+아직 user-local PASS가 없으므로 **trusted로 승격하지 않는다.**
 
-LFREAL3에서 invalid OHLC가 나오면 먼저 external data defect 여부를 분류한다. original source/manifest는 보존하고, Core guard를 약화하거나 tolerance를 넣거나 가격을 clip/correct/interpolate하지 않는다.
-
-REALDATA2 LFREAL3까지 trusted되기 전에는 multi-symbol universe도 LF1/LF2 evidence도 만들지 않는다. 두 종목의 later alignment는 exact shared observation date만 사용한다.
-
-automatic selection, allocation, adaptive learning, new DSL grammar, live deployment gate는 계속 보류한다.
-
-## 5. 세션복구 규칙
-
-새 프로젝트 세션에서 사용자가 `세션복구`라고 입력하면:
-
-1. 이 문서를 먼저 읽는다.
-2. 이전 프로젝트 대화 마지막 부분에서 이 문서 이후 exact local test evidence / 결정이 있는지 확인한다.
-3. 마지막 trusted executable SHA와 GitHub `main` 사이 실행 변경분을 비교한다.
-4. `CURRENT_STATE.md` 및 authority 문서를 적용한다.
-5. 문서가 stale이면 실제 코드 + exact local evidence + 최근 대화 결정으로 보정한다.
-6. 첫 답변은 개발철학 / 최근 한 일 / 앞으로 할 일 세 부분만 짧게 보여준다.
-
-새 GitHub 실행 코드/테스트에 local PASS가 없으면 `REMOTE_UNVALIDATED`로 취급한다. docs-only HEAD와 trusted executable SHA를 혼동하지 않는다.
-
-## 6. 금지된 과장
-
-현재 확인된 것은 REALDATA1의 exact source-byte/original+derived LFREAL2/LFREAL3 causal admission과 REALDATA2의 exact source-byte identity까지다. REALDATA2 LFREAL2/LFREAL3, multi-symbol real-data universe, independent market-data authenticity, 실제 LF1/LF2 relation edge는 아직 검증하지 않았다.
+변경 범위:
 
 ```text
-market_data_authenticity_verified = false
-real_data_claim = false
+src/addons/strategy/managed/DslStrategyManagerUi.mjs
+src/addons/strategy/managed/StrategyWorkspacePort.mjs
+src/addons/strategy/managed/ManagerAddon.mjs
+tests/dsl_strategy_manager_workspace_port.test.mjs
 ```
 
-수익성 있는 leader/follower edge, 실전 자동선별, validated deployment gating, live trading readiness, repository-wide compliance PASS를 주장하지 않는다.
+의도:
 
-`REMEDIATION_REQUIRED`가 broader compliance의 authoritative 상태다.
+- Strategy Manager authoring을 DSL-first editor로 전환
+- 신규/복제/삭제/Draft 저장/검증 요청을 `strategyWorkspace` request-response port로 전달
+- port가 없으면 fail-closed
+- active authoring path가 Chart local JMA evaluator로 fallback하지 않음
+- 기존 Runtime subject-state 구조는 이후 authoritative chart projection을 위해 보존
+
+이번 tranche에 **없는 것**:
+
+- production HTTP Bridge
+- chart apply
+- historical backtest UI
+- paper/live execution
+
+## 6. 지금 바로 다음 할 일 — NEXT-0
+
+먼저 Chart candidate를 올바른 Chart workspace에서 검증한다.
+
+```powershell
+Set-Location E:\2026\gemini\cascade-chart-validation-20260904
+
+git fetch origin product-completion-mvp
+git checkout --detach origin/product-completion-mvp
+git rev-parse HEAD
+```
+
+기대:
+
+```text
+c67d3d8de9cfefbdfa7c0e72c4a7e1dc0b025fda
+```
+
+focused:
+
+```powershell
+node --test tests/dsl_strategy_manager_workspace_port.test.mjs
+node --test tests/managed_strategy_addon.test.mjs
+```
+
+둘 다 PASS하면 `c67d3d8...`를 Chart trusted checkpoint로 승격한다.
+
+FAIL이면 먼저 결함 분류 후 제품/테스트 경계를 수정한다. 기존 계약을 임의로 약화하지 않는다.
+
+## 7. NEXT-1 — StrategyWorkspace HTTP Bridge 하나만
+
+NEXT-0 PASS 후 구현한다.
+
+```text
+Chart DslStrategyManagerUi
+ -> StrategyWorkspacePort
+ -> standard HTTP request/response bridge
+ -> DSL addons/strategy_manager/workspace.py
+ -> core.db / BacktestEngine
+```
+
+이번 tranche 허용:
+
+- list strategies
+- save draft
+- delete strategy
+- validate + commit
+- exact request/response contract
+- unavailable/error fail-closed
+
+금지:
+
+- chart signal insertion
+- backtest report UI
+- paper/live
+- Chart-side direct DB
+- Chart-side DSL/JMA evaluator
+
+## 8. 이후 큰 흐름
+
+세부사항은 `STRATEGY_PRODUCT_FLOW_TODO.md`가 authoritative TODO다.
+
+```text
+NEXT-0 Chart DSL-first manager local validation
+ -> NEXT-1 production StrategyWorkspace HTTP Bridge
+ -> NEXT-2 authoritative validated strategy -> Chart subject apply
+ -> NEXT-3 historical BacktestEngine report -> Chart WYSIWYG
+ -> NEXT-4 same validated DSL -> realtime paper trading
+ -> NEXT-5 evidence-based fine tuning -> limited live
+```
+
+각 NEXT는 이전 단계가 trusted되기 전 시작하지 않는다.
+
+## 9. Strategy1 기준선
+
+기존 `examples/jma_cross.dsl`:
+
+```text
+JMA 7/50 cross
++ SMA60 trend filter
++ long only
++ JMA crossunder exit
+```
+
+REALDATA1 baseline:
+
+```text
+closed trades = 15
+total return = +88.68557782060891%
+profit factor = 2.9234729545115528
+MDD = -23.917654587375857%
+win rate = 46.666666666666664%
+total cost = 326745.03218364983
+open position = 1
+```
+
+이는 promising baseline이지 profitability proof가 아니다.
+
+Trade diagnostics에서 average MFE가 realized return보다 상당히 커 profit giveback 가능성이 보였지만, stop/trailing refinement 전에 execution model의 gap/intrabar causality를 먼저 확인해야 한다.
+
+특히 현재 BacktestEngine risk-exit 검토 포인트:
+
+- long stop gap-through 시 stop price 고정 fill의 낙관성 가능성
+- daily OHLC trailing이 같은 bar의 새 high와 low 순서를 암묵적으로 가정할 가능성
+- stop + target same-bar precedence를 deterministic contract로 명시할 필요
+
+Core 수정은 실제 전략 backtest correctness를 막는 defect로 확인될 때만 mandatory ownership gate 후 진행한다.
+
+## 10. 연구 경로 상태
+
+REALDATA1 causal dataset/LFREAL3까지의 기존 trusted evidence는 보존한다.
+
+REALDATA2/LF leader-follower 연구는 **삭제한 것이 아니라 PAUSED**다.
+
+현재 profit-strategy path를 위해 직접 필요하지 않으므로 다음으로 진행하지 않는다:
+
+- REALDATA2 LFREAL2/LFREAL3
+- multi-symbol LF1/LF2
+- adaptive learning
+- automatic selection/allocation
+
+## 11. 세션복구 규칙
+
+새 세션에서 사용자가 `세션복구`라고 하면:
+
+1. 이 `SESSION_HANDOFF.md`를 먼저 읽는다.
+2. `STRATEGY_PRODUCT_FLOW_TODO.md`를 읽는다.
+3. 최근 conversation의 exact local PASS/FAIL가 문서 이후인지 확인한다.
+4. DSL repo와 Chart repo/workspace를 구분한다.
+5. 각 저장소에서 `trusted`와 `REMOTE_UNVALIDATED`를 분리한다.
+6. 현재 `NEXT-n` 하나만 수행한다.
+7. 구현 전에 ownership gate를 적는다.
+8. focused -> Full -> checkpoint 후 다음 단계로 이동한다.
+
+문서가 stale하면 exact local evidence + 실제 코드 + 최근 사용자 결정이 우선한다.
+
+## 12. 현재 한 줄 상태
+
+```text
+DSL StrategyWorkspace 01da3bc... = TRUSTED
+Chart DSL-first Manager c67d3d8... = REMOTE_UNVALIDATED
+NEXT = Chart workspace에서 c67d3d8 focused validation
+THEN = StrategyWorkspace production HTTP Bridge only
+```
