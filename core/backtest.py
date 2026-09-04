@@ -616,7 +616,6 @@ class BacktestEngine:
                     rejection_counts["broker_fill_while_occupied"] += 1
 
             if position:
-                update_excursion(bar_high, bar_low)
                 reason = None
                 exit_price = price
                 stop_price = entry_price * (1.0 - config.stop_loss_pct / 100.0 * position)
@@ -628,30 +627,44 @@ class BacktestEngine:
                     bar_high >= target_price if position == 1 else bar_low <= target_price
                 )
                 if stop_hit:
-                    reason, exit_price = "STOP_LOSS", stop_price
+                    reason = "STOP_LOSS"
+                    if position == 1 and bar_open <= stop_price:
+                        exit_price = bar_open
+                    elif position == -1 and bar_open >= stop_price:
+                        exit_price = bar_open
+                    else:
+                        exit_price = stop_price
                 elif target_hit:
                     reason, exit_price = "TAKE_PROFIT", target_price
                 elif config.trailing_enabled and config.trailing_distance_pct:
                     if position == 1:
-                        peak_gain = (peak_price / entry_price - 1.0) * 100.0
+                        prior_peak_gain = (peak_price / entry_price - 1.0) * 100.0
                         trailing_price = peak_price * (1.0 - config.trailing_distance_pct / 100.0)
-                        if peak_gain >= config.trailing_activation_pct and bar_low <= trailing_price:
-                            reason, exit_price = "TRAILING_STOP", trailing_price
+                        if prior_peak_gain >= config.trailing_activation_pct:
+                            if bar_open <= trailing_price:
+                                reason, exit_price = "TRAILING_STOP", bar_open
+                            elif bar_low <= trailing_price:
+                                reason, exit_price = "TRAILING_STOP", trailing_price
                     else:
-                        peak_gain = (entry_price / trough_price - 1.0) * 100.0 if trough_price > 0 else 0.0
+                        prior_peak_gain = (entry_price / trough_price - 1.0) * 100.0 if trough_price > 0 else 0.0
                         trailing_price = trough_price * (1.0 + config.trailing_distance_pct / 100.0)
-                        if peak_gain >= config.trailing_activation_pct and bar_high >= trailing_price:
-                            reason, exit_price = "TRAILING_STOP", trailing_price
+                        if prior_peak_gain >= config.trailing_activation_pct:
+                            if bar_open >= trailing_price:
+                                reason, exit_price = "TRAILING_STOP", bar_open
+                            elif bar_high >= trailing_price:
+                                reason, exit_price = "TRAILING_STOP", trailing_price
                 if reason:
                     close_position(i, exit_price, reason, i)
                     closed_this_bar = True
-                elif config.signal_mode == "bar_close":
-                    should_exit = (position == 1 and bool(long_exit[i])) or (
-                        position == -1 and bool(short_exit[i])
-                    )
-                    if should_exit:
-                        close_position(i, price, "STRATEGY_SIGNAL", i)
-                        closed_this_bar = True
+                else:
+                    update_excursion(bar_high, bar_low)
+                    if config.signal_mode == "bar_close":
+                        should_exit = (position == 1 and bool(long_exit[i])) or (
+                            position == -1 and bool(short_exit[i])
+                        )
+                        if should_exit:
+                            close_position(i, price, "STRATEGY_SIGNAL", i)
+                            closed_this_bar = True
 
             signal_index = prior_index if config.signal_mode == "next_open" else i
             fill_price = bar_open if config.signal_mode == "next_open" else price
