@@ -74,6 +74,9 @@ def build_settings(args: argparse.Namespace) -> dict[str, Any]:
         signal_mode=str(args.signal_mode),
         stop_loss_pct=float(args.stop_loss_pct),
         take_profit_pct=float(args.take_profit_pct),
+        trailing_enabled=bool(getattr(args, "trailing_enabled", False)),
+        trailing_activation_pct=float(getattr(args, "trailing_activation_pct", 0.0)),
+        trailing_distance_pct=float(getattr(args, "trailing_distance_pct", 0.0)),
         commission_pct=float(args.commission_pct),
         sell_tax_pct=float(args.sell_tax_pct),
         slippage_pct=float(args.slippage_pct),
@@ -158,6 +161,9 @@ def main() -> int:
     parser.add_argument("--allocation-pct", type=float, default=100.0)
     parser.add_argument("--stop-loss-pct", type=float, default=0.0)
     parser.add_argument("--take-profit-pct", type=float, default=0.0)
+    parser.add_argument("--trailing-enabled", action="store_true")
+    parser.add_argument("--trailing-activation-pct", type=float, default=0.0)
+    parser.add_argument("--trailing-distance-pct", type=float, default=0.0)
     parser.add_argument("--commission-pct", type=float, default=0.015)
     parser.add_argument("--sell-tax-pct", type=float, default=0.18)
     parser.add_argument("--slippage-pct", type=float, default=0.0)
