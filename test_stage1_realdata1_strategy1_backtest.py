@@ -61,6 +61,9 @@ class RealData1Strategy1BacktestContractTests(unittest.TestCase):
             signal_mode="next_open",
             stop_loss_pct=0.0,
             take_profit_pct=0.0,
+            trailing_enabled=False,
+            trailing_activation_pct=0.0,
+            trailing_distance_pct=0.0,
             commission_pct=0.015,
             sell_tax_pct=0.18,
             slippage_pct=0.0,
@@ -71,6 +74,32 @@ class RealData1Strategy1BacktestContractTests(unittest.TestCase):
         self.assertEqual(settings["sell_tax_pct"], 0.18)
         self.assertEqual(settings["stop_loss_pct"], 0.0)
         self.assertEqual(settings["take_profit_pct"], 0.0)
+        self.assertFalse(settings["trailing_enabled"])
+        self.assertEqual(settings["trailing_activation_pct"], 0.0)
+        self.assertEqual(settings["trailing_distance_pct"], 0.0)
+
+    def test_runner_passes_existing_trailing_settings_without_new_core_logic(self):
+        args = argparse.Namespace(
+            total_capital=10_000_000.0,
+            allocation_pct=100.0,
+            signal_mode="next_open",
+            stop_loss_pct=0.0,
+            take_profit_pct=0.0,
+            trailing_enabled=True,
+            trailing_activation_pct=10.0,
+            trailing_distance_pct=6.0,
+            commission_pct=0.015,
+            sell_tax_pct=0.18,
+            slippage_pct=0.1,
+        )
+        settings = build_settings(args)
+        self.assertTrue(settings["trailing_enabled"])
+        self.assertEqual(settings["trailing_activation_pct"], 10.0)
+        self.assertEqual(settings["trailing_distance_pct"], 6.0)
+        text = TOOL.read_text(encoding="utf-8")
+        self.assertIn('parser.add_argument("--trailing-enabled", action="store_true")', text)
+        self.assertIn('parser.add_argument("--trailing-activation-pct", type=float, default=0.0)', text)
+        self.assertIn('parser.add_argument("--trailing-distance-pct", type=float, default=0.0)', text)
 
     def test_report_exposes_existing_trade_diagnostics_without_new_core_logic(self):
         text = TOOL.read_text(encoding="utf-8")
