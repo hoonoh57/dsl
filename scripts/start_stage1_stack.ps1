@@ -124,6 +124,24 @@ function Get-PythonPath {
     return $python
 }
 
+function Invoke-NativeCaptured([string]$FilePath, [string[]]$Arguments) {
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $output = & $FilePath @Arguments 2>&1
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+    return @{ Output=@($output); ExitCode=$exitCode }
+}
+
+function Get-NativeFailureTail([object[]]$Output) {
+    if ($null -eq $Output -or $Output.Count -eq 0) { return '' }
+    return ((@($Output) | Select-Object -Last 5) -join ' | ')
+}
+
 function Assert-Preflight {
     if ($Stage1Port -lt 1 -or $Stage1Port -gt 65535) { Fail 'Stage1Port must be 1..65535.' }
     if ($ChartPort -lt 1 -or $ChartPort -gt 65535) { Fail 'ChartPort must be 1..65535.' }
@@ -152,13 +170,26 @@ function Assert-Preflight {
     if ($pythonVersionExitCode -ne 0) { Fail 'Unable to read Python version.' }
     $pythonVersionText = [string]($pythonVersionOutput | Select-Object -First 1)
 
-    $pythonDepsOk = $true
-    & $python -c 'import fastapi, uvicorn, numpy, pydantic' 2>$null
-    if ($LASTEXITCODE -ne 0) { $pythonDepsOk = $false }
-    if (-not $pythonDepsOk) {
-        if (-not $InstallDependencies) { Fail 'Python dependencies are missing. Re-run with -InstallDependencies.' }
-        & $python -m pip install -r (Join-Path $DslRoot 'requirements.txt')
-        if ($LASTEXITCODE -ne 0) { Fail 'Python dependency installation failed.' }
+    $importArgs = @('-c', 'import fastapi, uvicorn, numpy, pydantic')
+    $pythonImport = Invoke-NativeCaptured $python $importArgs
+    if ($pythonImport.ExitCode -ne 0) {
+        if (-not $InstallDependencies) {
+            $details = Get-NativeFailureTail $pythonImport.Output
+            if ([string]::IsNullOrWhiteSpace($details)) { Fail 'Python dependencies are missing. Re-run with -InstallDependencies.' }
+            Fail ('Python dependencies are missing. Re-run with -InstallDependencies. Details: ' + $details)
+        }
+        $install = Invoke-NativeCaptured $python @('-m', 'pip', 'install', '-r', (Join-Path $DslRoot 'requirements.txt'))
+        if ($install.ExitCode -ne 0) {
+            $details = Get-NativeFailureTail $install.Output
+            if ([string]::IsNullOrWhiteSpace($details)) { Fail 'Python dependency installation failed.' }
+            Fail ('Python dependency installation failed. Details: ' + $details)
+        }
+        $pythonImport = Invoke-NativeCaptured $python $importArgs
+        if ($pythonImport.ExitCode -ne 0) {
+            $details = Get-NativeFailureTail $pythonImport.Output
+            if ([string]::IsNullOrWhiteSpace($details)) { Fail 'Python dependencies are missing after dependency installation.' }
+            Fail ('Python dependencies are missing after dependency installation. Details: ' + $details)
+        }
     }
 
     $chartDependency = Join-Path $ChartRepo 'node_modules\lightweight-charts\package.json'
