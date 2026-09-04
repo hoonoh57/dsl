@@ -1,0 +1,24 @@
+{
+  "schema": "dsl_addon_boundary/v1",
+  "addon": "strategy_manager",
+  "owner": "addons/strategy_manager",
+  "purpose": "Persist DSL strategy drafts and bind validated versions to the existing strategy/artifact history SSOT.",
+  "shared_paths": [
+    "core.db strategy/artifact persistence APIs",
+    "core.backtest.BacktestEngine.run validation authority"
+  ],
+  "state_ssot": [
+    "strategies.dsl_code",
+    "artifact_versions.dsl_code",
+    "artifact_versions.validation_json",
+    "validation_events"
+  ],
+  "create_delete_authority": "core.db only",
+  "forbidden": [
+    "direct sqlite access from this addon",
+    "parallel DSL parser/runtime",
+    "chart-side strategy semantic evaluation",
+    "paper/live order authority",
+    "backtest-dialog or global-parameter semantics in this tranche"
+  ]
+}
