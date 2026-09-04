@@ -72,6 +72,17 @@ class RealData1Strategy1BacktestContractTests(unittest.TestCase):
         self.assertEqual(settings["stop_loss_pct"], 0.0)
         self.assertEqual(settings["take_profit_pct"], 0.0)
 
+    def test_report_exposes_existing_trade_diagnostics_without_new_core_logic(self):
+        text = TOOL.read_text(encoding="utf-8")
+        self.assertIn('"closed_trades": closed_trades', text)
+        self.assertIn('"executions": executions', text)
+        self.assertIn('"trade_diagnostics": {', text)
+        self.assertIn('"average_mfe_pct"', text)
+        self.assertIn('"average_mae_pct"', text)
+        self.assertIn('"mfe_giveback_pct"', text)
+        self.assertIn("f\"mdd_pct={metrics.get('mdd_pct')}\"", text)
+        self.assertNotIn("metrics.get('max_drawdown_pct')", text)
+
 
 if __name__ == "__main__":
     unittest.main()
