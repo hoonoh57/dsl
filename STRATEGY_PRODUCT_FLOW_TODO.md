@@ -1,29 +1,51 @@
 # Strategy Product Flow TODO
 
-Status: **ACTIVE PRIMARY TODO / PROFIT-STRATEGY PATH / 2026-09-05 KST**
+Status: **ACTIVE PRIMARY TODO / WYSIWYG STRATEGY PRODUCT FLOW / 2026-09-05 KST**
 
-이 문서는 세션이 바뀌어도 현재 큰 흐름과 두 저장소의 역할을 잃지 않기 위한 실행 TODO다. `SESSION_HANDOFF.md` 다음으로 읽는다.
+이 문서는 세션이 바뀌어도 현재 큰 흐름, 두 저장소 역할, trusted/unvalidated checkpoint, 정확한 다음 micro-tranche를 잃지 않기 위한 실행 TODO다. 새 세션에서는 `SESSION_HANDOFF.md` 다음으로 이 문서를 읽는다.
 
-## 1. 최종 목표
+## 1. 최종 제품 흐름
 
 ```text
-수익 아이디어
- -> DSL 전략 작성/저장
- -> authoritative DSL 검증/commit
- -> 역사 데이터 백테스트
- -> Chart WYSIWYG 신호/체결 검증
- -> 실시간 모의매매
- -> 백테스트 vs 모의매매 비교
- -> 최소 fine tuning
- -> 제한적 실거래
- -> 재검증
+Strategy Manager Dialog
+ -> DSL strategy CRUD
+ -> authoritative validate + immutable version
+ -> strategy별 Global/Add-on parameter profile CRUD
+ -> validated strategy를 선택 Chart subject에 적용
+ -> authoritative DSL signal/execution result를 Chart에 WYSIWYG 표시
+ -> strategy 단위 Backtest Dialog
+ -> 동일 DSL/version/profile로 realtime Paper
+ -> Backtest vs Paper 비교
+ -> evidence-based fine tuning
+ -> limited Live
 ```
 
-DSL/Chart 자체의 범용 기능 확장은 목적이 아니다. **현재 선택한 수익전략을 정확히 표현·검증·백테스트·모의매매하는 데 직접 필요한 결함/기능만 추가한다.**
+프롬프트는 개발 보조도구일 뿐이다. 전략 DSL, 사용자 설정값, 검증 버전, 백테스트 결과, Paper/Live 적용상태의 제품 SSOT가 되어서는 안 된다.
 
-## 2. 절대 경계
+WYSIWYG 목표:
 
-구현 전 항상 다음 순서를 확정한다.
+```text
+보이는 DSL
+= 저장된 DSL
+= 검증된 exact DSL/version
+= 차트 신호를 만든 DSL
+= 백테스트한 DSL
+= Paper/Live가 사용하는 DSL
+```
+
+파라미터도 동일 원칙을 따른다.
+
+```text
+Global Parameter Catalog(default)
++ Strategy Override CRUD
+= Effective Strategy Parameter Profile
+```
+
+항목 schema는 공통이고 값은 전략별 독립 CRUD 가능해야 한다. 각 override는 기본값 복원이 가능해야 한다. Backtest/Paper/Live 적용범위도 profile에서 선택 가능해야 한다.
+
+## 2. 절대 개발 경계
+
+모든 구현 전에 다음을 확정한다.
 
 ```text
 owner layer
@@ -33,49 +55,74 @@ owner layer
  -> adjacent-layer prohibitions
  -> one-boundary micro-tranche
  -> focused verification
+ -> WYSIWYG verification when applicable
  -> Full verification
  -> checkpoint
 ```
 
 금지:
 
-- Chart가 별도 전략 계산엔진/JMA 계산을 authoritative validator로 소유하지 않는다.
-- DSL Core/Parser/Runtime/Backtest/Broker를 연구 편의나 UI 편의 때문에 수정하지 않는다.
-- 동일 기능의 Runtime 복원경로 + UI 복원경로 같은 이중 권한을 만들지 않는다.
-- test PASS를 위해 assertion/guard/contract를 약화하지 않는다.
-- REALDATA2/LF research, adaptive learning, automatic selection/allocation은 현재 profit-strategy path와 직접 필요할 때까지 보류한다.
-- 한 tranche에서 CRUD + Bridge + Chart apply + Backtest + Paper/Live를 동시에 구현하지 않는다.
+- Chart가 DSL parser/runtime/JMA/crossover/order timing을 authoritative하게 재구현하지 않는다.
+- Strategy Manager UI가 SQLite/MySQL을 직접 읽고 쓰지 않는다.
+- 동일 기능에 Runtime 복원경로와 UI 복원경로를 동시에 만들지 않는다.
+- Backtest/Paper/Live가 서로 다른 strategy semantics를 갖지 않는다.
+- test PASS를 위해 assertion/guard를 약화하지 않는다.
+- 한 tranche에 CRUD + Bridge + Chart apply + Backtest + Paper/Live를 섞지 않는다.
+- REALDATA2/LF research, adaptive learning, automatic selection/allocation은 현재 profit-strategy product flow에 직접 필요할 때까지 PAUSED다.
 
-## 3. 저장소/작업공간 분리 — 혼선 방지 필수
+실패는 먼저 다음 중 하나로 분류한다.
+
+```text
+test defect
+product defect
+authority drift
+environment issue
+external data defect
+unknown
+```
+
+## 3. 저장소와 로컬 작업공간 — 절대 혼용 금지
 
 ### DSL repository
 
 ```text
 repo: hoonoh57/dsl
+branch: main
 local validation workspace:
   E:\2026\gemini\dsl-main-validation-20260904
-trusted executable/test SHA:
-  01da3bc6b21c126efd6ffa3b220e2a34de5ef64b
 ```
 
-DSL 책임:
+책임:
 
 - DSL source SSOT
 - strategy CRUD persistence
-- immutable artifact/version validation record
-- authoritative DSL validation path
-- existing `BacktestEngine` execution semantics
-- later historical backtest result generation
+- artifact/version/validation history
+- authoritative DSL validation
+- existing BacktestEngine execution semantics
+- later historical backtest/paper execution result authority
 
-현재 Strategy Workspace authoritative path:
+현재 trusted executable/test checkpoint:
 
 ```text
-addons/strategy_manager/workspace.py
- -> core.db CRUD
- -> validate_and_commit()
- -> existing BacktestEngine.run(exact_dsl)
- -> artifact version + validation record
+01da3bc6b21c126efd6ffa3b220e2a34de5ef64b
 ```
+
+사용자 local evidence:
+
+```text
+Strategy Workspace focused: Ran 7 tests / OK
+Tactical P1 Full: PASS
+```
+
+현재 remote executable/test candidate:
+
+```text
+27882d288f52c98ab48a59b0d7ae2c2de0dcd637
+status: REMOTE_UNVALIDATED
+scope: NEXT-1A HTTP adapter contract only
+```
+
+중요: `27882d288...`는 아직 `main.py` production mount를 하지 않았다. 즉 **HTTP adapter 정의/계약만 존재하며 실제 server endpoint composition은 NEXT-1C 전까지 완료로 간주하지 않는다.**
 
 ### Chart repository
 
@@ -84,277 +131,358 @@ repo: hoonoh57/cascading-feature-solution
 branch: product-completion-mvp
 local validation workspace:
   E:\2026\gemini\cascade-chart-validation-20260904
-previous trusted external Chart checkpoint:
-  258fd07ca76214819cec3822b02564e21a1c8680
-current remote executable/test candidate:
-  c67d3d8de9cfefbdfa7c0e72c4a7e1dc0b025fda
-candidate status:
-  REMOTE_UNVALIDATED until user-local focused tests pass
 ```
 
-Chart 책임:
+책임:
 
-- DSL strategy editor/manager UX
-- request -> response bridge client
-- Runtime-owned generic chart state/subject selection
-- authoritative DSL/backtest result를 시각화
-- later strategy assignment display / WYSIWYG signal-execution projection
+- Strategy Manager UX
+- standard Request -> Response bridge client
+- generic Runtime chart state / subject view
+- authoritative DSL/backtest result 시각화
+- later strategy assignment/WYSIWYG projection
 
-Chart가 소유하지 않는 것:
-
-- DSL parser/runtime semantics
-- local JMA strategy validator
-- independent backtest engine
-- broker/order execution authority
-- SQLite/MySQL direct persistence authority from Add-on UI
-
-## 4. 현재 완료된 큰 변화
-
-### DSL side — DONE / TRUSTED
-
-`01da3bc6b21c126efd6ffa3b220e2a34de5ef64b`
-
-사용자 로컬 evidence:
-
-```text
-focused: Ran 7 tests / OK
-Full: [PASS] Tactical P1 verification completed: mode=Full.
-```
-
-의미:
-
-- `StrategyWorkspace`가 strategy CRUD를 기존 DB 경로로 수행한다.
-- DSL 검증은 parallel parser가 아니라 existing `BacktestEngine.run()`을 사용한다.
-- exact DSL bytes와 validation artifact/version이 연결된다.
-- 새 세션/UI는 ephemeral client flag가 아니라 persisted validation artifact로 검증상태를 복원한다.
-
-### Chart side — IMPLEMENTED REMOTELY / NOT YET LOCALLY TRUSTED
-
-`c67d3d8de9cfefbdfa7c0e72c4a7e1dc0b025fda`
-
-변경 범위:
-
-```text
-src/addons/strategy/managed/DslStrategyManagerUi.mjs
-src/addons/strategy/managed/StrategyWorkspacePort.mjs
-src/addons/strategy/managed/ManagerAddon.mjs
-tests/dsl_strategy_manager_workspace_port.test.mjs
-```
-
-의미:
-
-- Strategy Manager 신규 작성경로를 DSL-first editor로 전환.
-- CRUD/검증은 `strategyWorkspace` Request -> Response port로만 요청.
-- capability가 없으면 fail-closed.
-- active authoring path가 Chart의 `evaluateManagedStrategy()` / JMA local evaluator로 fallback하지 않음.
-- 기존 Runtime state/subject-view 구조는 다음 tranche를 위해 보존.
-- 아직 production HTTP Bridge, 차트 적용, 백테스트 UI, paper/live는 추가하지 않음.
-
-## 5. 지금 바로 할 일 — NEXT-0
-
-**Chart candidate `c67d3d8...`의 local validation.**
-
-중요: 이 명령은 DSL workspace가 아니라 반드시 Chart workspace에서 실행한다.
-
-```powershell
-Set-Location E:\2026\gemini\cascade-chart-validation-20260904
-
-git fetch origin product-completion-mvp
-git checkout --detach origin/product-completion-mvp
-git rev-parse HEAD
-```
-
-기대 SHA:
+현재 trusted Chart checkpoint:
 
 ```text
 c67d3d8de9cfefbdfa7c0e72c4a7e1dc0b025fda
 ```
 
+사용자 local evidence:
+
+```text
+node --test tests/dsl_strategy_manager_workspace_port.test.mjs
+  5 pass / 0 fail
+
+node --test tests/managed_strategy_addon.test.mjs
+  8 pass / 0 fail
+```
+
+의미:
+
+- active Strategy Manager authoring UI는 DSL-first다.
+- CRUD/검증 요청은 `strategyWorkspace` port로만 보낸다.
+- capability가 없으면 fail-closed한다.
+- Chart local JMA evaluator로 검증 fallback하지 않는다.
+- 기존 subjectViews/Runtime generic transport 회귀는 PASS했다.
+
+## 4. 완료된 큰 단계
+
+### WYSIWYG-0 Strategy Workspace persistence/validation — DONE / TRUSTED
+
+DSL `01da3bc6...`
+
+```text
+StrategyWorkspace
+ -> core.db CRUD
+ -> exact DSL bytes
+ -> BacktestEngine.run(exact_dsl)
+ -> artifact_versions
+ -> validation_events
+ -> current DSL exact-match validation recovery
+```
+
+DSL 한 글자 변경 시 이전 validation은 이력으로 남지만 현재 strategy는 DRAFT가 된다.
+
+### WYSIWYG-1 Chart DSL-first Strategy Manager shell — DONE / TRUSTED
+
+Chart `c67d3d8...`
+
+현재 Dialog 책임:
+
+```text
+전략 목록
+신규 / 복제 / 삭제
+전략명 / 설명
+DSL editor
+Draft 저장 요청
+검증 후 저장 요청
+validation status 표시
+```
+
+아직 production HTTP bridge, Chart apply, Backtest Dialog는 없다.
+
+## 5. 현재 작업 — NEXT-1 StrategyWorkspace production bridge
+
+NEXT-1은 세 개의 micro-tranche로 나눈다.
+
+### NEXT-1A — DSL HTTP adapter contract
+
+상태:
+
+```text
+IMPLEMENTED REMOTELY / REMOTE_UNVALIDATED
+candidate: 27882d288f52c98ab48a59b0d7ae2c2de0dcd637
+```
+
+신규:
+
+```text
+addons/strategy_manager/http_bridge.py
+test_stage1_strategy_workspace_http_bridge.py
+```
+
+표준 endpoint contract:
+
+```text
+GET    /api/strategy-workspace/strategies
+POST   /api/strategy-workspace/draft
+DELETE /api/strategy-workspace/strategies/{strategy_id}
+POST   /api/strategy-workspace/validate-commit
+```
+
+권한:
+
+```text
+HTTP adapter
+ -> StrategyWorkspace only
+ -> core.db / BacktestEngine 직접접근 금지
+```
+
+중요: 아직 FastAPI composition root에 mount하지 않았다.
+
+#### NEXT-1A 바로 다음 검증
+
+**DSL workspace에서만 실행:**
+
+```powershell
+Set-Location E:\2026\gemini\dsl-main-validation-20260904
+
+git fetch origin main
+git checkout --detach origin/main
+git rev-parse HEAD
+```
+
+기대 HEAD는 docs 변경 여부에 따라 `27882d288...` 이후가 될 수 있다. executable/test diff의 핵심 candidate는 `27882d288...`다.
+
 focused:
 
 ```powershell
-node --test tests/dsl_strategy_manager_workspace_port.test.mjs
-node --test tests/managed_strategy_addon.test.mjs
+python -m unittest -v `
+  test_stage1_strategy_workspace_http_bridge.py `
+  test_stage1_wysiwyg_strategy_workspace.py
 ```
 
-판정:
+그 후:
 
-```text
-둘 다 PASS
- -> c67d3d8...를 Chart trusted checkpoint로 승격
- -> NEXT-1 진행
-
-FAIL
- -> 먼저 test defect / product defect / authority drift / environment issue / external data defect / unknown 분류
- -> assertion/guard 약화 금지
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File .\scripts\verify_tactical_p1.ps1 `
+  -Mode Full `
+  -ChartRepo ..\cascade-chart-validation-20260904
 ```
 
-## 6. NEXT-1 — production StrategyWorkspace HTTP Bridge
+PASS하면 NEXT-1A trusted로 승격한다.
 
-NEXT-0가 PASS된 뒤에만 진행한다.
+### NEXT-1B — Chart BrowserPort + same-origin proxy
+
+NEXT-1A trusted 뒤에만 진행한다.
 
 목적:
 
 ```text
-Chart DslStrategyManagerUi
+DslStrategyManagerUi
  -> StrategyWorkspacePort
- -> standard HTTP request/response bridge
- -> DSL addons/strategy_manager/workspace.py
- -> core.db / BacktestEngine
+ -> BrowserStrategyWorkspacePort
+ -> /__cascade/strategy-workspace/*
+ -> Chart shell proxy
 ```
 
-이 tranche에서만 구현할 것:
+구현할 것:
 
-- list strategies
-- save draft
-- delete strategy
-- validate + commit
-- exact request/response schema
-- bridge unavailable/error fail-closed
+- listStrategies
+- saveDraft
+- deleteStrategy
+- validateAndCommit
+- camelCase UI payload -> snake_case DSL payload adapter
+- non-2xx / network failure fail-closed
+- DSL server unavailable 시 local evaluator fallback 금지
 
-이 tranche에서 금지:
+이 tranche에서는 아직 MarketChart capability composition까지 연결하지 않아도 된다. BrowserPort/proxy 자체 계약을 focused test로 닫는다.
 
-- 차트 신호 삽입
-- historical backtest 화면
-- paper/live execution
-- Chart-side strategy calculation
-- direct DB access from Chart
+### NEXT-1C — composition + 실제 Strategy Manager WYSIWYG CRUD
+
+NEXT-1B trusted 뒤에만 진행한다.
+
+목적:
+
+```text
+Chart MarketChart composition
+ -> capabilities.strategyWorkspace
+ -> BrowserStrategyWorkspacePort
+ -> Chart proxy
+ -> mounted DSL HTTP adapter
+ -> StrategyWorkspace
+```
+
+여기서 처음으로 실제 Dialog에서 다음을 검증한다.
+
+```text
+신규 전략 생성
+ -> Draft 저장
+ -> Dialog 재오픈 후 복구
+ -> DSL 수정
+ -> validation DRAFT 전환
+ -> 검증 후 저장
+ -> exact version VALIDATED 복구
+ -> 삭제
+```
 
 완료조건:
 
 ```text
-focused Bridge contract PASS
-+ existing Chart managed strategy regression PASS
-+ DSL focused StrategyWorkspace PASS
-+ appropriate Full verification PASS
+DSL focused PASS
+Chart focused PASS
+실제 Dialog WYSIWYG CRUD PASS
+Tactical P1 Full PASS
 ```
 
-## 7. NEXT-2 — authoritative strategy apply to Chart
+## 6. NEXT-2 — Strategy별 Global/Add-on Parameter Profile
 
-NEXT-1이 trusted된 뒤 진행한다.
+Bridge가 trusted된 뒤 구현한다. 차트 적용보다 먼저 parameter SSOT를 완성할 수 있으며, 실제 순서는 NEXT-1C 종료 시 기존 저장구조를 확인해 결정한다.
 
-목적:
-
-- 사용자가 검증된 DSL strategy를 선택 subject에 연결.
-- Chart는 strategy 자체를 계산하지 않고 DSL authoritative result를 받는다.
-- generic Runtime `subjectViews` / marker transport를 재사용한다.
-
-먼저 정의해야 할 표준 result contract 예:
+원칙:
 
 ```text
-strategy identity/version
+GlobalParameterCatalog
+  parameter key/type/unit/min/max/system default/global default
+
+StrategyParameterOverride
+  strategy_id
+  parameter_key
+  value
+  apply_backtest
+  apply_paper
+  apply_live
+
+EffectiveStrategyParameters(strategy_id, mode)
+  Strategy override > Global default > System hard default
+```
+
+기본 공통 항목 후보:
+
+```text
+signal fill mode
+commission
+sell tax
+slippage simulation
+allocation
+stop loss
+take profit
+trailing activation/distance
+sideways guard
+peak drawdown exit
+max holding bars/time
+force exit/end-of-day
+reentry cooldown
+```
+
+모든 Add-on은 default OFF 또는 기존 baseline과 동일한 default를 가져야 한다.
+
+필수 contract:
+
+```text
+BASE
+= BASE + every optional Add-on OFF
+```
+
+전략 A override 변경이 전략 B에 영향을 주면 FAIL이다.
+
+## 7. NEXT-3 — validated strategy apply to Chart
+
+검증된 exact DSL/version + effective parameter profile을 선택 subject에 연결한다.
+
+Chart는 계산하지 않고 DSL authoritative result contract를 받는다.
+
+최소 result identity:
+
+```text
+strategy id/version/dsl_sha256
+parameter profile identity
 instrument/timeframe identity
 source/bar identity
 signal events
 execution events
-indicator/overlay series needed for WYSIWYG
-validation/backtest authority metadata
+required overlay/indicator series
+execution/validation authority metadata
 ```
 
-정확한 schema는 NEXT-2 시작 시 기존 DSL result 구조를 먼저 확인하고 최소 필드만 고정한다.
+기존 Runtime `subjectViews`와 generic marker transport를 재사용한다.
 
-금지:
-
-- Chart `StrategyModel.mjs`를 새 authoritative engine으로 부활
-- DSL과 Chart가 각각 crossover/JMA/order timing을 재계산
-- UI가 객체 생성권한과 실행권한을 동시에 소유
-
-## 8. NEXT-3 — historical backtest from Chart
-
-NEXT-2가 trusted된 뒤 진행한다.
-
-흐름:
+## 8. NEXT-4 — strategy 단위 Backtest Dialog
 
 ```text
-selected validated DSL strategy
-+ selected instrument/timeframe/history request
- -> DSL existing BacktestEngine
- -> authoritative report
- -> Chart report + WYSIWYG execution markers
+validated strategy/version
++ parameter profile
++ symbol/timeframe
++ start/end period
+ -> existing BacktestEngine
+ -> report
+ -> same result를 Chart signal/execution markers로 projection
 ```
 
-비교지표 최소:
-
-- total return
-- profit factor
-- MDD
-- trade count / closed trades
-- total cost
-- open position
-- MFE/MAE/giveback diagnostics when available
-
-현재 Strategy1 baseline evidence는 유지하되, trailing/stop refinement 전에 execution semantics의 gap/intrabar causality를 반드시 검토한다.
-
-## 9. NEXT-4 — real-time paper trading
-
-Historical WYSIWYG가 동일 authority로 일치한 뒤에만 진행한다.
-
-목적:
+최소 비교지표:
 
 ```text
-same validated DSL/version
+total return
+profit factor
+MDD
+trade count / closed trades
+win rate
+total cost
+open position
+MFE / MAE / giveback when available
+```
+
+## 9. NEXT-5 — realtime Paper, then limited Live
+
+Historical WYSIWYG가 동일 authority로 일치한 뒤에만 Paper로 간다.
+
+```text
+same validated DSL/version/profile
  -> realtime observations
- -> same deterministic strategy semantics
+ -> same deterministic semantics
  -> paper broker
  -> execution ledger
  -> Chart projection
 ```
 
-백테스트와 paper의 차이는 별도 전략엔진이 아니라 market timing/fill source 차이로 제한한다.
+Live는 actual broker fill이 체결 SSOT다. Backtest/Paper의 slippage simulation 값으로 실제 체결가를 덮어쓰지 않는다.
 
-## 10. NEXT-5 — fine tuning, then limited live
+## 10. Strategy1 연구 기준선 — 보존만 하고 현재 제품개발을 지배하지 않음
 
-Paper evidence가 충분한 뒤:
+기존 `examples/jma_cross.dsl`은 JMA 7/50 cross + SMA60 trend filter, long-only다.
 
-- baseline vs paper discrepancy 분석
-- 한 번에 한 가설만 수정
-- large trend winner 보존 여부 확인
-- broad parameter grid/과최적화 금지
-- limited live 전 backtest + WYSIWYG + paper 재통과
-
-## 11. Strategy1 현재 연구 기준선
-
-기존 `examples/jma_cross.dsl`:
-
-```text
-JMA 7/50 cross
-+ SMA60 trend filter
-+ long only
-+ crossunder exit
-```
-
-신뢰된 REALDATA1 baseline 핵심:
+REALDATA1 baseline 핵심:
 
 ```text
 closed trades: 15
-total return: +88.68557782060891%
-profit factor: 2.9234729545115528
-MDD: -23.917654587375857%
-win rate: 46.666666666666664%
-total cost: 326745.03218364983
-open position at dataset end: 1
+return: +88.6856%
+PF: 2.9235
+MDD: -23.9177%
 ```
 
-이는 promising baseline이지 profitability proof가 아니다.
+slippage 0.20%에서도 약 +80.92%, PF 2.649로 유지됐다.
 
-## 12. 세션복구 체크리스트
+고정 stop 6/8/10%는 수익/PF를 악화시켜 REJECTED다. trailing 일부 후보도 material improvement가 없었다. 이 실험을 근거로 Core 기능을 무한 추가하지 않는다.
 
-새 세션에서 `세션복구` 요청 시:
+## 11. 새 세션 복구 체크
 
-1. `SESSION_HANDOFF.md`를 읽는다.
-2. 이 `STRATEGY_PRODUCT_FLOW_TODO.md`를 읽는다.
-3. 최근 사용자 로컬 PASS/FAIL evidence가 문서보다 최신인지 확인한다.
-4. DSL과 Chart 저장소를 혼동하지 않는다.
-5. 각 저장소의 trusted SHA와 remote-unvalidated SHA를 분리한다.
-6. 현재 `NEXT-n` 하나만 진행한다.
-7. 구현 전 mandatory ownership gate를 다시 적는다.
-8. focused -> Full -> checkpoint 후 다음 TODO로 이동한다.
-
-## 13. 현재 한 줄 상태
+새 세션에서 반드시 다음 순서로 확인한다.
 
 ```text
-DSL StrategyWorkspace = TRUSTED
-Chart DSL-first Manager authoring = REMOTE_UNVALIDATED
-NEXT = validate Chart c67d3d8... in E:\2026\gemini\cascade-chart-validation-20260904
-then = production HTTP Bridge only
+1. SESSION_HANDOFF.md
+2. STRATEGY_PRODUCT_FLOW_TODO.md
+3. 사용자 마지막 local focused/Full evidence
+4. DSL repo current HEAD vs trusted executable diff
+5. Chart product-completion-mvp HEAD vs trusted Chart diff
+6. 현재 NEXT micro-tranche 하나만 진행
 ```
+
+항상 답변은 간단히:
+
+```text
+한 일
+할 일
+```
+
+으로 구분한다.
