@@ -1,8 +1,8 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HUMAN HANDOFF / WYSIWYG STRATEGY PRODUCT FLOW ACTIVE / DSL_WORKSPACE_TRUSTED_01da3bc / CHART_MANAGER_TRUSTED_c67d3d8 / NEXT_1A_HTTP_ADAPTER_REMOTE_UNVALIDATED / REALDATA2_LF_RESEARCH_PAUSED / REMEDIATION_REQUIRED / 2026-09-05 KST**
+Status: **PRIMARY HUMAN HANDOFF / WYSIWYG STRATEGY PRODUCT FLOW ACTIVE / DSL_BRIDGE_1A_TRUSTED_27882d2 / CHART_MANAGER_TRUSTED_c67d3d8 / NEXT_1B_CHART_TRANSPORT_REMOTE_UNVALIDATED_23c85f2 / REALDATA2_LF_RESEARCH_PAUSED / REMEDIATION_REQUIRED / 2026-09-05 KST**
 
-이 문서는 새 세션이 가장 먼저 읽는 인수인계 문서다. 세션이 바뀌어도 프롬프트 중심 실험으로 회귀하지 않고, Chart WYSIWYG 전략제품 흐름을 그대로 이어가기 위한 기준이다.
+이 문서는 새 세션이 가장 먼저 읽는 인수인계 문서다. 세션이 바뀌어도 프롬프트 중심 실험이나 단일 전략 파라미터 튜닝으로 회귀하지 않고, Chart WYSIWYG 전략제품 흐름을 그대로 이어가기 위한 기준이다. `STRATEGY_PRODUCT_FLOW_TODO.md`는 전체 roadmap이며, 현재 checkpoint가 충돌하면 이 문서 + 사용자 exact local test evidence가 우선한다.
 
 ## 1. 개발철학
 
@@ -54,17 +54,19 @@ later backtest/paper result authority
 현재 trusted executable/test checkpoint:
 
 ```text
-01da3bc6b21c126efd6ffa3b220e2a34de5ef64b
+27882d288f52c98ab48a59b0d7ae2c2de0dcd637
 ```
 
 사용자 local evidence:
 
 ```text
-test_stage1_wysiwyg_strategy_workspace.py
-  Ran 7 tests / OK
-Tactical P1 Full
+NEXT-1A + Strategy Workspace focused:
+  Ran 13 tests / OK
+Tactical P1 Full:
   PASS
 ```
+
+이 PASS로 `addons/strategy_manager/http_bridge.py`의 HTTP adapter contract가 trusted다. 단, **adapter 정의만 trusted이며 아직 FastAPI composition root에 mount되지 않았다.** production endpoint 활성화는 NEXT-1C 책임이다.
 
 ### Chart
 
@@ -91,7 +93,7 @@ tests/managed_strategy_addon.test.mjs
   8 pass / 0 fail
 ```
 
-이번 PASS의 의미:
+의미:
 
 ```text
 active Strategy Manager authoring path = DSL-first
@@ -102,9 +104,7 @@ Runtime subjectViews/generic marker transport regression PASS
 
 ## 4. 완료된 제품단계
 
-### WYSIWYG-0 — DSL Strategy Workspace
-
-Trusted: `01da3bc6...`
+### WYSIWYG-0 — DSL Strategy Workspace — DONE / TRUSTED
 
 ```text
 StrategyWorkspace
@@ -117,9 +117,7 @@ StrategyWorkspace
 
 현재 DSL과 exact validated version이 같을 때만 VALIDATED다. DSL 변경 시 과거 validation은 이력으로 남고 현재 전략은 DRAFT가 된다.
 
-### WYSIWYG-1 — Chart DSL-first Strategy Manager shell
-
-Trusted: `c67d3d8...`
+### WYSIWYG-1 — Chart DSL-first Strategy Manager shell — DONE / TRUSTED
 
 현재 UI:
 
@@ -133,35 +131,15 @@ Draft 저장 요청
 validation status
 ```
 
-아직 production HTTP bridge, Chart apply, Backtest Dialog, Paper/Live는 없다.
+### NEXT-1A — DSL HTTP adapter contract — DONE / TRUSTED
 
-## 5. 현재 위치 — NEXT-1 production StrategyWorkspace Bridge
-
-NEXT-1을 세 micro-tranche로 고정한다.
-
-```text
-NEXT-1A DSL HTTP adapter contract
-NEXT-1B Chart BrowserPort + same-origin proxy
-NEXT-1C composition + 실제 Dialog CRUD WYSIWYG
-```
-
-### NEXT-1A 현재 상태
-
-Remote executable/test candidate:
+Trusted executable/test SHA:
 
 ```text
 27882d288f52c98ab48a59b0d7ae2c2de0dcd637
-status: REMOTE_UNVALIDATED
 ```
 
-신규:
-
-```text
-addons/strategy_manager/http_bridge.py
-test_stage1_strategy_workspace_http_bridge.py
-```
-
-HTTP contract:
+표준 DSL endpoint contract:
 
 ```text
 GET    /api/strategy-workspace/strategies
@@ -176,76 +154,159 @@ POST   /api/strategy-workspace/validate-commit
 HTTP adapter -> StrategyWorkspace only
 ```
 
-금지:
+금지된 직접권한:
 
 ```text
 HTTP adapter -> core.db 직접접근
 HTTP adapter -> BacktestEngine 직접접근
-Chart local evaluator fallback
-Chart apply/backtest/paper/live를 이번 tranche에 추가
 ```
 
-중요: **NEXT-1A adapter는 아직 main FastAPI composition에 mount되지 않았다.** endpoint production wiring 완료로 주장하지 않는다.
+## 5. 현재 위치 — NEXT-1B Chart BrowserPort + same-origin proxy
 
-현재 DSL `main` HEAD는 docs-only checkpoint가 `27882d...` 뒤에 있을 수 있다. executable trust는 local PASS 전까지 `01da3bc...`에 머문다.
+Chart remote candidate:
 
-## 6. 바로 다음 할 일
+```text
+23c85f2252eac6e3087bb9cf4bd502dfe10c5ecf
+status: REMOTE_UNVALIDATED
+base trusted: c67d3d8de9cfefbdfa7c0e72c4a7e1dc0b025fda
+```
 
-반드시 DSL workspace로 이동한다.
+변경은 정확히 세 파일이다.
+
+```text
+src/adapters/strategy/BrowserStrategyWorkspacePort.mjs
+src/shell/index-wysiwyg/StrategyWorkspaceHttpHost.mjs
+tests/strategy_workspace_http_transport.test.mjs
+```
+
+역할:
+
+```text
+DslStrategyManagerUi camelCase request
+ -> BrowserStrategyWorkspacePort
+ -> same-origin /__cascade/strategy-workspace/*
+ -> StrategyWorkspaceHttpHost proxy
+ -> DSL /api/strategy-workspace/*
+```
+
+Browser adapter에서 transport naming만 한 번 변환한다.
+
+```text
+strategyId -> strategy_id
+dslCode    -> dsl_code
+```
+
+proxy는 전략 의미를 해석/계산하지 않는다. 네 개 고정 endpoint와 HTTP status/payload만 전달한다.
+
+### NEXT-1B에서 일부러 아직 하지 않은 것
+
+```text
+scripts/serve.mjs에 proxy mount 안 함
+MarketChartWorkspace에 BrowserStrategyWorkspacePort 생성 안 함
+capabilities.strategyWorkspace 주입 안 함
+DSL main.py에 router mount 안 함
+실제 Dialog CRUD network call 안 함
+Chart apply/backtest/paper/live 안 함
+```
+
+따라서 현재는 **transport contract implemented, production composition not connected** 상태다.
+
+## 6. 바로 다음 할 일 — NEXT-1B local validation
+
+반드시 Chart workspace에서 실행한다.
 
 ```powershell
-Set-Location E:\2026\gemini\dsl-main-validation-20260904
+Set-Location E:\2026\gemini\cascade-chart-validation-20260904
 
-git fetch origin main
-git checkout --detach origin/main
+git fetch origin product-completion-mvp
+git checkout --detach origin/product-completion-mvp
 git rev-parse HEAD
 ```
 
-focused:
+기대 SHA:
+
+```text
+23c85f2252eac6e3087bb9cf4bd502dfe10c5ecf
+```
+
+focused transport:
 
 ```powershell
-python -m unittest -v `
-  test_stage1_strategy_workspace_http_bridge.py `
-  test_stage1_wysiwyg_strategy_workspace.py
+node --test tests/strategy_workspace_http_transport.test.mjs
 ```
 
-그 다음 Full:
+기존 DSL-first Manager contract regression:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass `
-  -File .\scripts\verify_tactical_p1.ps1 `
-  -Mode Full `
-  -ChartRepo ..\cascade-chart-validation-20260904
+node --test tests/dsl_strategy_manager_workspace_port.test.mjs
+node --test tests/managed_strategy_addon.test.mjs
 ```
 
-PASS하면:
+판정:
 
 ```text
-NEXT-1A trusted
- -> NEXT-1B Chart BrowserStrategyWorkspacePort + same-origin proxy
+전부 PASS
+ -> 23c85f2... Chart transport trusted
+ -> NEXT-1C composition + 실제 Dialog CRUD WYSIWYG
+
+FAIL
+ -> test defect / product defect / authority drift / environment issue / external data defect / unknown 먼저 분류
+ -> assertion/guard 약화 금지
 ```
 
-FAIL이면 먼저:
+## 7. NEXT-1C — production composition + 실제 CRUD WYSIWYG
+
+NEXT-1B가 trusted된 뒤에만 진행한다.
+
+이 tranche에서 연결할 것:
 
 ```text
-test defect / product defect / authority drift / environment issue / external data defect / unknown
+DSL main.py
+ -> http_bridge.router mount
+
+Chart scripts/serve.mjs
+ -> StrategyWorkspaceHttpHost middleware mount
+ -> explicit DSL service base URL
+
+Chart MarketChart composition
+ -> BrowserStrategyWorkspacePort
+ -> addons.capabilities.strategyWorkspace
+
+Strategy Manager Dialog
+ -> 실제 list/create/update/delete
+ -> validate + immutable commit
+ -> dialog close/reopen 후 exact validation state 복구
 ```
 
-으로 분류한다. assertion/guard를 약화하지 않는다.
-
-## 7. NEXT-1B / NEXT-1C 이후 순서
+WYSIWYG 완료조건:
 
 ```text
-NEXT-1B
-  Browser StrategyWorkspace Port
-  + Chart shell proxy
-  + network/error fail-closed
+1. Dialog 신규 전략 생성
+2. Draft 저장
+3. DSL 수정
+4. 이전 VALIDATED 상태 자동 무효 확인
+5. 검증 후 저장
+6. Dialog 재오픈
+7. 동일 exact DSL/version이 VALIDATED로 복구
+8. 삭제
+9. 재오픈 후 삭제 상태 유지
+10. Chart는 local JMA evaluator fallback하지 않음
+```
 
-NEXT-1C
-  DSL HTTP adapter FastAPI mount
-  + Chart capabilities.strategyWorkspace composition
-  + 실제 Strategy Manager CRUD/validation WYSIWYG
+이번 NEXT-1C에도 금지:
 
+```text
+차트 신호 삽입
+Backtest Dialog
+Paper/Live
+전략별 parameter profile
+```
+
+이것들은 bridge CRUD가 WYSIWYG로 닫힌 뒤 별도 tranche로 간다.
+
+## 8. 이후 roadmap
+
+```text
 NEXT-2
   Global Parameter Catalog
   + strategy별 override CRUD
@@ -259,7 +320,7 @@ NEXT-3
 NEXT-4
   strategy 단위 Backtest Dialog
   + 기간/종목/전략/profile 선택
-  + report + execution markers
+  + authoritative report + execution markers
 
 NEXT-5
   same DSL/version/profile realtime Paper
@@ -268,7 +329,7 @@ NEXT-5
   -> limited Live
 ```
 
-## 8. Parameter/Add-on 원칙
+## 9. Parameter/Add-on 원칙
 
 공통 항목 정의는 Global Catalog에 둔다. 값은 전략별 CRUD 가능해야 한다.
 
@@ -308,7 +369,7 @@ reentry cooldown
 BASE = BASE + every optional Add-on OFF
 ```
 
-## 9. 연구/수익실험 상태
+## 10. 연구/수익실험 상태
 
 Strategy1 JMA baseline은 보존하지만 현재 제품구조 개발을 지배하지 않는다.
 
@@ -320,9 +381,9 @@ MDD -23.9177%
 closed trades 15
 ```
 
-slippage 0.20%에서도 약 +80.92%, PF 2.649였다. fixed stop 6/8/10%는 REJECTED. 일부 trailing 후보도 material improvement가 없었다.
+fixed stop 6/8/10%는 REJECTED. 일부 trailing 후보도 material improvement가 없었다. 현재는 개별 숫자 튜닝보다 WYSIWYG 전략제품 경로를 먼저 완성한다.
 
-REALDATA2/LF research는 현재 **PAUSED**다. WYSIWYG 전략제품 흐름에 직접 필요할 때만 재개한다.
+REALDATA2/LF research는 현재 **PAUSED**다. 현재 profit-strategy product flow에 직접 필요할 때만 재개한다.
 
 broader repository compliance는 계속:
 
@@ -330,7 +391,7 @@ broader repository compliance는 계속:
 REMEDIATION_REQUIRED
 ```
 
-## 10. 세션복구 규칙
+## 11. 세션복구 규칙
 
 사용자가 `세션복구`라고 하면:
 
