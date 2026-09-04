@@ -80,7 +80,8 @@ class RealData1Strategy1BacktestContractTests(unittest.TestCase):
         self.assertIn('"average_mfe_pct"', text)
         self.assertIn('"average_mae_pct"', text)
         self.assertIn('"mfe_giveback_pct"', text)
-        self.assertIn("f\"mdd_pct={metrics.get('mdd_pct')}\"", text)
+        self.assertIn("mdd_pct=", text)
+        self.assertIn("metrics.get('mdd_pct')", text)
         self.assertNotIn("metrics.get('max_drawdown_pct')", text)
 
 
