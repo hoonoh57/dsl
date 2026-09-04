@@ -113,6 +113,9 @@ def run_realdata1_strategy1(
         data_timeframe=TIMEFRAME,
     )
     metrics = dict(result.get("metrics_numeric") or {})
+    diagnostics = dict(result.get("diagnostics") or {})
+    closed_trades = list(result.get("closed_trades") or [])
+    executions = list(result.get("trades") or [])
     report = {
         "schema": "realdata1_strategy1_backtest/v1",
         "strategy_path": str(strategy_path),
@@ -125,9 +128,18 @@ def run_realdata1_strategy1(
         "row_bundle_hash": str(bundle["row_bundle_hash"]),
         "settings": settings,
         "metrics_numeric": metrics,
-        "closed_trade_count": len(result.get("closed_trades") or []),
-        "execution_count": len(result.get("trades") or []),
-        "execution_authority": str((result.get("diagnostics") or {}).get("execution_authority") or ""),
+        "closed_trade_count": len(closed_trades),
+        "execution_count": len(executions),
+        "open_position": int(metrics.get("open_position") or 0),
+        "closed_trades": closed_trades,
+        "executions": executions,
+        "trade_diagnostics": {
+            "average_mfe_pct": float(diagnostics.get("average_mfe_pct") or 0.0),
+            "average_mae_pct": float(diagnostics.get("average_mae_pct") or 0.0),
+            "average_realized_return_pct": float(diagnostics.get("average_realized_return_pct") or 0.0),
+            "mfe_giveback_pct": float(diagnostics.get("mfe_giveback_pct") or 0.0),
+        },
+        "execution_authority": str(diagnostics.get("execution_authority") or ""),
         "market_data_authenticity_verified": False,
         "real_data_claim": False,
     }
@@ -173,7 +185,7 @@ def main() -> int:
         f"closed_trades={report['closed_trade_count']}; "
         f"return_pct={metrics.get('total_return_pct')}; "
         f"final_equity={metrics.get('final_equity')}; "
-        f"max_drawdown_pct={metrics.get('max_drawdown_pct')}; "
+        f"mdd_pct={metrics.get('mdd_pct')}; "
         f"total_cost={metrics.get('total_cost')}; "
         f"authority={report['execution_authority']}"
     )
