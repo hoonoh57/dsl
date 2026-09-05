@@ -17,6 +17,25 @@ $TacticalStress = Join-Path $ScriptRoot 'tactical_contract_stress.py'
 
 function Fail([string]$Message) { Write-Host ('[FAIL] ' + $Message); exit 1 }
 
+function Get-CompactFailureOutput([object[]]$Output) {
+    $kept = @()
+    foreach ($item in @($Output)) {
+        $line = [string]$item
+        $trimmed = $line.Trim()
+        if ([string]::IsNullOrWhiteSpace($trimmed)) { continue }
+        if ($trimmed -match '^\[PASS\]') { continue }
+        if ($trimmed -match '^(?:✔|ok\s+\d+\b)') { continue }
+        if ($trimmed -match '^#\s+(?:tests|suites|pass|fail|cancelled|skipped|todo|duration_ms)\b') { continue }
+        if ($trimmed -match '^Ran\s+\d+\s+tests?\b') { continue }
+        if ($trimmed -eq 'OK') { continue }
+        $kept += $line
+    }
+    if ($kept.Count -eq 0) {
+        $kept = @($Output | Select-Object -Last 20)
+    }
+    return @($kept | Select-Object -Last 40)
+}
+
 function Get-CommandPath([string]$Name) {
     $command = Get-Command $Name -ErrorAction SilentlyContinue
     if ($null -eq $command) { return $null }
@@ -70,8 +89,8 @@ function Invoke-External(
         Set-Location -LiteralPath $previous.Path
     }
     if ($exitCode -ne 0) {
-        $tail = ($output | Select-Object -Last 80) -join [Environment]::NewLine
-        throw ($Label + ' failed (exit=' + $exitCode + ')' + [Environment]::NewLine + $tail)
+        $compact = (Get-CompactFailureOutput $output) -join [Environment]::NewLine
+        throw ($Label + ' failed (exit=' + $exitCode + ')' + [Environment]::NewLine + $compact)
     }
 }
 
