@@ -1,7 +1,7 @@
 """Authoritative WYSIWYG indicator evaluation on caller-supplied visible bars.
 
 The preview path deliberately compiles the catalog's exact DSL expression
-through ``DSLRuntime``.  It does not dispatch to TA implementations directly,
+through ``DSLRuntime``. It does not dispatch to TA implementations directly,
 so Chart consumers cannot acquire a parallel semantic calculation path.
 """
 from __future__ import annotations
@@ -95,11 +95,13 @@ def evaluate_indicator(
     return {
         "schema": INDICATOR_PREVIEW_SCHEMA,
         "indicator_id": spec.id,
+        "title": spec.title,
         "timeframe": compiled.timeframe,
         "parameters": spec.resolve_parameters(parameters),
         "dsl_expression": expression,
         "dsl_code": dsl_code,
         "output_kind": spec.output_kind,
+        "renderer": spec.renderer.public_dict(),
         "direction_colored": direction_colored,
         "points": points,
         "bar_count": len(market["time"]),
