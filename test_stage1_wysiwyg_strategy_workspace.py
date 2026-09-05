@@ -108,7 +108,12 @@ class WysiwygStrategyWorkspaceTests(unittest.TestCase):
                 description="desc",
                 dsl_code=VALID_DSL,
             )
-        run.assert_called_once_with(VALID_DSL)
+        run.assert_called_once()
+        run_args, run_kwargs = run.call_args
+        self.assertEqual(run_args, (VALID_DSL,))
+        validation_market = run_kwargs["market"]
+        self.assertEqual(validation_market["_meta"]["source"], "strategy_validation_fixture")
+        self.assertNotIn("timeframe", validation_market["_meta"])
         commit_kwargs = commit.call_args.kwargs
         self.assertEqual(commit_kwargs["dsl_code"], VALID_DSL)
         self.assertEqual(commit_kwargs["source_code"], VALID_DSL)
