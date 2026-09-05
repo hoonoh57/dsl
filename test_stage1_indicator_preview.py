@@ -35,9 +35,14 @@ class IndicatorPreviewTests(unittest.TestCase):
         )
         self.assertEqual(result["schema"], INDICATOR_PREVIEW_SCHEMA)
         self.assertEqual(result["indicator_id"], "jma")
+        self.assertEqual(result["title"], "JMA")
         self.assertEqual(result["timeframe"], "5m")
         self.assertEqual(result["dsl_expression"], "ta.jma(close, 7, -25, 3)")
         self.assertIn("indicator_value = ta.jma(close, 7, -25, 3)", result["dsl_code"])
+        self.assertEqual(
+            result["renderer"],
+            {"kind": "line", "pane": "price", "color_by_direction": True},
+        )
         self.assertEqual(result["bar_count"], len(bars))
         self.assertEqual(result["points"][-1]["time"], bars[-1]["time"])
 
@@ -53,12 +58,17 @@ class IndicatorPreviewTests(unittest.TestCase):
             bars=bars,
         )
         self.assertEqual(supertrend["dsl_expression"], "ta.supertrend(10, 2.5)")
+        self.assertEqual(supertrend["renderer"]["pane"], "price")
         self.assertTrue(supertrend["points"])
         self.assertTrue(supertrend["direction_colored"])
         self.assertTrue({point["direction"] for point in supertrend["points"]}.issubset({-1, 1}))
 
         atr = evaluate_indicator("atr", parameters={"period": 14}, timeframe="1d", bars=bars)
         self.assertEqual(atr["dsl_expression"], "ta.atr(14)")
+        self.assertEqual(
+            atr["renderer"],
+            {"kind": "line", "pane": "separate", "color_by_direction": False},
+        )
         self.assertTrue(atr["points"])
         expected = CoreTALib.atr(
             np.asarray([row["high"] for row in bars], dtype=float),
