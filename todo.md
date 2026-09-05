@@ -1,6 +1,6 @@
 # todo.md
 
-Status: **ACTIVE TODO / NEXT-1C PRODUCTION COMPOSITION / TWO-DOCUMENT RECOVERY RESTORATION IN PROGRESS**
+Status: **ACTIVE TODO / NEXT-1C PRODUCTION COMPOSITION / TWO-DOCUMENT AUTHORITY RESTORED / LOCAL VALIDATION PENDING**
 
 이 문서는 현재 상태와 다음 할 일의 유일한 authority다. 원칙은 `rules.md`만 따른다.
 
@@ -101,9 +101,37 @@ serve.mjs
  -> DSL_STRATEGY_WORKSPACE_URL or default http://127.0.0.1:8000
 ```
 
-## 3. 방금 발견/교정 중인 운영 결함
+## 3. 운영문서 authority 복구 — REMOTE COMPLETE / LOCAL VALIDATION PENDING
 
-### A. verbose console violation
+유일한 운영 authority:
+
+```text
+rules.md = 원칙 / 금지사항 / 운영계약
+todo.md  = 현재 상태 / trusted SHA / 다음 할 일
+```
+
+삭제 완료한 경쟁 상태/운영문서:
+
+```text
+SESSION_HANDOFF.md
+STRATEGY_PRODUCT_FLOW_TODO.md
+CONSOLE_OPERATIONS_POLICY.md
+CURRENT_STATE.md
+```
+
+다른 기존 Markdown은 설계/과거 증거/참고자료일 뿐 세션복구·현재상태 authority로 사용하지 않는다.
+
+`test_stage1_console_output_policy.py`도 이제:
+
+```text
+rules.md + todo.md만 운영 authority로 검사
+위 경쟁 운영문서가 다시 존재하면 FAIL
+실행 가능한 powershell block에 verbose 명령이 있으면 FAIL
+```
+
+으로 고정했다.
+
+## 4. compact console 운영
 
 원칙:
 
@@ -122,43 +150,7 @@ Chart scripts/run-tests.mjs 사용
 
 직접 `python -m unittest -v` / `node --test` 사용 금지.
 
-### B. two-document authority drift
-
-잘못 생성/사용된 경쟁 운영문서:
-
-```text
-SESSION_HANDOFF.md
-STRATEGY_PRODUCT_FLOW_TODO.md
-CONSOLE_OPERATIONS_POLICY.md
-```
-
-조치:
-
-```text
-rules.md = 유일 원칙 authority
-todo.md  = 유일 현재상태/TODO authority
-위 세 경쟁 운영문서 삭제
-tests도 rules.md + todo.md만 검사
-다른 Markdown은 세션복구/current-state authority로 사용 금지
-```
-
-## 4. 최근 실패 분류
-
-최근 compact focused 결과:
-
-```text
-19 tests 중 1 failure
-```
-
-실패 원인:
-
-```text
-test defect
-```
-
-`test_stage1_console_output_policy`가 `SESSION_HANDOFF.md` 전체에서 금지 명령 문자열이 없어야 한다고 검사했으나, 그 문자열은 실행명령이 아니라 '금지 예시'로 문서에 존재했다. 더 근본적으로 해당 테스트가 폐기 대상 운영문서를 authority로 검사한 것이 문제다.
-
-따라서 테스트는 `rules.md` / `todo.md` 두 문서만 검사하도록 교정한다.
+최근 compact focused의 `19 tests 중 1 failure`는 **test defect**였다. 폐기 대상 `SESSION_HANDOFF.md`를 검사한 테스트 자체가 잘못된 authority를 참조했다. 이 테스트는 두-문서 기준으로 교정 완료했다.
 
 ## 5. NEXT-1C 금지범위
 
