@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 import uvicorn
 
 from addons.indicator_catalog.http_bridge import router as indicator_catalog_router
+from addons.indicator_preview.http_bridge import router as indicator_preview_router
 from addons.strategy_manager.http_bridge import router as strategy_workspace_router
 
 # 90% 불변 코어 모듈 임포트
@@ -36,6 +37,7 @@ app = FastAPI(title="Enterprise Quant DSL Studio")
 app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "core", "static")), name="static")
 app.include_router(strategy_workspace_router)
 app.include_router(indicator_catalog_router)
+app.include_router(indicator_preview_router)
 
 class StrategyModel(BaseModel):
     name: str
