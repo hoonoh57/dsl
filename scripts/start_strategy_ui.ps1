@@ -2,7 +2,7 @@ param(
     [ValidateSet('Start', 'Stop')]
     [string]$Action = 'Start',
     [string]$ChartRepo = '..\cascade-chart-validation-20260904',
-    [string]$KiwoomEnvDir = '..\kiwoom-auto',
+    [string]$KiwoomEnvDir = '.',
     [string]$BindHost = '127.0.0.1',
     [int]$DslPort = 8000,
     [int]$ChartPort = 5174,
