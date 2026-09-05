@@ -1,9 +1,9 @@
 """Authoritative machine-readable catalog for user-selectable DSL indicators.
 
-The catalog owns indicator identity, editable parameter contracts and the exact
-DSL expression emitted for WYSIWYG consumers.  It deliberately does not
-calculate indicator values; calculation remains in ``core.indicators`` through
-the normal DSL runtime path.
+The catalog owns indicator identity, editable parameter contracts, generic
+rendering metadata, and the exact DSL expression emitted for WYSIWYG consumers.
+It deliberately does not calculate indicator values; calculation remains in
+``core.indicators`` through the normal DSL runtime path.
 """
 from __future__ import annotations
 
@@ -66,6 +66,20 @@ class IndicatorParameterSpec:
 
 
 @dataclass(frozen=True)
+class IndicatorRendererSpec:
+    kind: str
+    pane: str
+    color_by_direction: bool = False
+
+    def public_dict(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "pane": self.pane,
+            "color_by_direction": self.color_by_direction,
+        }
+
+
+@dataclass(frozen=True)
 class IndicatorSpec:
     id: str
     title: str
@@ -74,6 +88,7 @@ class IndicatorSpec:
     parameters: Tuple[IndicatorParameterSpec, ...]
     expression_template: str
     output_kind: str
+    renderer: IndicatorRendererSpec
 
     def resolve_parameters(self, values: Mapping[str, Any] | None = None) -> dict[str, int | float]:
         supplied = dict(values or {})
@@ -103,6 +118,7 @@ class IndicatorSpec:
             "default_parameters": self.resolve_parameters(),
             "default_dsl_expression": self.expression(),
             "output_kind": self.output_kind,
+            "renderer": self.renderer.public_dict(),
         }
 
 
@@ -126,6 +142,7 @@ _INDICATORS: Tuple[IndicatorSpec, ...] = (
         ),
         expression_template="ta.jma(close, {length}, {phase}, {power})",
         output_kind="trend_series",
+        renderer=IndicatorRendererSpec("line", "price", color_by_direction=True),
     ),
     IndicatorSpec(
         id="supertrend",
@@ -138,6 +155,7 @@ _INDICATORS: Tuple[IndicatorSpec, ...] = (
         ),
         expression_template="ta.supertrend({period}, {multiplier})",
         output_kind="trend_series",
+        renderer=IndicatorRendererSpec("line", "price", color_by_direction=True),
     ),
     IndicatorSpec(
         id="atr",
@@ -147,6 +165,7 @@ _INDICATORS: Tuple[IndicatorSpec, ...] = (
         parameters=(IndicatorParameterSpec("period", "Period", "integer", 14, minimum=1),),
         expression_template="ta.atr({period})",
         output_kind="series<number>",
+        renderer=IndicatorRendererSpec("line", "separate", color_by_direction=False),
     ),
 )
 
