@@ -153,7 +153,7 @@ try {
         Fail ('Strategy Manager module is not being served by the active Chart process: ' + $managerModuleUrl) $ChartErr
     }
 
-    if (-not (Test-UrlContains $managerUiModuleUrl 'Strategy Manager · DSL')) {
+    if (-not (Test-UrlContains $managerUiModuleUrl 'export class DslStrategyManagerUi')) {
         if ($startedChart) { Stop-PidFile $ChartPidFile }
         if ($startedDsl) { Stop-PidFile $DslPidFile }
         Fail ('Strategy Manager UI module is not being served by the active Chart process: ' + $managerUiModuleUrl) $ChartErr
