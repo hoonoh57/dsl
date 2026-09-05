@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 from core import db
 from core.backtest import BacktestEngine
 from core.capabilities import DSL_VERSION
+from core.strategy_validation_fixture import strategy_validation_market
 
 
 VALIDATION_SCHEMA = "strategy_workspace_validation/v1"
@@ -124,7 +125,9 @@ class StrategyWorkspace:
             raise ValueError("DSL 코드는 비어 있을 수 없습니다.")
 
         # Authoritative syntax/semantic/runtime validation path. No parallel parser.
-        preview = BacktestEngine.run(exact_dsl)
+        # The validation fixture intentionally makes no 1d/5m/etc. market claim;
+        # real backtests keep BacktestEngine's strict market timeframe check.
+        preview = BacktestEngine.run(exact_dsl, market=strategy_validation_market())
         validation = {
             "schema": VALIDATION_SCHEMA,
             "valid": True,
