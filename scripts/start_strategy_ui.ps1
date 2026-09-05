@@ -133,7 +133,7 @@ try {
         Fail ('Chart did not become ready at ' + $chartReadyUrl) $ChartErr
     }
 
-    $entryUrl = $chartUrl + '/?stage=strategies'
+    $entryUrl = $chartUrl + '/?stage=strategies&manager=1'
     if (-not $NoBrowser) { Start-Process $entryUrl | Out-Null }
     Write-Host ('[PASS] Strategy UI ready: ' + $entryUrl)
     exit 0
