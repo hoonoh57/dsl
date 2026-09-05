@@ -2,6 +2,7 @@ param(
     [ValidateSet('Start', 'Stop')]
     [string]$Action = 'Start',
     [string]$ChartRepo = '..\cascade-chart-validation-20260904',
+    [string]$KiwoomEnvDir = '..\kiwoom-auto',
     [string]$BindHost = '127.0.0.1',
     [int]$DslPort = 8000,
     [int]$ChartPort = 5174,
@@ -14,6 +15,11 @@ $ErrorActionPreference = 'Stop'
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $DslRoot = Split-Path -Parent $ScriptRoot
 $ChartRoot = [System.IO.Path]::GetFullPath((Join-Path $DslRoot $ChartRepo))
+$KiwoomEnvRoot = if ([System.IO.Path]::IsPathRooted($KiwoomEnvDir)) {
+    [System.IO.Path]::GetFullPath($KiwoomEnvDir)
+} else {
+    [System.IO.Path]::GetFullPath((Join-Path $DslRoot $KiwoomEnvDir))
+}
 $RuntimeDir = Join-Path $DslRoot '.runtime\strategy-ui'
 $DslPidFile = Join-Path $RuntimeDir 'dsl.pid'
 $ChartPidFile = Join-Path $RuntimeDir 'chart.pid'
@@ -93,6 +99,8 @@ if ($Action -eq 'Stop') {
 }
 
 if (-not (Test-Path -LiteralPath $ChartRoot -PathType Container)) { Fail ('Chart workspace not found: ' + $ChartRoot) }
+$KiwoomEnvFile = Join-Path $KiwoomEnvRoot '.env'
+if (-not (Test-Path -LiteralPath $KiwoomEnvFile -PathType Leaf)) { Fail ('Kiwoom .env not found: ' + $KiwoomEnvFile) }
 
 $python = Get-PythonPath
 if ($null -eq $python) { Fail 'Python is required.' }
@@ -127,8 +135,10 @@ try {
     if (-not (Test-UrlContains $chartReadyUrl '"app":"cascading-feature-solution"')) {
         Remove-Item -LiteralPath $ChartOut,$ChartErr -Force -ErrorAction SilentlyContinue
         $previousTarget = $env:DSL_STRATEGY_WORKSPACE_URL
+        $previousKiwoomEnvDir = $env:KIWOOM_ENV_DIR
         try {
             $env:DSL_STRATEGY_WORKSPACE_URL = $dslUrl
+            $env:KIWOOM_ENV_DIR = $KiwoomEnvRoot
             $chartProcess = Start-Process -FilePath $node -ArgumentList @(
                 'scripts/serve.mjs','--host',$BindHost,'--port',[string]$ChartPort
             ) -WorkingDirectory $ChartRoot -RedirectStandardOutput $ChartOut -RedirectStandardError $ChartErr -WindowStyle Hidden -PassThru
@@ -138,6 +148,8 @@ try {
         finally {
             if ($null -eq $previousTarget) { Remove-Item Env:DSL_STRATEGY_WORKSPACE_URL -ErrorAction SilentlyContinue }
             else { $env:DSL_STRATEGY_WORKSPACE_URL = $previousTarget }
+            if ($null -eq $previousKiwoomEnvDir) { Remove-Item Env:KIWOOM_ENV_DIR -ErrorAction SilentlyContinue }
+            else { $env:KIWOOM_ENV_DIR = $previousKiwoomEnvDir }
         }
     }
 
