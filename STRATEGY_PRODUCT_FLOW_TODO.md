@@ -1,8 +1,16 @@
 # Strategy Product Flow TODO
 
-Status: **ACTIVE PRIMARY TODO / NEXT-1C PRODUCTION COMPOSITION REMOTE_UNVALIDATED / 2026-09-05 KST**
+Status: **ACTIVE PRIMARY TODO / NEXT-1C PRODUCTION COMPOSITION FOCUSED-PASS-PENDING-FULL / COMPACT-CONSOLE-POLICY ACTIVE / 2026-09-05 KST**
 
-이 문서는 세션이 바뀌어도 큰 흐름, 두 저장소의 역할, trusted/unvalidated SHA, 정확한 다음 micro-tranche를 잃지 않기 위한 실행 TODO다. `SESSION_HANDOFF.md` 다음으로 읽는다.
+이 문서는 세션이 바뀌어도 큰 흐름, 두 저장소의 역할, trusted/unvalidated SHA, 정확한 다음 micro-tranche를 잃지 않기 위한 실행 TODO다.
+
+읽기 순서:
+
+```text
+SESSION_HANDOFF.md
+-> CONSOLE_OPERATIONS_POLICY.md
+-> STRATEGY_PRODUCT_FLOW_TODO.md
+```
 
 ## A. 최종 제품 흐름
 
@@ -41,7 +49,7 @@ Global Parameter Catalog(default)
 
 공통 항목 schema는 하나이고 값은 전략별 독립 CRUD 가능해야 하며 reset은 override 제거로 기본값을 복원한다.
 
-## B. 절대 개발 규칙
+## B. 절대 개발/운영 규칙
 
 모든 executable 변경 전:
 
@@ -70,6 +78,21 @@ assertion/guard 약화로 PASS 만들기
 REALDATA2/LF/adaptive learning/automatic selection을 현재 흐름에 끼워넣기
 ```
 
+콘솔 운영은 `CONSOLE_OPERATIONS_POLICY.md`를 따른다.
+
+```text
+SUCCESS = 기본 1줄
+FAILURE = 실패 test/stage/location/message만
+```
+
+금지:
+
+```text
+python -m unittest -v
+직접 node --test
+성공한 테스트 이름 전체 출력
+```
+
 실패 분류:
 
 ```text
@@ -90,7 +113,8 @@ repo: hoonoh57/dsl
 branch: main
 workspace: E:\2026\gemini\dsl-main-validation-20260904
 trusted executable/test: 27882d288f52c98ab48a59b0d7ae2c2de0dcd637
-current remote executable/test candidate: ddf8aaf007dba91de2b916448246cebede118cf9
+NEXT-1C mount focused PASS checkpoint: 2cdc5096fd49f684f07c0b0fdf59c470545330a5
+console-policy changes after that: REMOTE_UNVALIDATED until compact focused + Full
 ```
 
 DSL owner:
@@ -161,7 +185,7 @@ Trusted executable/test: `27882d288...`
 User evidence:
 
 ```text
-focused combined: Ran 13 tests / OK
+focused combined: 13 tests PASS
 Tactical P1 Full: PASS
 ```
 
@@ -201,15 +225,16 @@ UI contract
 
 ### E1. Implemented remotely
 
-DSL candidate `ddf8aaf...`:
+DSL:
 
 ```text
 main.py
  -> imports strategy_workspace_router
  -> app.include_router(strategy_workspace_router)
 
-test_stage1_strategy_workspace_production_mount.py
- -> verifies real FastAPI app paths/methods
+mount-focused test:
+ -> FastAPI public OpenAPI path contract 사용
+ -> user-local PASS at 2cdc5096...
 ```
 
 Chart candidate `e99bde7...`:
@@ -228,6 +253,16 @@ serve.mjs
 tests/strategy_workspace_production_composition.test.mjs
 ```
 
+Console-policy tranche:
+
+```text
+CONSOLE_OPERATIONS_POLICY.md
+scripts/run_focused_tests.py
+scripts/verify_tactical_p1.ps1 compact failure filter
+SESSION_HANDOFF.md compact commands
+Stage1 console policy contract test
+```
+
 ### E2. NEXT-1C forbidden scope
 
 이번 tranche에서 다음은 구현하지 않는다.
@@ -241,7 +276,7 @@ paper/live
 Core/Parser/Runtime/Backtest/Broker semantics 변경
 ```
 
-### E3. Focused verification
+### E3. Compact focused verification
 
 #### DSL workspace
 
@@ -252,10 +287,17 @@ git fetch origin main
 git checkout --detach origin/main
 git rev-parse HEAD
 
-python -m unittest -v `
-  test_stage1_strategy_workspace_production_mount.py `
-  test_stage1_strategy_workspace_http_bridge.py `
-  test_stage1_wysiwyg_strategy_workspace.py
+python .\scripts\run_focused_tests.py `
+  test_stage1_console_output_policy `
+  test_stage1_strategy_workspace_production_mount `
+  test_stage1_strategy_workspace_http_bridge `
+  test_stage1_wysiwyg_strategy_workspace
+```
+
+성공 시 기대 콘솔:
+
+```text
+[PASS] Focused tests passed (<count>).
 ```
 
 #### Chart workspace
@@ -267,10 +309,17 @@ git fetch origin product-completion-mvp
 git checkout --detach origin/product-completion-mvp
 git rev-parse HEAD
 
-node --test tests/strategy_workspace_production_composition.test.mjs
-node --test tests/strategy_workspace_http_transport.test.mjs
-node --test tests/dsl_strategy_manager_workspace_port.test.mjs
-node --test tests/managed_strategy_addon.test.mjs
+npm test -- `
+  tests/strategy_workspace_production_composition.test.mjs `
+  tests/strategy_workspace_http_transport.test.mjs `
+  tests/dsl_strategy_manager_workspace_port.test.mjs `
+  tests/managed_strategy_addon.test.mjs
+```
+
+성공 시 기대 콘솔:
+
+```text
+[PASS] Cascade contract tests passed (<count>).
 ```
 
 #### Full
@@ -284,7 +333,15 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -ChartRepo ..\cascade-chart-validation-20260904
 ```
 
-### E4. Actual WYSIWYG acceptance — 반드시 focused+Full PASS 후
+성공 시 기대 콘솔:
+
+```text
+[PASS] Tactical P1 verification completed: mode=Full.
+```
+
+실패 시 성공 로그를 붙여넣지 않는다. compact runner가 출력한 `[ERROR]/[FAIL]` block만 전달한다.
+
+### E4. Actual WYSIWYG acceptance — 반드시 compact focused+Full PASS 후
 
 DSL server:
 
@@ -429,11 +486,12 @@ broader compliance: REMEDIATION_REQUIRED
 
 ```text
 1. SESSION_HANDOFF.md
-2. STRATEGY_PRODUCT_FLOW_TODO.md
-3. recent user local evidence
-4. exact trusted SHA vs remote executable diff (DSL)
-5. exact trusted SHA vs remote executable diff (Chart)
-6. NOW tranche one only
+2. CONSOLE_OPERATIONS_POLICY.md
+3. STRATEGY_PRODUCT_FLOW_TODO.md
+4. recent user local evidence
+5. exact trusted SHA vs remote executable diff (DSL)
+6. exact trusted SHA vs remote executable diff (Chart)
+7. NOW tranche one only
 ```
 
-응답은 `한 일 / 할 일`로 짧게 시작한다.
+응답은 `한 일 / 할 일`로 짧게 시작한다. 모든 검증 명령은 compact runner를 사용한다.
