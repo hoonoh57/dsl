@@ -1,28 +1,48 @@
 from __future__ import annotations
 
 import pathlib
+import re
 import unittest
 
 
 ROOT = pathlib.Path(__file__).resolve().parent
 
 
-class ConsoleOutputPolicyTests(unittest.TestCase):
-    def test_governing_policy_requires_compact_success_and_error_first_output(self):
-        text = (ROOT / "CONSOLE_OPERATIONS_POLICY.md").read_text(encoding="utf-8")
-        self.assertIn("성공 출력은 원칙적으로 **1줄**", text)
-        self.assertIn("실패한 내용만", text)
-        self.assertIn("compact output != weaker verification", text)
-        self.assertIn("python scripts/run_focused_tests.py", text)
-        self.assertIn("npm test --", text)
+def powershell_blocks(text: str) -> str:
+    return "\n".join(re.findall(r"```powershell\s*\n(.*?)```", text, flags=re.S | re.I))
 
-    def test_session_handoff_reads_console_policy_and_uses_only_compact_focused_commands(self):
-        text = (ROOT / "SESSION_HANDOFF.md").read_text(encoding="utf-8")
-        self.assertIn("CONSOLE_OPERATIONS_POLICY.md", text)
-        self.assertIn("python .\\scripts\\run_focused_tests.py", text)
-        self.assertIn("npm test --", text)
-        self.assertNotIn("python -m unittest -v", text)
-        self.assertNotIn("node --test tests/", text)
+
+class ConsoleOutputPolicyTests(unittest.TestCase):
+    def test_rules_and_todo_are_the_only_operating_authorities(self):
+        rules = (ROOT / "rules.md").read_text(encoding="utf-8")
+        todo = (ROOT / "todo.md").read_text(encoding="utf-8")
+
+        self.assertIn("운영문서는 정확히 두 개만 사용", rules)
+        self.assertIn("rules.md  = 불변 원칙", rules)
+        self.assertIn("todo.md   = 현재 상태", rules)
+        self.assertIn("1. rules.md", rules)
+        self.assertIn("2. todo.md", rules)
+        self.assertIn("새 운영원칙마다 새 Markdown authority 문서를 생성", rules)
+        self.assertIn("이 문서는 현재 상태와 다음 할 일의 유일한 authority", todo)
+        self.assertIn("원칙은 `rules.md`만 따른다", todo)
+
+    def test_rules_requires_compact_success_and_error_first_output(self):
+        rules = (ROOT / "rules.md").read_text(encoding="utf-8")
+        self.assertIn("기본 출력은 1줄", rules)
+        self.assertIn("실패 내용만", rules)
+        self.assertIn("compact output != weaker verification", rules)
+        self.assertIn("python .\\scripts\\run_focused_tests.py", rules)
+        self.assertIn("npm test --", rules)
+
+    def test_operating_documents_use_only_compact_executable_commands(self):
+        executable = "\n".join(
+            powershell_blocks((ROOT / name).read_text(encoding="utf-8"))
+            for name in ("rules.md", "todo.md")
+        )
+        self.assertIn("run_focused_tests.py", executable)
+        self.assertIn("npm test --", executable)
+        self.assertNotIn("python -m unittest -v", executable)
+        self.assertNotIn("node --test", executable)
 
     def test_python_focused_runner_suppresses_success_detail_caps_failure_trace_and_imports_repo_root(self):
         text = (ROOT / "scripts" / "run_focused_tests.py").read_text(encoding="utf-8")
