@@ -132,31 +132,36 @@ try {
         Fail ('DSL Strategy Workspace did not become ready at ' + $dslReadyUrl) $DslErr
     }
 
-    if (-not (Test-UrlContains $chartReadyUrl '"app":"cascading-feature-solution"')) {
-        Remove-Item -LiteralPath $ChartOut,$ChartErr -Force -ErrorAction SilentlyContinue
-        $previousTarget = $env:DSL_STRATEGY_WORKSPACE_URL
-        $previousKiwoomEnvDir = $env:KIWOOM_ENV_DIR
-        try {
-            $env:DSL_STRATEGY_WORKSPACE_URL = $dslUrl
-            $env:KIWOOM_ENV_DIR = $KiwoomEnvRoot
-            $chartProcess = Start-Process -FilePath $node -ArgumentList @(
-                'scripts/serve.mjs','--host',$BindHost,'--port',[string]$ChartPort
-            ) -WorkingDirectory $ChartRoot -RedirectStandardOutput $ChartOut -RedirectStandardError $ChartErr -WindowStyle Hidden -PassThru
-            Set-Content -LiteralPath $ChartPidFile -Value ([string]$chartProcess.Id) -Encoding ascii
-            $startedChart = $true
-        }
-        finally {
-            if ($null -eq $previousTarget) { Remove-Item Env:DSL_STRATEGY_WORKSPACE_URL -ErrorAction SilentlyContinue }
-            else { $env:DSL_STRATEGY_WORKSPACE_URL = $previousTarget }
-            if ($null -eq $previousKiwoomEnvDir) { Remove-Item Env:KIWOOM_ENV_DIR -ErrorAction SilentlyContinue }
-            else { $env:KIWOOM_ENV_DIR = $previousKiwoomEnvDir }
-        }
+    Stop-PidFile $ChartPidFile
+    Remove-Item -LiteralPath $ChartOut,$ChartErr -Force -ErrorAction SilentlyContinue
+    $previousTarget = $env:DSL_STRATEGY_WORKSPACE_URL
+    $previousKiwoomEnvDir = $env:KIWOOM_ENV_DIR
+    try {
+        $env:DSL_STRATEGY_WORKSPACE_URL = $dslUrl
+        $env:KIWOOM_ENV_DIR = $KiwoomEnvRoot
+        $chartProcess = Start-Process -FilePath $node -ArgumentList @(
+            'scripts/serve.mjs','--host',$BindHost,'--port',[string]$ChartPort
+        ) -WorkingDirectory $ChartRoot -RedirectStandardOutput $ChartOut -RedirectStandardError $ChartErr -WindowStyle Hidden -PassThru
+        Set-Content -LiteralPath $ChartPidFile -Value ([string]$chartProcess.Id) -Encoding ascii
+        $startedChart = $true
+    }
+    finally {
+        if ($null -eq $previousTarget) { Remove-Item Env:DSL_STRATEGY_WORKSPACE_URL -ErrorAction SilentlyContinue }
+        else { $env:DSL_STRATEGY_WORKSPACE_URL = $previousTarget }
+        if ($null -eq $previousKiwoomEnvDir) { Remove-Item Env:KIWOOM_ENV_DIR -ErrorAction SilentlyContinue }
+        else { $env:KIWOOM_ENV_DIR = $previousKiwoomEnvDir }
     }
 
     if (-not (Wait-Url $chartReadyUrl)) {
         if ($startedChart) { Stop-PidFile $ChartPidFile }
         if ($startedDsl) { Stop-PidFile $DslPidFile }
         Fail ('Chart did not become ready at ' + $chartReadyUrl) $ChartErr
+    }
+
+    if (-not (Test-UrlContains $chartReadyUrl '"app":"cascading-feature-solution"')) {
+        if ($startedChart) { Stop-PidFile $ChartPidFile }
+        if ($startedDsl) { Stop-PidFile $DslPidFile }
+        Fail ('Unexpected process is serving Chart port: ' + $chartReadyUrl) $ChartErr
     }
 
     if (-not (Test-UrlContains $managerModuleUrl 'STRATEGY_MANAGER_ADDON_ID')) {
