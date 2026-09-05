@@ -1,6 +1,6 @@
 # todo.md
 
-Status: **ACTIVE TODO / NEXT-1C STRATEGY MANAGER WYSIWYG / REAL KIWOOM ENV PATH REMOTE_UNVALIDATED**
+Status: **ACTIVE TODO / NEXT-1C STRATEGY MANAGER WYSIWYG / DSL-ROOT KIWOOM ENV REMOTE_UNVALIDATED**
 
 이 문서는 현재 상태와 다음 할 일의 유일한 authority다. 원칙은 `rules.md`만 따른다.
 
@@ -50,30 +50,24 @@ Bridge 전략 의미 해석
 키 값 복사/로그 출력
 ```
 
-## 3. Kiwoom env authoritative contract
+## 3. Kiwoom env authority
 
-기존 `hoonoh57/kiwoom-auto`의 `.env` 계약을 그대로 따른다.
-
-```text
-KIWOOM_MODE=mock|real
-KIWOOM_USE_PAPER=1|0
-KIWOOM_APPKEY=<secret>
-KIWOOM_SECRETKEY=<secret>
-KIWOOM_ACCOUNT=<account>
-```
-
-실제 key 값은 repo/로그/UI에 복사하지 않는다.
-
-Chart bridge가 임의로 도입했던 다음 계약은 기존 운용계약보다 authority가 아니다.
+사용자가 확인한 실제 `.env` 위치가 SSOT다.
 
 ```text
-KIWOOM_MOCK_APP_KEY
-KIWOOM_MOCK_SECRET_KEY
-KIWOOM_REAL_APP_KEY
-KIWOOM_REAL_SECRET_KEY
+E:\2026\gemini\dsl-main-validation-20260904\.env
 ```
 
-현재 Bridge는 `KIWOOM_MODE + KIWOOM_APPKEY + KIWOOM_SECRETKEY`를 우선 사용한다. legacy 변수는 기존 자동테스트/이행 호환만 유지한다.
+launcher는 DSL workspace root를 `KIWOOM_ENV_DIR`로 Chart process에 전달한다. secret 값 자체는 읽어 출력하지 않는다.
+
+Kiwoom bridge의 기존 모의/실매매 전용 key contract는 유지한다.
+
+```text
+KIWOOM_MOCK=true  -> KIWOOM_MOCK_APP_KEY / KIWOOM_MOCK_SECRET_KEY
+KIWOOM_MOCK=false -> KIWOOM_REAL_APP_KEY / KIWOOM_REAL_SECRET_KEY
+```
+
+앞서 `kiwoom-auto/.env` 위치와 `KIWOOM_MODE/KIWOOM_APPKEY/KIWOOM_SECRETKEY` 계약을 authority로 추정한 변경은 잘못이므로 원복했다.
 
 ## 4. 저장소 / candidates
 
@@ -84,18 +78,17 @@ repo: hoonoh57/dsl
 branch: main
 workspace: E:\2026\gemini\dsl-main-validation-20260904
 Strategy Workspace executable/test candidate: 1b0892ff68394856dda27fe5b5679ebd5429eabe
-launcher candidate: aa4df58dffb5e761b996874afbed6d8c5634cf35
+launcher candidate: 274966d0008466f7b31e4cf7c9e0b939ddba98e7
 ```
 
-launcher는 기본적으로 다음 existing env를 읽게 한다.
+launcher 동작:
 
 ```text
-E:\2026\gemini\kiwoom-auto\.env
+DSL root .env 존재 확인
+-> KIWOOM_ENV_DIR = DSL root
+-> launcher-owned 기존 Chart process 종료
+-> 최신 Chart code + 현재 DSL .env로 Chart 재기동
 ```
-
-구현상 `KIWOOM_ENV_DIR`만 Chart process에 전달하며 secret 내용을 읽어 출력하지 않는다.
-
-Start 시 launcher-owned 기존 Chart process를 먼저 종료하고 최신 code + current `.env`로 재기동한다.
 
 `strategies.db` 로컬 수정 상태는 reset/stash하지 않는다.
 
@@ -105,17 +98,14 @@ Start 시 launcher-owned 기존 Chart process를 먼저 종료하고 최신 code
 repo: hoonoh57/cascading-feature-solution
 branch: product-completion-mvp
 workspace: E:\2026\gemini\cascade-chart-validation-20260904
-current candidate: 74bf5ea15f37f1479feb7d3da10a42359e98dc9b
+current candidate: 98e7c14da45df7149a608035127102c98df8babe
 ```
 
-핵심 변경:
+핵심 상태:
 
 ```text
 KiwoomRequestBridge
--> KIWOOM_MODE=mock|real
--> KIWOOM_APPKEY
--> KIWOOM_SECRETKEY
--> existing kiwoom-auto env contract 사용
+-> 기존 mock/real 전용 env contract 유지
 
 chart.html?manager=1
 -> normal MarketChartWorkspace 그대로 사용
@@ -123,8 +113,6 @@ chart.html?manager=1
 -> actual Kiwoom market-data path 그대로 사용
 -> Strategy Manager Dialog만 자동 open
 ```
-
-앞서 잘못 넣은 `manager=1 -> clean add-on state / Kiwoom 우회` 방향은 원복했다.
 
 ## 5. 사용자 실제 오류와 교정
 
@@ -142,38 +130,25 @@ BacktestEngine authoritative compile/runtime/broker path 유지
 실제 market/data_timeframe Backtest strict mismatch 검사는 유지
 ```
 
-### B. Kiwoom env contract drift
-
-사용자 evidence:
+### B. Kiwoom key missing 502
 
 ```text
 ERROR · Kiwoom proxy HTTP 502:
 KIWOOM_MOCK_APP_KEY is required.
 ```
 
-실제 원인:
+현재 교정:
 
 ```text
-kiwoom-auto .env
--> KIWOOM_MODE / KIWOOM_APPKEY / KIWOOM_SECRETKEY
-
-Chart bridge
--> 다른 이름의 KIWOOM_MOCK_* / KIWOOM_REAL_*만 요구
-
-결과: existing valid key를 process가 못 찾음
-```
-
-교정:
-
-```text
-existing kiwoom-auto .env contract를 Chart bridge authority로 복원
-launcher가 kiwoom-auto directory를 KIWOOM_ENV_DIR로 전달
+실제 .env 위치는 DSL workspace root
+launcher가 이 directory를 KIWOOM_ENV_DIR로 전달
+Bridge key naming contract는 변경하지 않음
 Base Chart는 실제 Kiwoom REST 데이터를 계속 사용
 ```
 
 ## 6. 지금 바로 할 일 — 화면 재검증
 
-두 workspace 최신 remote만 받은 뒤 launcher **한 번 실행**한다. 별도 Stop 단계는 필요 없다.
+두 workspace 최신 remote만 받은 뒤 launcher 한 번 실행한다.
 
 ```text
 http://127.0.0.1:5174/chart.html?manager=1
