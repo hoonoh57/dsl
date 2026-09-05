@@ -1,16 +1,26 @@
 # DSL Session Handoff
 
-Status: **PRIMARY HANDOFF / WYSIWYG STRATEGY PRODUCT FLOW ACTIVE / NEXT-1B TRUSTED / NEXT-1C REMOTE_UNVALIDATED / 2026-09-05 KST**
+Status: **PRIMARY HANDOFF / WYSIWYG STRATEGY PRODUCT FLOW ACTIVE / NEXT-1B TRUSTED / NEXT-1C COMPOSITION FOCUSED-PASS-PENDING-FULL / COMPACT-CONSOLE-POLICY ACTIVE / 2026-09-05 KST**
 
-새 세션은 이 문서를 가장 먼저 읽고 `STRATEGY_PRODUCT_FLOW_TODO.md`를 이어서 읽는다. 프롬프트 대화 자체를 전략 개발이력의 SSOT로 사용하지 않는다.
+새 세션은 반드시 다음 순서로 읽는다.
 
-## 1. 제품 철학
+```text
+1. SESSION_HANDOFF.md
+2. CONSOLE_OPERATIONS_POLICY.md
+3. STRATEGY_PRODUCT_FLOW_TODO.md
+4. 최근 사용자 local PASS/FAIL evidence
+```
+
+프롬프트 대화 자체를 전략 개발이력의 SSOT로 사용하지 않는다.
+
+## 1. 제품/개발 철학
 
 1. **4축/계층 경계 유지**: 축과 저장소 사이 직접 상태접근보다 표준 Request -> Response 계약을 사용한다.
 2. **베이스 전략 보존 + Add-on 확장**: optional Add-on OFF는 baseline을 변경하면 안 된다.
 3. **전략 의미의 authority는 DSL**: Chart가 parser/JMA/crossover/order timing/backtest 의미를 독립 재구현하지 않는다.
 4. **WYSIWYG**: 보이는 DSL/설정/신호/백테스트/Paper/Live는 동일 exact strategy version과 effective parameter profile을 가리켜야 한다.
 5. **micro-tranche**: owner -> shared path -> SSOT -> create/delete authority -> prohibitions -> focused -> WYSIWYG -> Full -> checkpoint 순서를 지킨다.
+6. **compact console**: 성공 로그를 나열하지 않는다. 성공은 기본 1줄, 실패는 실패 stage/test/location/message만 출력한다. 상세 규칙은 `CONSOLE_OPERATIONS_POLICY.md`가 authority다.
 
 ## 2. 최종 제품 흐름
 
@@ -30,7 +40,45 @@ Strategy Manager Dialog
 
 프롬프트는 개발 보조수단일 뿐이다. 전략 DSL, 사용자 파라미터, 검증 버전, 백테스트 결과, Paper/Live 적용상태의 제품 SSOT가 아니다.
 
-## 3. 저장소/작업공간 분리 — 절대 혼용 금지
+## 3. 콘솔 운영 원칙 — 절대 준수
+
+```text
+SUCCESS -> [PASS] ... 1줄
+FAILURE -> [ERROR] ... + 실패 test/stage/location/message만
+```
+
+금지:
+
+```text
+python -m unittest -v ...
+node --test ...
+성공한 개별 테스트 이름 수십 줄 출력
+성공 stdout/stderr를 실패 로그에 섞기
+```
+
+기본 focused 명령:
+
+DSL:
+
+```powershell
+python .\scripts\run_focused_tests.py <test_module> [<test_module> ...]
+```
+
+Chart:
+
+```powershell
+npm test -- <test-file> [<test-file> ...]
+```
+
+Full:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_tactical_p1.ps1 ...
+```
+
+검증량/강도는 줄이지 않고 표시만 compact하게 한다. verbose/raw는 실패 후 별도 디버깅 단계에서만 사용한다.
+
+## 4. 저장소/작업공간 분리 — 절대 혼용 금지
 
 ### DSL
 
@@ -57,22 +105,23 @@ later backtest/paper result authority
 27882d288f52c98ab48a59b0d7ae2c2de0dcd637
 ```
 
-사용자 local evidence:
+trusted evidence:
 
 ```text
-NEXT-1A focused combined: Ran 13 tests / OK
+NEXT-1A focused combined: 13 tests PASS
 Tactical P1 Full: PASS
 ```
 
-현재 DSL remote executable/test candidate:
+NEXT-1C DSL composition line:
 
 ```text
-ddf8aaf007dba91de2b916448246cebede118cf9
-status: REMOTE_UNVALIDATED
-scope:
-  main.py mounts existing strategy_workspace_router
-  test_stage1_strategy_workspace_production_mount.py
+main.py -> app.include_router(strategy_workspace_router)
+production mount test corrected for FastAPI included-router representation
+latest mount-focused checkpoint user-local: PASS at 2cdc5096fd49f684f07c0b0fdf59c470545330a5
+status: FOCUSED_PASS / FULL_PENDING
 ```
+
+Console-policy remote changes after that focused PASS are **REMOTE_UNVALIDATED** until local compact focused + Full pass.
 
 중요: `strategies.db`는 로컬 실행 side effect가 있을 수 있다. 명시적 지시 없이 stash/reset/checkout/merge하지 않는다.
 
@@ -91,16 +140,16 @@ local validation workspace:
 23c85f2252eac6e3087bb9cf4bd502dfe10c5ecf
 ```
 
-사용자 local evidence:
+trusted evidence:
 
 ```text
-strategy_workspace_http_transport: 6 pass / 0 fail
-dsl_strategy_manager_workspace_port: 5 pass / 0 fail
-managed_strategy_addon: 8 pass / 0 fail
-DSL Tactical P1 Full using this Chart checkout: PASS
+strategy_workspace_http_transport: 6 pass
+strategy manager port: 5 pass
+managed strategy regression: 8 pass
+DSL Tactical P1 Full with Chart checkout: PASS
 ```
 
-현재 Chart remote executable/test candidate:
+현재 Chart NEXT-1C candidate:
 
 ```text
 e99bde72886c0afea04e07bfab0bd25fa8ab15b8
@@ -111,7 +160,15 @@ scope:
   strategy_workspace_production_composition.test.mjs
 ```
 
-## 4. 완료된 WYSIWYG 단계
+Chart에는 이미 compact test runner가 있다:
+
+```text
+scripts/run-tests.mjs
+```
+
+따라서 focused 검증도 직접 `node --test`하지 않고 `npm test -- ...`만 사용한다.
+
+## 5. 완료된 WYSIWYG 단계
 
 ### WYSIWYG-0 — DSL Strategy Workspace — TRUSTED
 
@@ -167,7 +224,7 @@ DslStrategyManagerUi
 
 UI camelCase request는 Browser adapter에서만 DSL snake_case contract로 변환한다. Proxy는 전략 의미를 해석하지 않는다.
 
-## 5. 현재 작업 — NEXT-1C production composition + 실제 CRUD WYSIWYG
+## 6. 현재 작업 — NEXT-1C production composition + 실제 CRUD WYSIWYG
 
 현재 remote 구현:
 
@@ -201,7 +258,7 @@ Chart-side strategy calculation
 Core/Parser/Runtime/Backtest/Broker semantics 변경
 ```
 
-## 6. 바로 다음 검증
+## 7. 바로 다음 검증 — COMPACT ONLY
 
 ### A. DSL workspace
 
@@ -212,10 +269,17 @@ git fetch origin main
 git checkout --detach origin/main
 git rev-parse HEAD
 
-python -m unittest -v `
-  test_stage1_strategy_workspace_production_mount.py `
-  test_stage1_strategy_workspace_http_bridge.py `
-  test_stage1_wysiwyg_strategy_workspace.py
+python .\scripts\run_focused_tests.py `
+  test_stage1_console_output_policy `
+  test_stage1_strategy_workspace_production_mount `
+  test_stage1_strategy_workspace_http_bridge `
+  test_stage1_wysiwyg_strategy_workspace
+```
+
+기대 성공 출력:
+
+```text
+[PASS] Focused tests passed (<count>).
 ```
 
 ### B. Chart workspace
@@ -227,10 +291,17 @@ git fetch origin product-completion-mvp
 git checkout --detach origin/product-completion-mvp
 git rev-parse HEAD
 
-node --test tests/strategy_workspace_production_composition.test.mjs
-node --test tests/strategy_workspace_http_transport.test.mjs
-node --test tests/dsl_strategy_manager_workspace_port.test.mjs
-node --test tests/managed_strategy_addon.test.mjs
+npm test -- `
+  tests/strategy_workspace_production_composition.test.mjs `
+  tests/strategy_workspace_http_transport.test.mjs `
+  tests/dsl_strategy_manager_workspace_port.test.mjs `
+  tests/managed_strategy_addon.test.mjs
+```
+
+기대 성공 출력:
+
+```text
+[PASS] Cascade contract tests passed (<count>).
 ```
 
 ### C. Full
@@ -244,9 +315,15 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -ChartRepo ..\cascade-chart-validation-20260904
 ```
 
-PASS하면 executable candidates를 trusted로 승격한 뒤 실제 WYSIWYG를 수행한다.
+기대 성공 출력:
 
-## 7. NEXT-1C 실제 WYSIWYG acceptance
+```text
+[PASS] Tactical P1 verification completed: mode=Full.
+```
+
+PASS면 executable candidates를 trusted로 승격한 뒤 실제 WYSIWYG를 수행한다.
+
+## 8. NEXT-1C 실제 WYSIWYG acceptance
 
 DSL server와 Chart server를 각각 실행한 뒤 Strategy Manager Dialog에서 실제로 확인한다.
 
@@ -265,7 +342,7 @@ DSL server와 Chart server를 각각 실행한 뒤 Strategy Manager Dialog에서
 
 이 acceptance가 통과하기 전에는 NEXT-1C를 완료로 기록하지 않는다.
 
-## 8. NEXT-2 이후 순서
+## 9. NEXT-2 이후 순서
 
 ```text
 NEXT-2 Global Parameter Catalog + strategy override CRUD
@@ -287,7 +364,7 @@ NEXT-5 same DSL/version/profile realtime Paper
   -> limited Live
 ```
 
-## 9. Parameter/Add-on 원칙
+## 10. Parameter/Add-on 원칙
 
 ```text
 Global Parameter Catalog(default)
@@ -317,7 +394,7 @@ reentry cooldown
 BASE = BASE + every optional Add-on OFF
 ```
 
-## 10. 연구 상태
+## 11. 연구 상태
 
 Strategy1 JMA baseline과 기존 risk/slippage 연구 결과는 보존하지만 현재 제품구조를 지배하지 않는다. Fixed stop 6/8/10%는 REJECTED. REALDATA2/LF/adaptive learning/automatic selection은 현재 **PAUSED**다.
 
@@ -327,17 +404,18 @@ broader repository compliance는 계속:
 REMEDIATION_REQUIRED
 ```
 
-## 11. 세션복구 규칙
+## 12. 세션복구 규칙
 
 사용자가 `세션복구`라고 하면:
 
 ```text
 1. SESSION_HANDOFF.md
-2. STRATEGY_PRODUCT_FLOW_TODO.md
-3. 최근 사용자 local PASS/FAIL evidence
-4. DSL trusted SHA vs main executable diff
-5. Chart trusted SHA vs product-completion-mvp diff
-6. 현재 NEXT micro-tranche 하나만 계속
+2. CONSOLE_OPERATIONS_POLICY.md
+3. STRATEGY_PRODUCT_FLOW_TODO.md
+4. 최근 사용자 local PASS/FAIL evidence
+5. DSL trusted SHA vs main executable diff
+6. Chart trusted SHA vs product-completion-mvp diff
+7. 현재 NEXT micro-tranche 하나만 계속
 ```
 
-첫 답변은 짧게 `한 일 / 할 일`로 구분한다.
+첫 답변은 짧게 `한 일 / 할 일`로 구분한다. 콘솔 검증 명령은 반드시 compact runner를 사용한다.
