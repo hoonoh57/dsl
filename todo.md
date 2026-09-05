@@ -1,6 +1,6 @@
 # todo.md
 
-Status: **ACTIVE TODO / NEXT-1C STRATEGY MANAGER WYSIWYG / DSL-ROOT KIWOOM ENV REMOTE_UNVALIDATED**
+Status: **ACTIVE TODO / NEXT-1C STRATEGY MANAGER WYSIWYG / ACTUAL KIWOOM ENV CONTRACT REMOTE_UNVALIDATED**
 
 이 문서는 현재 상태와 다음 할 일의 유일한 authority다. 원칙은 `rules.md`만 따른다.
 
@@ -52,22 +52,34 @@ Bridge 전략 의미 해석
 
 ## 3. Kiwoom env authority
 
-사용자가 확인한 실제 `.env` 위치가 SSOT다.
+사용자가 확인한 실제 `.env` 위치와 변수명이 SSOT다.
 
 ```text
 E:\2026\gemini\dsl-main-validation-20260904\.env
+
+KIWOOM_MODE=mock|real
+KIWOOM_APPKEY=<secret>
+KIWOOM_SECRETKEY=<secret>
+KIWOOM_BASE_LIVE=https://api.kiwoom.com
+KIWOOM_BASE_PAPER=https://mockapi.kiwoom.com
+KIWOOM_USE_PAPER=1|0
+KIWOOM_ACCOUNT=<account optional for chart reads>
 ```
 
-launcher는 DSL workspace root를 `KIWOOM_ENV_DIR`로 Chart process에 전달한다. secret 값 자체는 읽어 출력하지 않는다.
+현재 사용자 env는 `KIWOOM_MODE=mock` + `KIWOOM_USE_PAPER=1`로 모의투자 REST를 사용한다.
 
-Kiwoom bridge의 기존 모의/실매매 전용 key contract는 유지한다.
+launcher는 DSL workspace root를 `KIWOOM_ENV_DIR`로 Chart process에 전달한다. secret 값 자체는 출력하지 않는다.
+
+Chart `KiwoomRequestBridge`는 위 실제 변수명을 그대로 사용한다. `KIWOOM_MOCK_APP_KEY`, `KIWOOM_REAL_APP_KEY` 같은 별도 key 이름을 요구하지 않는다.
+
+모드별 REST base URL:
 
 ```text
-KIWOOM_MOCK=true  -> KIWOOM_MOCK_APP_KEY / KIWOOM_MOCK_SECRET_KEY
-KIWOOM_MOCK=false -> KIWOOM_REAL_APP_KEY / KIWOOM_REAL_SECRET_KEY
+mock -> KIWOOM_BASE_PAPER
+real -> KIWOOM_BASE_LIVE
 ```
 
-앞서 `kiwoom-auto/.env` 위치와 `KIWOOM_MODE/KIWOOM_APPKEY/KIWOOM_SECRETKEY` 계약을 authority로 추정한 변경은 잘못이므로 원복했다.
+`KIWOOM_MODE`와 `KIWOOM_USE_PAPER`가 충돌하면 fail-closed한다.
 
 ## 4. 저장소 / candidates
 
@@ -98,14 +110,21 @@ DSL root .env 존재 확인
 repo: hoonoh57/cascading-feature-solution
 branch: product-completion-mvp
 workspace: E:\2026\gemini\cascade-chart-validation-20260904
-current candidate: 98e7c14da45df7149a608035127102c98df8babe
+current candidate: 72d5e898ea13dab24575677677565c2d1393e829
 ```
 
-핵심 상태:
+핵심 변경:
 
 ```text
 KiwoomRequestBridge
--> 기존 mock/real 전용 env contract 유지
+-> KIWOOM_MODE
+-> KIWOOM_APPKEY
+-> KIWOOM_SECRETKEY
+-> KIWOOM_BASE_PAPER / KIWOOM_BASE_LIVE
+-> KIWOOM_USE_PAPER consistency guard
+
+KiwoomAccessTokenProvider / KiwoomLocalProxy
+-> selected REST base URL 사용
 
 chart.html?manager=1
 -> normal MarketChartWorkspace 그대로 사용
@@ -137,12 +156,19 @@ ERROR · Kiwoom proxy HTTP 502:
 KIWOOM_MOCK_APP_KEY is required.
 ```
 
-현재 교정:
+원인:
 
 ```text
-실제 .env 위치는 DSL workspace root
-launcher가 이 directory를 KIWOOM_ENV_DIR로 전달
-Bridge key naming contract는 변경하지 않음
+실제 .env는 KIWOOM_APPKEY / KIWOOM_SECRETKEY 사용
+Chart bridge가 존재하지 않는 KIWOOM_MOCK_APP_KEY 계열을 요구
+```
+
+교정:
+
+```text
+실제 DSL-root .env 변수명을 그대로 Chart bridge가 사용
+mock -> KIWOOM_BASE_PAPER
+real -> KIWOOM_BASE_LIVE
 Base Chart는 실제 Kiwoom REST 데이터를 계속 사용
 ```
 
@@ -157,7 +183,7 @@ http://127.0.0.1:5174/chart.html?manager=1
 화면 acceptance:
 
 ```text
-1. Kiwoom key missing 502 없음
+1. KIWOOM_MOCK_APP_KEY missing 502 없음
 2. 실제 Kiwoom REST Chart 데이터 표시
 3. Strategy Manager Dialog 자동 open
 4. 기존 5m DSL -> 검증 후 저장
