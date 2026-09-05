@@ -1,6 +1,6 @@
 # todo.md
 
-Status: **ACTIVE TODO / NEXT-1C BASE-CHART STRATEGY MANAGER WYSIWYG / CHART SERVER FIX REMOTE_UNVALIDATED**
+Status: **ACTIVE TODO / NEXT-1C BASE-CHART STRATEGY MANAGER WYSIWYG / LAUNCHER MARKER FIX REMOTE_UNVALIDATED**
 
 이 문서는 현재 상태와 다음 할 일의 유일한 authority다. 원칙은 `rules.md`만 따른다.
 
@@ -69,7 +69,7 @@ branch: main
 workspace: E:\2026\gemini\dsl-main-validation-20260904
 trusted executable/test: 27882d288f52c98ab48a59b0d7ae2c2de0dcd637
 NEXT-1C mount-focused user PASS: 2cdc5096fd49f684f07c0b0fdf59c470545330a5
-launcher executable candidate: 90a322033c683458d050dd5a2153284bb77088e5
+launcher executable candidate: daf1e338614667dbb7a6dfc461a45658ec397b27
 ```
 
 launcher 계약:
@@ -78,8 +78,8 @@ launcher 계약:
 2xx만 READY
 DSL /api/strategy-workspace/strategies 실제 2xx 확인
 Chart /__cascade_health 실제 app marker 확인
-ManagerAddon.mjs 실제 2xx + marker 확인
-DslStrategyManagerUi.mjs 실제 2xx + marker 확인
+ManagerAddon.mjs 실제 2xx + ASCII marker 확인
+DslStrategyManagerUi.mjs 실제 2xx + ASCII marker 확인
 확인 후에만 브라우저 open
 ```
 
@@ -151,9 +151,37 @@ middleware가 이미 응답을 시작/완료했으면 다음 middleware로 넘�
 서버 프로세스를 ERR_HTTP_HEADERS_SENT로 죽이지 않음
 ```
 
+### C. Windows PowerShell 5.1 UI module marker 오판
+
+사용자 evidence:
+
+```text
+[FAIL] Strategy Manager UI module is not being served by the active Chart process:
+.../DslStrategyManagerUi.mjs
+```
+
+분류:
+
+```text
+launcher/test tooling defect
+```
+
+원인/교정:
+
+```text
+이전 marker: `Strategy Manager · DSL`
+-> UTF-8 BOM 없는 .ps1을 Windows PowerShell 5.1이 읽을 때 비ASCII 문자 비교 오판 가능
+
+현재 marker: `export class DslStrategyManagerUi`
+-> ASCII only
+-> 실제 모듈 identity만 확인
+```
+
+제품/Chart authority 코드는 이 교정에서 변경하지 않았다.
+
 ## 5. 지금 바로 할 일 — 화면만 재검증
 
-두 workspace 최신 remote를 받은 뒤 기존 launcher process를 정리하고 한 번 실행한다.
+DSL workspace에서 최신 main만 받은 뒤 launcher를 다시 한 번 실행한다. Chart workspace는 이미 `f968da7...`이면 추가 변경이 필요 없다.
 
 기대 URL:
 
