@@ -24,6 +24,20 @@ class IndicatorCatalogTests(unittest.TestCase):
                 self.assertEqual(item.public_dict()["signature"], FUNCTION_SPECS[item.capability].signature)
                 self.assertEqual(get_indicator_spec(item.id), item)
 
+    def test_renderer_contract_is_catalog_owned(self):
+        self.assertEqual(
+            get_indicator_spec("jma").public_dict()["renderer"],
+            {"kind": "line", "pane": "price", "color_by_direction": True},
+        )
+        self.assertEqual(
+            get_indicator_spec("supertrend").public_dict()["renderer"],
+            {"kind": "line", "pane": "price", "color_by_direction": True},
+        )
+        self.assertEqual(
+            get_indicator_spec("atr").public_dict()["renderer"],
+            {"kind": "line", "pane": "separate", "color_by_direction": False},
+        )
+
     def test_default_expressions_are_exact_dsl(self):
         self.assertEqual(get_indicator_spec("jma").expression(), "ta.jma(close, 20, 0, 2)")
         self.assertEqual(get_indicator_spec("supertrend").expression(), "ta.supertrend(10, 3)")
