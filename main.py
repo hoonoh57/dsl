@@ -99,6 +99,7 @@ class CommitArtifactRequest(BaseModel):
     llm_response: str = ""
     dsl_code: str
     validation: Dict[str, Any] = Field(default_factory=dict)
+
 # -----------------------------------------------------------------------------
 # REST API 라우터
 # -----------------------------------------------------------------------------
