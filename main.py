@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 import uvicorn
 
+from addons.indicator_catalog.http_bridge import router as indicator_catalog_router
 from addons.strategy_manager.http_bridge import router as strategy_workspace_router
 
 # 90% 불변 코어 모듈 임포트
@@ -34,6 +35,7 @@ init_db()
 app = FastAPI(title="Enterprise Quant DSL Studio")
 app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "core", "static")), name="static")
 app.include_router(strategy_workspace_router)
+app.include_router(indicator_catalog_router)
 
 class StrategyModel(BaseModel):
     name: str
@@ -97,7 +99,6 @@ class CommitArtifactRequest(BaseModel):
     llm_response: str = ""
     dsl_code: str
     validation: Dict[str, Any] = Field(default_factory=dict)
-
 # -----------------------------------------------------------------------------
 # REST API 라우터
 # -----------------------------------------------------------------------------
