@@ -24,13 +24,15 @@ class ConsoleOutputPolicyTests(unittest.TestCase):
         self.assertNotIn("python -m unittest -v", text)
         self.assertNotIn("node --test tests/", text)
 
-    def test_python_focused_runner_suppresses_success_detail_and_caps_failure_trace(self):
+    def test_python_focused_runner_suppresses_success_detail_caps_failure_trace_and_imports_repo_root(self):
         text = (ROOT / "scripts" / "run_focused_tests.py").read_text(encoding="utf-8")
         self.assertIn("verbosity=0", text)
         self.assertIn("buffer=True", text)
         self.assertIn("[PASS] Focused tests passed", text)
         self.assertIn("[ERROR] Focused tests failed", text)
         self.assertIn("MAX_TRACE_LINES = 18", text)
+        self.assertIn("REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]", text)
+        self.assertIn("sys.path.insert(0, str(REPO_ROOT))", text)
 
     def test_full_verifier_filters_success_noise_before_showing_failure(self):
         text = (ROOT / "scripts" / "verify_tactical_p1.ps1").read_text(encoding="utf-8")
