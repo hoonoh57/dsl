@@ -1,6 +1,6 @@
 # todo.md
 
-Status: **ACTIVE TODO / NEXT-1C BASE-CHART STRATEGY MANAGER WYSIWYG / UI MODULE-LOAD FIX REMOTE_UNVALIDATED**
+Status: **ACTIVE TODO / NEXT-1C BASE-CHART STRATEGY MANAGER WYSIWYG / CHART SERVER FIX REMOTE_UNVALIDATED**
 
 이 문서는 현재 상태와 다음 할 일의 유일한 authority다. 원칙은 `rules.md`만 따른다.
 
@@ -69,12 +69,7 @@ branch: main
 workspace: E:\2026\gemini\dsl-main-validation-20260904
 trusted executable/test: 27882d288f52c98ab48a59b0d7ae2c2de0dcd637
 NEXT-1C mount-focused user PASS: 2cdc5096fd49f684f07c0b0fdf59c470545330a5
-```
-
-현재 launcher executable candidate:
-
-```text
-90a322033c683458d050dd5a2153284bb77088e5
+launcher executable candidate: 90a322033c683458d050dd5a2153284bb77088e5
 ```
 
 launcher 계약:
@@ -98,12 +93,7 @@ branch: product-completion-mvp
 workspace: E:\2026\gemini\cascade-chart-validation-20260904
 trusted checkpoint: 23c85f2252eac6e3087bb9cf4bd502dfe10c5ecf
 NEXT-1C production composition base: e99bde72886c0afea04e07bfab0bd25fa8ab15b8
-```
-
-현재 direct WYSIWYG candidate:
-
-```text
-b4d5836c9b0d4b3663bd8b2e0fbdfd4f9d6153f
+current direct WYSIWYG candidate: f968da7c1c6dc10c1a8f38920f68a191ea4084e8
 ```
 
 포함:
@@ -112,18 +102,39 @@ b4d5836c9b0d4b3663bd8b2e0fbdfd4f9d6153f
 chart.html
 src/shell/chart-direct-entry.mjs
 src/addons/strategy/managed/ManagerAddon.mjs
+scripts/serve.mjs
 ```
 
-## 4. 실제 화면 실패와 교정
+## 4. 실제 화면/서버 실패와 교정
 
-사용자 실제 화면 evidence:
+### A. Manager module activation 실패
+
+사용자 evidence:
 
 ```text
 ADDON ERROR · [primary] Chart add-on strategy.manager activation failed:
-Failed to fetch dynamically imported module:
-http://127.0.0.1:5174/src/addons/strategy/managed/ManagerAddon.mjs
+Failed to fetch dynamically imported module: .../ManagerAddon.mjs
+```
 
-[ERROR] Strategy Manager Add-on is not active on the base Chart.
+교정:
+
+```text
+ManagerAddon activation 필수경로
+-> DslStrategyManagerUi
+-> StrategyWorkspacePort
+
+legacy ManagedStrategyCatalog/JMA graph
+-> activation 이후 async compatibility-only
+-> 실패해도 Manager CRUD activation을 막지 않음
+```
+
+### B. Chart server duplicate response crash
+
+사용자 evidence:
+
+```text
+ERR_HTTP_HEADERS_SENT: Cannot write headers after they are sent to the client
+scripts/serve.mjs sendJson()
 ```
 
 분류:
@@ -132,35 +143,12 @@ http://127.0.0.1:5174/src/addons/strategy/managed/ManagerAddon.mjs
 product/composition defect
 ```
 
-교정 1 — Manager activation dependency 축소:
+교정:
 
 ```text
-이전:
-ManagerAddon
--> ManagedStrategyCatalog static import
--> catalog.mjs
--> legacy managed runtime/JMA graph
--> DslStrategyManagerUi
-
-현재:
-ManagerAddon activation
--> DslStrategyManagerUi
--> StrategyWorkspacePort
-
-legacy ManagedStrategyCatalog sync
--> activation 이후 async compatibility-only
--> 실패 시 reportError
--> DSL Manager CRUD activation을 막지 않음
-```
-
-교정 2 — launcher false-ready 제거:
-
-```text
-이전 Test-Url: HTTP 200~499를 READY로 처리
-문제: 404도 READY로 오판 가능
-
-현재 Test-Url: 2xx only
-+ active Chart가 실제 Manager module을 서빙하는지 확인 후 browser open
+middleware가 이미 응답을 시작/완료했으면 다음 middleware로 넘기지 않음
+이미 headers가 전송된 뒤 예외가 발생하면 상위 catch의 두 번째 sendJson 금지
+서버 프로세스를 ERR_HTTP_HEADERS_SENT로 죽이지 않음
 ```
 
 ## 5. 지금 바로 할 일 — 화면만 재검증
@@ -180,7 +168,7 @@ http://127.0.0.1:5174/chart.html?manager=1
 + Strategy Manager · DSL Dialog 자동 open
 ```
 
-실패 시 화면 오류 한 줄 또는 스크린샷만 전달한다. 긴 로그는 전달하지 않는다.
+실패 시 launcher의 짧은 `[ERROR]/[FAIL]` 또는 화면 오류만 전달한다.
 
 ## 6. 화면 acceptance
 
