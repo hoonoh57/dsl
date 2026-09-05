@@ -45,12 +45,24 @@ function Get-PythonPath {
     return $python
 }
 
-function Test-Url([string]$Url) {
+function Get-UrlResponse([string]$Url) {
     try {
-        $response = Invoke-WebRequest -UseBasicParsing -Uri $Url -TimeoutSec 1
-        return $response.StatusCode -ge 200 -and $response.StatusCode -lt 500
+        return Invoke-WebRequest -UseBasicParsing -Uri $Url -TimeoutSec 1
     }
-    catch { return $false }
+    catch { return $null }
+}
+
+function Test-Url([string]$Url) {
+    $response = Get-UrlResponse $Url
+    if ($null -eq $response) { return $false }
+    return $response.StatusCode -ge 200 -and $response.StatusCode -lt 300
+}
+
+function Test-UrlContains([string]$Url, [string]$Expected) {
+    $response = Get-UrlResponse $Url
+    if ($null -eq $response) { return $false }
+    if ($response.StatusCode -lt 200 -or $response.StatusCode -ge 300) { return $false }
+    return ([string]$response.Content).Contains($Expected)
 }
 
 function Wait-Url([string]$Url) {
@@ -92,6 +104,8 @@ $dslUrl = 'http://' + $BindHost + ':' + $DslPort
 $chartUrl = 'http://' + $BindHost + ':' + $ChartPort
 $dslReadyUrl = $dslUrl + '/api/strategy-workspace/strategies'
 $chartReadyUrl = $chartUrl + '/__cascade_health'
+$managerModuleUrl = $chartUrl + '/src/addons/strategy/managed/ManagerAddon.mjs'
+$managerUiModuleUrl = $chartUrl + '/src/addons/strategy/managed/DslStrategyManagerUi.mjs'
 $startedDsl = $false
 $startedChart = $false
 
@@ -110,7 +124,7 @@ try {
         Fail ('DSL Strategy Workspace did not become ready at ' + $dslReadyUrl) $DslErr
     }
 
-    if (-not (Test-Url $chartReadyUrl)) {
+    if (-not (Test-UrlContains $chartReadyUrl '"app":"cascading-feature-solution"')) {
         Remove-Item -LiteralPath $ChartOut,$ChartErr -Force -ErrorAction SilentlyContinue
         $previousTarget = $env:DSL_STRATEGY_WORKSPACE_URL
         try {
@@ -131,6 +145,18 @@ try {
         if ($startedChart) { Stop-PidFile $ChartPidFile }
         if ($startedDsl) { Stop-PidFile $DslPidFile }
         Fail ('Chart did not become ready at ' + $chartReadyUrl) $ChartErr
+    }
+
+    if (-not (Test-UrlContains $managerModuleUrl 'STRATEGY_MANAGER_ADDON_ID')) {
+        if ($startedChart) { Stop-PidFile $ChartPidFile }
+        if ($startedDsl) { Stop-PidFile $DslPidFile }
+        Fail ('Strategy Manager module is not being served by the active Chart process: ' + $managerModuleUrl) $ChartErr
+    }
+
+    if (-not (Test-UrlContains $managerUiModuleUrl 'Strategy Manager · DSL')) {
+        if ($startedChart) { Stop-PidFile $ChartPidFile }
+        if ($startedDsl) { Stop-PidFile $DslPidFile }
+        Fail ('Strategy Manager UI module is not being served by the active Chart process: ' + $managerUiModuleUrl) $ChartErr
     }
 
     $entryUrl = $chartUrl + '/chart.html?manager=1'
