@@ -26,6 +26,15 @@ class ConsoleOutputPolicyTests(unittest.TestCase):
         self.assertIn("이 문서는 현재 상태와 다음 할 일의 유일한 authority", todo)
         self.assertIn("원칙은 `rules.md`만 따른다", todo)
 
+    def test_competing_operating_documents_do_not_exist(self):
+        for name in (
+            "SESSION_HANDOFF.md",
+            "STRATEGY_PRODUCT_FLOW_TODO.md",
+            "CONSOLE_OPERATIONS_POLICY.md",
+            "CURRENT_STATE.md",
+        ):
+            self.assertFalse((ROOT / name).exists(), name)
+
     def test_rules_requires_compact_success_and_error_first_output(self):
         rules = (ROOT / "rules.md").read_text(encoding="utf-8")
         self.assertIn("기본 출력은 1줄", rules)
