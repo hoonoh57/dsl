@@ -9,6 +9,8 @@ from .cache_contract import (
     assess_cache,
     source_fingerprint,
 )
+from .local_cache import assess_local_cache, manifest_partition_files
+from .market_data_factory_port import CacheSyncResult, MarketDataFactoryPort, MarketDataFactoryPortError
 
 __all__ = [
     "CACHE_MANIFEST_SCHEMA",
@@ -18,4 +20,9 @@ __all__ = [
     "SourceDatasetStatus",
     "assess_cache",
     "source_fingerprint",
+    "assess_local_cache",
+    "manifest_partition_files",
+    "CacheSyncResult",
+    "MarketDataFactoryPort",
+    "MarketDataFactoryPortError",
 ]
